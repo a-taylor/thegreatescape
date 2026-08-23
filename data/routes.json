@@ -1,0 +1,618 @@
+{
+  "_addr": "$7738",
+  "_bytes": 258,
+  "_label": "routes",
+  "data": "AACVd5l3oHfNd9B31HfYd9p33HfYd9p33Hfed+F34Xfnd+x38Xfzd/V38Xfzd/V393f5d/t3/XcDeAV4B3j/dwF4CXgLeA14D3gVeBp4H3gleCt4MXgzeDV4OHj/SElK/0tMTU5PUP9WHx0gGiOZlpWUl1IXiguLDJscnY0zX4CBZAEABBCFMweRhggSiVUOIqIhof9TVP+HMzT/iVU2/1b/V/9Y/1xd/zNfgIFg/zQKFJP/ODQKFP9o/2n/av9s/23/Mf8z/zn/Wf9w/3H/cv9z/3T/df82CpeYUv8YF4o2/zQzB1z/NDMHkV3/NDNVCVz/NDNVCV3/Ef9r/5Fu/1r/",
+  "entries": [
+    {
+      "addr": "$7738",
+      "labels": [
+        "routes"
+      ],
+      "offset": 0,
+      "values": [
+        0,
+        0,
+        149,
+        119,
+        153,
+        119,
+        160,
+        119,
+        205,
+        119,
+        208,
+        119,
+        212,
+        119,
+        216,
+        119,
+        218,
+        119,
+        220,
+        119,
+        216,
+        119,
+        218,
+        119,
+        220,
+        119,
+        222,
+        119,
+        225,
+        119,
+        225,
+        119,
+        231,
+        119,
+        236,
+        119,
+        241,
+        119,
+        243,
+        119,
+        245,
+        119,
+        241,
+        119,
+        243,
+        119,
+        245,
+        119,
+        247,
+        119,
+        249,
+        119,
+        251,
+        119,
+        253,
+        119,
+        3,
+        120,
+        5,
+        120,
+        7,
+        120,
+        255,
+        119,
+        1,
+        120,
+        9,
+        120,
+        11,
+        120,
+        13,
+        120,
+        15,
+        120,
+        21,
+        120,
+        26,
+        120,
+        31,
+        120,
+        37,
+        120,
+        43,
+        120,
+        49,
+        120,
+        51,
+        120,
+        53,
+        120,
+        56,
+        120,
+        255
+      ]
+    },
+    {
+      "addr": "$7795",
+      "labels": [
+        "route_7795"
+      ],
+      "offset": 93,
+      "values": [
+        72,
+        73,
+        74,
+        255
+      ]
+    },
+    {
+      "addr": "$7799",
+      "labels": [
+        "route_7799"
+      ],
+      "offset": 97,
+      "values": [
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        255
+      ]
+    },
+    {
+      "addr": "$77A0",
+      "labels": [
+        "route_commandant"
+      ],
+      "offset": 104,
+      "values": [
+        86,
+        31,
+        29,
+        32,
+        26,
+        35,
+        153,
+        150,
+        149,
+        148,
+        151,
+        82,
+        23,
+        138,
+        11,
+        139,
+        12,
+        155,
+        28,
+        157,
+        141,
+        51,
+        95,
+        128,
+        129,
+        100,
+        1,
+        0,
+        4,
+        16,
+        133,
+        51,
+        7,
+        145,
+        134,
+        8,
+        18,
+        137,
+        85,
+        14,
+        34,
+        162,
+        33,
+        161,
+        255
+      ]
+    },
+    {
+      "addr": "$77CD",
+      "labels": [
+        "route_77CD"
+      ],
+      "offset": 149,
+      "values": [
+        83,
+        84,
+        255
+      ]
+    },
+    {
+      "addr": "$77D0",
+      "labels": [
+        "route_exit_hut2"
+      ],
+      "offset": 152,
+      "values": [
+        135,
+        51,
+        52,
+        255
+      ]
+    },
+    {
+      "addr": "$77D4",
+      "labels": [
+        "route_exit_hut3"
+      ],
+      "offset": 156,
+      "values": [
+        137,
+        85,
+        54,
+        255
+      ]
+    },
+    {
+      "addr": "$77D8",
+      "labels": [
+        "route_prisoner_sleeps_1"
+      ],
+      "offset": 160,
+      "values": [
+        86,
+        255
+      ]
+    },
+    {
+      "addr": "$77DA",
+      "labels": [
+        "route_prisoner_sleeps_2"
+      ],
+      "offset": 162,
+      "values": [
+        87,
+        255
+      ]
+    },
+    {
+      "addr": "$77DC",
+      "labels": [
+        "route_prisoner_sleeps_3"
+      ],
+      "offset": 164,
+      "values": [
+        88,
+        255
+      ]
+    },
+    {
+      "addr": "$77DE",
+      "labels": [
+        "route_77DE"
+      ],
+      "offset": 166,
+      "values": [
+        92,
+        93,
+        255
+      ]
+    },
+    {
+      "addr": "$77E1",
+      "labels": [
+        "route_77E1"
+      ],
+      "offset": 169,
+      "values": [
+        51,
+        95,
+        128,
+        129,
+        96,
+        255
+      ]
+    },
+    {
+      "addr": "$77E7",
+      "labels": [
+        "route_77E7"
+      ],
+      "offset": 175,
+      "values": [
+        52,
+        10,
+        20,
+        147,
+        255
+      ]
+    },
+    {
+      "addr": "$77EC",
+      "labels": [
+        "route_77EC"
+      ],
+      "offset": 180,
+      "values": [
+        56,
+        52,
+        10,
+        20,
+        255
+      ]
+    },
+    {
+      "addr": "$77F1",
+      "labels": [
+        "route_prisoner_sits_1"
+      ],
+      "offset": 185,
+      "values": [
+        104,
+        255
+      ]
+    },
+    {
+      "addr": "$77F3",
+      "labels": [
+        "route_prisoner_sits_2"
+      ],
+      "offset": 187,
+      "values": [
+        105,
+        255
+      ]
+    },
+    {
+      "addr": "$77F5",
+      "labels": [
+        "route_prisoner_sits_3"
+      ],
+      "offset": 189,
+      "values": [
+        106,
+        255
+      ]
+    },
+    {
+      "addr": "$77F7",
+      "labels": [
+        "route_guardA_breakfast"
+      ],
+      "offset": 191,
+      "values": [
+        108,
+        255
+      ]
+    },
+    {
+      "addr": "$77F9",
+      "labels": [
+        "route_guardB_breakfast"
+      ],
+      "offset": 193,
+      "values": [
+        109,
+        255
+      ]
+    },
+    {
+      "addr": "$77FB",
+      "labels": [
+        "route_guard_12_roll_call"
+      ],
+      "offset": 195,
+      "values": [
+        49,
+        255
+      ]
+    },
+    {
+      "addr": "$77FD",
+      "labels": [
+        "route_guard_13_roll_call"
+      ],
+      "offset": 197,
+      "values": [
+        51,
+        255
+      ]
+    },
+    {
+      "addr": "$77FF",
+      "labels": [
+        "route_guard_14_roll_call"
+      ],
+      "offset": 199,
+      "values": [
+        57,
+        255
+      ]
+    },
+    {
+      "addr": "$7801",
+      "labels": [
+        "route_guard_15_roll_call"
+      ],
+      "offset": 201,
+      "values": [
+        89,
+        255
+      ]
+    },
+    {
+      "addr": "$7803",
+      "labels": [
+        "route_prisoner_1_roll_call"
+      ],
+      "offset": 203,
+      "values": [
+        112,
+        255
+      ]
+    },
+    {
+      "addr": "$7805",
+      "labels": [
+        "route_prisoner_2_roll_call"
+      ],
+      "offset": 205,
+      "values": [
+        113,
+        255
+      ]
+    },
+    {
+      "addr": "$7807",
+      "labels": [
+        "route_prisoner_3_roll_call"
+      ],
+      "offset": 207,
+      "values": [
+        114,
+        255
+      ]
+    },
+    {
+      "addr": "$7809",
+      "labels": [
+        "route_prisoner_4_roll_call"
+      ],
+      "offset": 209,
+      "values": [
+        115,
+        255
+      ]
+    },
+    {
+      "addr": "$780B",
+      "labels": [
+        "route_prisoner_5_roll_call"
+      ],
+      "offset": 211,
+      "values": [
+        116,
+        255
+      ]
+    },
+    {
+      "addr": "$780D",
+      "labels": [
+        "route_prisoner_6_roll_call"
+      ],
+      "offset": 213,
+      "values": [
+        117,
+        255
+      ]
+    },
+    {
+      "addr": "$780F",
+      "labels": [
+        "route_go_to_solitary"
+      ],
+      "offset": 215,
+      "values": [
+        54,
+        10,
+        151,
+        152,
+        82,
+        255
+      ]
+    },
+    {
+      "addr": "$7815",
+      "labels": [
+        "route_hero_leave_solitary"
+      ],
+      "offset": 221,
+      "values": [
+        24,
+        23,
+        138,
+        54,
+        255
+      ]
+    },
+    {
+      "addr": "$781A",
+      "labels": [
+        "route_guard_12_bed"
+      ],
+      "offset": 226,
+      "values": [
+        52,
+        51,
+        7,
+        92,
+        255
+      ]
+    },
+    {
+      "addr": "$781F",
+      "labels": [
+        "route_guard_13_bed"
+      ],
+      "offset": 231,
+      "values": [
+        52,
+        51,
+        7,
+        145,
+        93,
+        255
+      ]
+    },
+    {
+      "addr": "$7825",
+      "labels": [
+        "route_guard_14_bed"
+      ],
+      "offset": 237,
+      "values": [
+        52,
+        51,
+        85,
+        9,
+        92,
+        255
+      ]
+    },
+    {
+      "addr": "$782B",
+      "labels": [
+        "route_guard_15_bed"
+      ],
+      "offset": 243,
+      "values": [
+        52,
+        51,
+        85,
+        9,
+        93,
+        255
+      ]
+    },
+    {
+      "addr": "$7831",
+      "labels": [
+        "route_hut2_left_to_right"
+      ],
+      "offset": 249,
+      "values": [
+        17,
+        255
+      ]
+    },
+    {
+      "addr": "$7833",
+      "labels": [
+        "route_7833"
+      ],
+      "offset": 251,
+      "values": [
+        107,
+        255
+      ]
+    },
+    {
+      "addr": "$7835",
+      "labels": [
+        "route_hut2_right_to_left"
+      ],
+      "offset": 253,
+      "values": [
+        145,
+        110,
+        255
+      ]
+    },
+    {
+      "addr": "$7838",
+      "labels": [
+        "route_hero_roll_call"
+      ],
+      "offset": 256,
+      "values": [
+        90,
+        255
+      ]
+    }
+  ],
+  "note": "route index bit 7 (route_REVERSED) means follow in reverse order"
+}

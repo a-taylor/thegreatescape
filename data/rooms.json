@@ -1,0 +1,2441 @@
+{
+  "_addr": "$6BAD",
+  "_bytes": 104,
+  "_label": "rooms_and_tunnels",
+  "dimensions": {
+    "_addr": "$6B85",
+    "_bytes": 40,
+    "_label": "roomdef_dimensions",
+    "entries": [
+      {
+        "x0": 26,
+        "x1": 66,
+        "y0": 22,
+        "y1": 70
+      },
+      {
+        "x0": 22,
+        "x1": 62,
+        "y0": 26,
+        "y1": 58
+      },
+      {
+        "x0": 30,
+        "x1": 54,
+        "y0": 18,
+        "y1": 66
+      },
+      {
+        "x0": 30,
+        "x1": 62,
+        "y0": 34,
+        "y1": 58
+      },
+      {
+        "x0": 18,
+        "x1": 74,
+        "y0": 30,
+        "y1": 62
+      },
+      {
+        "x0": 50,
+        "x1": 56,
+        "y0": 10,
+        "y1": 100
+      },
+      {
+        "x0": 6,
+        "x1": 104,
+        "y0": 50,
+        "y1": 56
+      },
+      {
+        "x0": 50,
+        "x1": 56,
+        "y0": 26,
+        "y1": 100
+      },
+      {
+        "x0": 28,
+        "x1": 104,
+        "y0": 50,
+        "y1": 56
+      },
+      {
+        "x0": 50,
+        "x1": 56,
+        "y0": 10,
+        "y1": 88
+      }
+    ]
+  },
+  "note": "rooms_and_tunnels is 1-based; entry 0 is room 1",
+  "roomdefs": [
+    {
+      "addr": "$6C15",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 23,
+          "y1": 34
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 39,
+          "y1": 50
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 55,
+          "y1": 68
+        }
+      ],
+      "bytes": 50,
+      "dimensionsIndex": 0,
+      "labels": [
+        "roomdef_1_hut1_right"
+      ],
+      "masks": [
+        0,
+        1,
+        3,
+        10
+      ],
+      "objects": [
+        {
+          "object": 2,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 8,
+          "x": 8,
+          "y": 0
+        },
+        {
+          "object": 8,
+          "x": 2,
+          "y": 3
+        },
+        {
+          "object": 23,
+          "x": 10,
+          "y": 5
+        },
+        {
+          "object": 23,
+          "x": 6,
+          "y": 7
+        },
+        {
+          "object": 15,
+          "x": 15,
+          "y": 8
+        },
+        {
+          "object": 24,
+          "x": 18,
+          "y": 5
+        },
+        {
+          "object": 24,
+          "x": 20,
+          "y": 6
+        },
+        {
+          "object": 9,
+          "x": 2,
+          "y": 9
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6C47",
+      "bounds": [
+        {
+          "x0": 48,
+          "x1": 64,
+          "y0": 43,
+          "y1": 56
+        },
+        {
+          "x0": 24,
+          "x1": 38,
+          "y0": 26,
+          "y1": 40
+        }
+      ],
+      "bytes": 38,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_2_hut2_left"
+      ],
+      "masks": [
+        13,
+        8
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 8,
+          "x": 6,
+          "y": 2
+        },
+        {
+          "object": 40,
+          "x": 16,
+          "y": 5
+        },
+        {
+          "object": 30,
+          "x": 4,
+          "y": 5
+        },
+        {
+          "object": 23,
+          "x": 8,
+          "y": 7
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "object": 29,
+          "x": 11,
+          "y": 12
+        },
+        {
+          "object": 1,
+          "x": 5,
+          "y": 9
+        }
+      ]
+    },
+    {
+      "addr": "$6C6D",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 23,
+          "y1": 34
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 39,
+          "y1": 50
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 55,
+          "y1": 68
+        }
+      ],
+      "bytes": 50,
+      "dimensionsIndex": 0,
+      "labels": [
+        "roomdef_3_hut2_right"
+      ],
+      "masks": [
+        0,
+        1,
+        3,
+        10
+      ],
+      "objects": [
+        {
+          "object": 2,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 8,
+          "x": 8,
+          "y": 0
+        },
+        {
+          "object": 8,
+          "x": 2,
+          "y": 3
+        },
+        {
+          "object": 23,
+          "x": 10,
+          "y": 5
+        },
+        {
+          "object": 23,
+          "x": 6,
+          "y": 7
+        },
+        {
+          "object": 23,
+          "x": 2,
+          "y": 9
+        },
+        {
+          "object": 11,
+          "x": 16,
+          "y": 5
+        },
+        {
+          "object": 15,
+          "x": 15,
+          "y": 8
+        },
+        {
+          "object": 10,
+          "x": 18,
+          "y": 5
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6C9F",
+      "bounds": [
+        {
+          "x0": 24,
+          "x1": 40,
+          "y0": 24,
+          "y1": 42
+        },
+        {
+          "x0": 48,
+          "x1": 64,
+          "y0": 43,
+          "y1": 56
+        }
+      ],
+      "bytes": 42,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_4_hut3_left"
+      ],
+      "masks": [
+        18,
+        20,
+        8
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 40,
+          "x": 16,
+          "y": 5
+        },
+        {
+          "object": 8,
+          "x": 6,
+          "y": 2
+        },
+        {
+          "object": 30,
+          "x": 4,
+          "y": 5
+        },
+        {
+          "object": 9,
+          "x": 8,
+          "y": 7
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "object": 22,
+          "x": 11,
+          "y": 11
+        },
+        {
+          "object": 25,
+          "x": 13,
+          "y": 10
+        },
+        {
+          "object": 31,
+          "x": 14,
+          "y": 14
+        }
+      ]
+    },
+    {
+      "addr": "$6CC9",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 23,
+          "y1": 34
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 39,
+          "y1": 50
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 55,
+          "y1": 68
+        }
+      ],
+      "bytes": 50,
+      "dimensionsIndex": 0,
+      "labels": [
+        "roomdef_5_hut3_right"
+      ],
+      "masks": [
+        0,
+        1,
+        3,
+        10
+      ],
+      "objects": [
+        {
+          "object": 2,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 8,
+          "x": 8,
+          "y": 0
+        },
+        {
+          "object": 8,
+          "x": 2,
+          "y": 3
+        },
+        {
+          "object": 23,
+          "x": 10,
+          "y": 5
+        },
+        {
+          "object": 23,
+          "x": 6,
+          "y": 7
+        },
+        {
+          "object": 23,
+          "x": 2,
+          "y": 9
+        },
+        {
+          "object": 15,
+          "x": 15,
+          "y": 8
+        },
+        {
+          "object": 11,
+          "x": 16,
+          "y": 5
+        },
+        {
+          "object": 11,
+          "x": 20,
+          "y": 7
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6CFB",
+      "bounds": [],
+      "bytes": 20,
+      "dimensionsIndex": 2,
+      "labels": [
+        "roomdef_8_corridor"
+      ],
+      "masks": [
+        9
+      ],
+      "objects": [
+        {
+          "object": 46,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 38,
+          "x": 10,
+          "y": 3
+        },
+        {
+          "object": 38,
+          "x": 4,
+          "y": 6
+        },
+        {
+          "object": 16,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "object": 10,
+          "x": 18,
+          "y": 6
+        }
+      ]
+    },
+    {
+      "addr": "$6E32",
+      "bounds": [],
+      "bytes": 17,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_7_corridor"
+      ],
+      "masks": [
+        4
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 38,
+          "x": 4,
+          "y": 4
+        },
+        {
+          "object": 15,
+          "x": 13,
+          "y": 10
+        },
+        {
+          "object": 32,
+          "x": 12,
+          "y": 4
+        }
+      ]
+    },
+    {
+      "addr": "$6D0F",
+      "bounds": [
+        {
+          "x0": 58,
+          "x1": 64,
+          "y0": 28,
+          "y1": 42
+        }
+      ],
+      "bytes": 40,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_9_crate"
+      ],
+      "masks": [
+        4,
+        21
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 35,
+          "x": 6,
+          "y": 3
+        },
+        {
+          "object": 33,
+          "x": 9,
+          "y": 4
+        },
+        {
+          "object": 36,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "object": 15,
+          "x": 13,
+          "y": 10
+        },
+        {
+          "object": 32,
+          "x": 16,
+          "y": 6
+        },
+        {
+          "object": 10,
+          "x": 18,
+          "y": 8
+        },
+        {
+          "object": 26,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 34,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "object": 34,
+          "x": 4,
+          "y": 9
+        }
+      ]
+    },
+    {
+      "addr": "$6D37",
+      "bounds": [
+        {
+          "x0": 69,
+          "x1": 75,
+          "y0": 32,
+          "y1": 54
+        },
+        {
+          "x0": 36,
+          "x1": 47,
+          "y0": 48,
+          "y1": 60
+        }
+      ],
+      "bytes": 57,
+      "dimensionsIndex": 4,
+      "labels": [
+        "roomdef_10_lockpick"
+      ],
+      "masks": [
+        6,
+        14,
+        22
+      ],
+      "objects": [
+        {
+          "object": 47,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 15,
+          "x": 15,
+          "y": 10
+        },
+        {
+          "object": 35,
+          "x": 4,
+          "y": 1
+        },
+        {
+          "object": 53,
+          "x": 2,
+          "y": 3
+        },
+        {
+          "object": 53,
+          "x": 7,
+          "y": 2
+        },
+        {
+          "object": 32,
+          "x": 10,
+          "y": 2
+        },
+        {
+          "object": 42,
+          "x": 13,
+          "y": 3
+        },
+        {
+          "object": 42,
+          "x": 15,
+          "y": 4
+        },
+        {
+          "object": 42,
+          "x": 17,
+          "y": 5
+        },
+        {
+          "object": 29,
+          "x": 14,
+          "y": 8
+        },
+        {
+          "object": 11,
+          "x": 18,
+          "y": 8
+        },
+        {
+          "object": 11,
+          "x": 20,
+          "y": 9
+        },
+        {
+          "object": 34,
+          "x": 6,
+          "y": 5
+        },
+        {
+          "object": 29,
+          "x": 2,
+          "y": 6
+        }
+      ]
+    },
+    {
+      "addr": "$6D70",
+      "bounds": [
+        {
+          "x0": 27,
+          "x1": 44,
+          "y0": 36,
+          "y1": 48
+        }
+      ],
+      "bytes": 36,
+      "dimensionsIndex": 4,
+      "labels": [
+        "roomdef_11_papers"
+      ],
+      "masks": [
+        23
+      ],
+      "objects": [
+        {
+          "object": 47,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 33,
+          "x": 6,
+          "y": 3
+        },
+        {
+          "object": 32,
+          "x": 12,
+          "y": 3
+        },
+        {
+          "object": 50,
+          "x": 10,
+          "y": 3
+        },
+        {
+          "object": 10,
+          "x": 14,
+          "y": 5
+        },
+        {
+          "object": 38,
+          "x": 2,
+          "y": 2
+        },
+        {
+          "object": 50,
+          "x": 18,
+          "y": 7
+        },
+        {
+          "object": 50,
+          "x": 20,
+          "y": 8
+        },
+        {
+          "object": 51,
+          "x": 12,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6D94",
+      "bounds": [],
+      "bytes": 18,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_12_corridor"
+      ],
+      "masks": [
+        4,
+        7
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 35,
+          "x": 6,
+          "y": 3
+        },
+        {
+          "object": 16,
+          "x": 9,
+          "y": 10
+        },
+        {
+          "object": 15,
+          "x": 13,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6DA6",
+      "bounds": [],
+      "bytes": 24,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_13_corridor"
+      ],
+      "masks": [
+        4,
+        8
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 38,
+          "x": 6,
+          "y": 3
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "object": 15,
+          "x": 13,
+          "y": 10
+        },
+        {
+          "object": 50,
+          "x": 12,
+          "y": 5
+        },
+        {
+          "object": 11,
+          "x": 14,
+          "y": 7
+        }
+      ]
+    },
+    {
+      "addr": "$6DBE",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 22,
+          "y1": 32
+        },
+        {
+          "x0": 62,
+          "x1": 68,
+          "y0": 48,
+          "y1": 58
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 54,
+          "y1": 68
+        }
+      ],
+      "bytes": 44,
+      "dimensionsIndex": 0,
+      "labels": [
+        "roomdef_14_torch"
+      ],
+      "masks": [
+        1
+      ],
+      "objects": [
+        {
+          "object": 2,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 38,
+          "x": 4,
+          "y": 3
+        },
+        {
+          "object": 49,
+          "x": 8,
+          "y": 5
+        },
+        {
+          "object": 9,
+          "x": 10,
+          "y": 5
+        },
+        {
+          "object": 11,
+          "x": 16,
+          "y": 5
+        },
+        {
+          "object": 10,
+          "x": 18,
+          "y": 5
+        },
+        {
+          "object": 40,
+          "x": 20,
+          "y": 4
+        },
+        {
+          "object": 33,
+          "x": 2,
+          "y": 7
+        },
+        {
+          "object": 9,
+          "x": 2,
+          "y": 9
+        }
+      ]
+    },
+    {
+      "addr": "$6DEA",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 22,
+          "y1": 32
+        },
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 54,
+          "y1": 68
+        },
+        {
+          "x0": 62,
+          "x1": 68,
+          "y0": 40,
+          "y1": 58
+        },
+        {
+          "x0": 30,
+          "x1": 40,
+          "y0": 56,
+          "y1": 67
+        }
+      ],
+      "bytes": 54,
+      "dimensionsIndex": 0,
+      "labels": [
+        "roomdef_15_uniform"
+      ],
+      "masks": [
+        1,
+        5,
+        10,
+        15
+      ],
+      "objects": [
+        {
+          "object": 2,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 10,
+          "x": 16,
+          "y": 4
+        },
+        {
+          "object": 9,
+          "x": 10,
+          "y": 5
+        },
+        {
+          "object": 49,
+          "x": 8,
+          "y": 5
+        },
+        {
+          "object": 49,
+          "x": 6,
+          "y": 6
+        },
+        {
+          "object": 33,
+          "x": 2,
+          "y": 7
+        },
+        {
+          "object": 9,
+          "x": 2,
+          "y": 9
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "object": 15,
+          "x": 13,
+          "y": 9
+        },
+        {
+          "object": 29,
+          "x": 18,
+          "y": 8
+        }
+      ]
+    },
+    {
+      "addr": "$6E20",
+      "bounds": [],
+      "bytes": 18,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_16_corridor"
+      ],
+      "masks": [
+        4,
+        7
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 38,
+          "x": 4,
+          "y": 4
+        },
+        {
+          "object": 16,
+          "x": 9,
+          "y": 10
+        },
+        {
+          "object": 15,
+          "x": 13,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6E43",
+      "bounds": [
+        {
+          "x0": 38,
+          "x1": 56,
+          "y0": 48,
+          "y1": 60
+        },
+        {
+          "x0": 38,
+          "x1": 46,
+          "y0": 39,
+          "y1": 60
+        },
+        {
+          "x0": 22,
+          "x1": 32,
+          "y0": 48,
+          "y1": 60
+        }
+      ],
+      "bytes": 51,
+      "dimensionsIndex": 4,
+      "labels": [
+        "roomdef_18_radio"
+      ],
+      "masks": [
+        11,
+        17,
+        16,
+        24,
+        25
+      ],
+      "objects": [
+        {
+          "object": 47,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 26,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 35,
+          "x": 4,
+          "y": 1
+        },
+        {
+          "object": 33,
+          "x": 7,
+          "y": 2
+        },
+        {
+          "object": 40,
+          "x": 10,
+          "y": 1
+        },
+        {
+          "object": 29,
+          "x": 12,
+          "y": 7
+        },
+        {
+          "object": 45,
+          "x": 12,
+          "y": 9
+        },
+        {
+          "object": 29,
+          "x": 18,
+          "y": 10
+        },
+        {
+          "object": 48,
+          "x": 16,
+          "y": 12
+        },
+        {
+          "object": 16,
+          "x": 5,
+          "y": 7
+        }
+      ]
+    },
+    {
+      "addr": "$6E76",
+      "bounds": [
+        {
+          "x0": 52,
+          "x1": 64,
+          "y0": 47,
+          "y1": 56
+        }
+      ],
+      "bytes": 42,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_19_food"
+      ],
+      "masks": [
+        7
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 35,
+          "x": 6,
+          "y": 3
+        },
+        {
+          "object": 26,
+          "x": 9,
+          "y": 3
+        },
+        {
+          "object": 42,
+          "x": 12,
+          "y": 3
+        },
+        {
+          "object": 42,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "object": 29,
+          "x": 9,
+          "y": 6
+        },
+        {
+          "object": 33,
+          "x": 3,
+          "y": 5
+        },
+        {
+          "object": 52,
+          "x": 3,
+          "y": 7
+        },
+        {
+          "object": 11,
+          "x": 14,
+          "y": 7
+        },
+        {
+          "object": 40,
+          "x": 16,
+          "y": 5
+        },
+        {
+          "object": 16,
+          "x": 9,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6EA0",
+      "bounds": [
+        {
+          "x0": 58,
+          "x1": 64,
+          "y0": 26,
+          "y1": 42
+        },
+        {
+          "x0": 50,
+          "x1": 64,
+          "y0": 46,
+          "y1": 54
+        }
+      ],
+      "bytes": 47,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_20_redcross"
+      ],
+      "masks": [
+        21,
+        4
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 15,
+          "x": 13,
+          "y": 10
+        },
+        {
+          "object": 33,
+          "x": 9,
+          "y": 4
+        },
+        {
+          "object": 26,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 34,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "object": 34,
+          "x": 4,
+          "y": 9
+        },
+        {
+          "object": 29,
+          "x": 9,
+          "y": 6
+        },
+        {
+          "object": 32,
+          "x": 14,
+          "y": 5
+        },
+        {
+          "object": 32,
+          "x": 16,
+          "y": 6
+        },
+        {
+          "object": 24,
+          "x": 18,
+          "y": 8
+        },
+        {
+          "object": 48,
+          "x": 11,
+          "y": 8
+        }
+      ]
+    },
+    {
+      "addr": "$6ECF",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 64,
+          "y0": 46,
+          "y1": 56
+        },
+        {
+          "x0": 58,
+          "x1": 64,
+          "y0": 36,
+          "y1": 44
+        }
+      ],
+      "bytes": 35,
+      "dimensionsIndex": 3,
+      "labels": [
+        "roomdef_22_red_key"
+      ],
+      "masks": [
+        12,
+        21
+      ],
+      "objects": [
+        {
+          "object": 41,
+          "x": 5,
+          "y": 6
+        },
+        {
+          "object": 37,
+          "x": 4,
+          "y": 4
+        },
+        {
+          "object": 33,
+          "x": 9,
+          "y": 4
+        },
+        {
+          "object": 34,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "object": 16,
+          "x": 9,
+          "y": 8
+        },
+        {
+          "object": 29,
+          "x": 9,
+          "y": 6
+        },
+        {
+          "object": 40,
+          "x": 14,
+          "y": 4
+        }
+      ]
+    },
+    {
+      "addr": "$6EF2",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 34,
+          "y1": 68
+        }
+      ],
+      "bytes": 46,
+      "dimensionsIndex": 0,
+      "labels": [
+        "roomdef_23_breakfast"
+      ],
+      "masks": [
+        10,
+        3
+      ],
+      "objects": [
+        {
+          "object": 2,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 35,
+          "x": 8,
+          "y": 0
+        },
+        {
+          "object": 35,
+          "x": 2,
+          "y": 3
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "object": 44,
+          "x": 5,
+          "y": 4
+        },
+        {
+          "object": 42,
+          "x": 18,
+          "y": 4
+        },
+        {
+          "object": 40,
+          "x": 20,
+          "y": 4
+        },
+        {
+          "object": 15,
+          "x": 15,
+          "y": 8
+        },
+        {
+          "object": 43,
+          "x": 7,
+          "y": 6
+        },
+        {
+          "object": 13,
+          "x": 12,
+          "y": 5
+        },
+        {
+          "object": 13,
+          "x": 10,
+          "y": 6
+        },
+        {
+          "object": 13,
+          "x": 8,
+          "y": 7
+        }
+      ]
+    },
+    {
+      "addr": "$6F20",
+      "bounds": [
+        {
+          "x0": 48,
+          "x1": 54,
+          "y0": 38,
+          "y1": 46
+        }
+      ],
+      "bytes": 18,
+      "dimensionsIndex": 3,
+      "labels": [
+        "roomdef_24_solitary"
+      ],
+      "masks": [
+        26
+      ],
+      "objects": [
+        {
+          "object": 41,
+          "x": 5,
+          "y": 6
+        },
+        {
+          "object": 40,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "object": 48,
+          "x": 10,
+          "y": 9
+        }
+      ]
+    },
+    {
+      "addr": "$6F32",
+      "bounds": [
+        {
+          "x0": 54,
+          "x1": 68,
+          "y0": 34,
+          "y1": 68
+        }
+      ],
+      "bytes": 41,
+      "dimensionsIndex": 0,
+      "labels": [
+        "roomdef_25_breakfast"
+      ],
+      "masks": [],
+      "objects": [
+        {
+          "object": 2,
+          "x": 1,
+          "y": 4
+        },
+        {
+          "object": 35,
+          "x": 8,
+          "y": 0
+        },
+        {
+          "object": 26,
+          "x": 5,
+          "y": 3
+        },
+        {
+          "object": 35,
+          "x": 2,
+          "y": 3
+        },
+        {
+          "object": 40,
+          "x": 18,
+          "y": 3
+        },
+        {
+          "object": 44,
+          "x": 5,
+          "y": 4
+        },
+        {
+          "object": 43,
+          "x": 7,
+          "y": 6
+        },
+        {
+          "object": 13,
+          "x": 12,
+          "y": 5
+        },
+        {
+          "object": 13,
+          "x": 10,
+          "y": 6
+        },
+        {
+          "object": 13,
+          "x": 8,
+          "y": 7
+        },
+        {
+          "object": 13,
+          "x": 14,
+          "y": 4
+        }
+      ]
+    },
+    {
+      "addr": "$6F5B",
+      "bounds": [
+        {
+          "x0": 28,
+          "x1": 40,
+          "y0": 28,
+          "y1": 52
+        },
+        {
+          "x0": 48,
+          "x1": 63,
+          "y0": 44,
+          "y1": 56
+        }
+      ],
+      "bytes": 39,
+      "dimensionsIndex": 1,
+      "labels": [
+        "roomdef_28_hut1_left"
+      ],
+      "masks": [
+        8,
+        13,
+        19
+      ],
+      "objects": [
+        {
+          "object": 27,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 8,
+          "x": 6,
+          "y": 2
+        },
+        {
+          "object": 40,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "object": 26,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "object": 23,
+          "x": 8,
+          "y": 7
+        },
+        {
+          "object": 16,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "object": 25,
+          "x": 15,
+          "y": 10
+        },
+        {
+          "object": 29,
+          "x": 11,
+          "y": 12
+        }
+      ]
+    },
+    {
+      "addr": "$6F82",
+      "bounds": [],
+      "bytes": 28,
+      "dimensionsIndex": 5,
+      "labels": [
+        "roomdef_29_second_tunnel_start"
+      ],
+      "masks": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35
+      ],
+      "objects": [
+        {
+          "object": 0,
+          "x": 20,
+          "y": 0
+        },
+        {
+          "object": 0,
+          "x": 16,
+          "y": 2
+        },
+        {
+          "object": 0,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "object": 0,
+          "x": 8,
+          "y": 6
+        },
+        {
+          "object": 0,
+          "x": 4,
+          "y": 8
+        },
+        {
+          "object": 0,
+          "x": 0,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$7024",
+      "bounds": [],
+      "bytes": 29,
+      "dimensionsIndex": 5,
+      "labels": [
+        "roomdef_30"
+      ],
+      "masks": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        44
+      ],
+      "objects": [
+        {
+          "object": 0,
+          "x": 20,
+          "y": 0
+        },
+        {
+          "object": 0,
+          "x": 16,
+          "y": 2
+        },
+        {
+          "object": 0,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "object": 6,
+          "x": 8,
+          "y": 6
+        },
+        {
+          "object": 0,
+          "x": 4,
+          "y": 8
+        },
+        {
+          "object": 0,
+          "x": 0,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6F9E",
+      "bounds": [],
+      "bytes": 28,
+      "dimensionsIndex": 6,
+      "labels": [
+        "roomdef_31"
+      ],
+      "masks": [
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "objects": [
+        {
+          "object": 3,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "object": 3,
+          "x": 4,
+          "y": 2
+        },
+        {
+          "object": 3,
+          "x": 8,
+          "y": 4
+        },
+        {
+          "object": 3,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "object": 3,
+          "x": 16,
+          "y": 8
+        },
+        {
+          "object": 3,
+          "x": 20,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6FD3",
+      "bounds": [],
+      "bytes": 25,
+      "dimensionsIndex": 8,
+      "labels": [
+        "roomdef_32"
+      ],
+      "masks": [
+        36,
+        37,
+        38,
+        39,
+        40,
+        42
+      ],
+      "objects": [
+        {
+          "object": 3,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "object": 3,
+          "x": 4,
+          "y": 2
+        },
+        {
+          "object": 3,
+          "x": 8,
+          "y": 4
+        },
+        {
+          "object": 3,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "object": 17,
+          "x": 16,
+          "y": 8
+        }
+      ]
+    },
+    {
+      "addr": "$6FEC",
+      "bounds": [],
+      "bytes": 28,
+      "dimensionsIndex": 6,
+      "labels": [
+        "roomdef_34"
+      ],
+      "masks": [
+        36,
+        37,
+        38,
+        39,
+        40,
+        46
+      ],
+      "objects": [
+        {
+          "object": 3,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "object": 3,
+          "x": 4,
+          "y": 2
+        },
+        {
+          "object": 3,
+          "x": 8,
+          "y": 4
+        },
+        {
+          "object": 3,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "object": 3,
+          "x": 16,
+          "y": 8
+        },
+        {
+          "object": 18,
+          "x": 20,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$7008",
+      "bounds": [],
+      "bytes": 28,
+      "dimensionsIndex": 6,
+      "labels": [
+        "roomdef_35"
+      ],
+      "masks": [
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "objects": [
+        {
+          "object": 3,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "object": 3,
+          "x": 4,
+          "y": 2
+        },
+        {
+          "object": 4,
+          "x": 8,
+          "y": 4
+        },
+        {
+          "object": 3,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "object": 3,
+          "x": 16,
+          "y": 8
+        },
+        {
+          "object": 3,
+          "x": 20,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$6FBA",
+      "bounds": [],
+      "bytes": 25,
+      "dimensionsIndex": 7,
+      "labels": [
+        "roomdef_36"
+      ],
+      "masks": [
+        31,
+        32,
+        33,
+        34,
+        35,
+        45
+      ],
+      "objects": [
+        {
+          "object": 0,
+          "x": 20,
+          "y": 0
+        },
+        {
+          "object": 0,
+          "x": 16,
+          "y": 2
+        },
+        {
+          "object": 0,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "object": 0,
+          "x": 8,
+          "y": 6
+        },
+        {
+          "object": 14,
+          "x": 4,
+          "y": 8
+        }
+      ]
+    },
+    {
+      "addr": "$7041",
+      "bounds": [],
+      "bytes": 28,
+      "dimensionsIndex": 9,
+      "labels": [
+        "roomdef_40"
+      ],
+      "masks": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        43
+      ],
+      "objects": [
+        {
+          "object": 7,
+          "x": 20,
+          "y": 0
+        },
+        {
+          "object": 0,
+          "x": 16,
+          "y": 2
+        },
+        {
+          "object": 0,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "object": 0,
+          "x": 8,
+          "y": 6
+        },
+        {
+          "object": 0,
+          "x": 4,
+          "y": 8
+        },
+        {
+          "object": 0,
+          "x": 0,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "addr": "$705D",
+      "bounds": [],
+      "bytes": 24,
+      "dimensionsIndex": 8,
+      "labels": [
+        "roomdef_44"
+      ],
+      "masks": [
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "objects": [
+        {
+          "object": 3,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "object": 3,
+          "x": 4,
+          "y": 2
+        },
+        {
+          "object": 3,
+          "x": 8,
+          "y": 4
+        },
+        {
+          "object": 3,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "object": 12,
+          "x": 16,
+          "y": 8
+        }
+      ]
+    },
+    {
+      "addr": "$7075",
+      "bounds": [
+        {
+          "x0": 52,
+          "x1": 58,
+          "y0": 32,
+          "y1": 54
+        }
+      ],
+      "bytes": 32,
+      "dimensionsIndex": 5,
+      "labels": [
+        "roomdef_50_blocked_tunnel"
+      ],
+      "masks": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        43
+      ],
+      "objects": [
+        {
+          "object": 7,
+          "x": 20,
+          "y": 0
+        },
+        {
+          "object": 0,
+          "x": 16,
+          "y": 2
+        },
+        {
+          "object": 0,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "object": 20,
+          "x": 8,
+          "y": 6
+        },
+        {
+          "object": 0,
+          "x": 4,
+          "y": 8
+        },
+        {
+          "object": 0,
+          "x": 0,
+          "y": 10
+        }
+      ]
+    }
+  ],
+  "rooms": [
+    {
+      "aliasOf": null,
+      "room": 1,
+      "roomdefIndex": 0,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 2,
+      "roomdefIndex": 1,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 3,
+      "roomdefIndex": 2,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 4,
+      "roomdefIndex": 3,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 5,
+      "roomdefIndex": 4,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 6,
+      "roomdefIndex": 5,
+      "unused": true
+    },
+    {
+      "aliasOf": null,
+      "room": 7,
+      "roomdefIndex": 6,
+      "unused": false
+    },
+    {
+      "aliasOf": 6,
+      "room": 8,
+      "roomdefIndex": 5,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 9,
+      "roomdefIndex": 7,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 10,
+      "roomdefIndex": 8,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 11,
+      "roomdefIndex": 9,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 12,
+      "roomdefIndex": 10,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 13,
+      "roomdefIndex": 11,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 14,
+      "roomdefIndex": 12,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 15,
+      "roomdefIndex": 13,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 16,
+      "roomdefIndex": 14,
+      "unused": false
+    },
+    {
+      "aliasOf": 7,
+      "room": 17,
+      "roomdefIndex": 6,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 18,
+      "roomdefIndex": 15,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 19,
+      "roomdefIndex": 16,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 20,
+      "roomdefIndex": 17,
+      "unused": false
+    },
+    {
+      "aliasOf": 16,
+      "room": 21,
+      "roomdefIndex": 14,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 22,
+      "roomdefIndex": 18,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 23,
+      "roomdefIndex": 19,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 24,
+      "roomdefIndex": 20,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 25,
+      "roomdefIndex": 21,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 26,
+      "roomdefIndex": 22,
+      "unused": true
+    },
+    {
+      "aliasOf": 26,
+      "room": 27,
+      "roomdefIndex": 22,
+      "unused": true
+    },
+    {
+      "aliasOf": 26,
+      "room": 28,
+      "roomdefIndex": 22,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 29,
+      "roomdefIndex": 23,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 30,
+      "roomdefIndex": 24,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 31,
+      "roomdefIndex": 25,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 32,
+      "roomdefIndex": 26,
+      "unused": false
+    },
+    {
+      "aliasOf": 29,
+      "room": 33,
+      "roomdefIndex": 23,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 34,
+      "roomdefIndex": 27,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 35,
+      "roomdefIndex": 28,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 36,
+      "roomdefIndex": 29,
+      "unused": false
+    },
+    {
+      "aliasOf": 34,
+      "room": 37,
+      "roomdefIndex": 27,
+      "unused": false
+    },
+    {
+      "aliasOf": 35,
+      "room": 38,
+      "roomdefIndex": 28,
+      "unused": false
+    },
+    {
+      "aliasOf": 32,
+      "room": 39,
+      "roomdefIndex": 26,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 40,
+      "roomdefIndex": 30,
+      "unused": false
+    },
+    {
+      "aliasOf": 30,
+      "room": 41,
+      "roomdefIndex": 24,
+      "unused": false
+    },
+    {
+      "aliasOf": 32,
+      "room": 42,
+      "roomdefIndex": 26,
+      "unused": false
+    },
+    {
+      "aliasOf": 29,
+      "room": 43,
+      "roomdefIndex": 23,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 44,
+      "roomdefIndex": 31,
+      "unused": false
+    },
+    {
+      "aliasOf": 36,
+      "room": 45,
+      "roomdefIndex": 29,
+      "unused": false
+    },
+    {
+      "aliasOf": 36,
+      "room": 46,
+      "roomdefIndex": 29,
+      "unused": false
+    },
+    {
+      "aliasOf": 32,
+      "room": 47,
+      "roomdefIndex": 26,
+      "unused": false
+    },
+    {
+      "aliasOf": 34,
+      "room": 48,
+      "roomdefIndex": 27,
+      "unused": false
+    },
+    {
+      "aliasOf": 36,
+      "room": 49,
+      "roomdefIndex": 29,
+      "unused": false
+    },
+    {
+      "aliasOf": null,
+      "room": 50,
+      "roomdefIndex": 32,
+      "unused": false
+    },
+    {
+      "aliasOf": 32,
+      "room": 51,
+      "roomdefIndex": 26,
+      "unused": false
+    },
+    {
+      "aliasOf": 40,
+      "room": 52,
+      "roomdefIndex": 30,
+      "unused": false
+    }
+  ],
+  "unusedRooms": [
+    6,
+    26,
+    27
+  ]
+}

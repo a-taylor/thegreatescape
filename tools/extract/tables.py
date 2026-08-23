@@ -1,0 +1,562 @@
+"""Domain extractors: address image -> structured game data.
+
+Each function owns one group from BUILD_PROMPT.md §3 and cites the labels and
+addresses it reads. Counts are derived from label extents wherever possible and
+asserted, so a wrong assumption fails loudly instead of silently truncating.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from .rle import expand_mask, expand_object, mask_extents
+from .schema import (
+    b64,
+    decode_glyphs,
+    fixed_records,
+    pointer_table,
+    provenance,
+    resolve_pointers,
+    tile_bank,
+    word_at,
+    words,
+)
+from .skoolparse import Skool
+
+# Documented in the .skool constants block (lines 180-233, 283-337) and
+# TheGreatEscapeFacts.ref. Emitted as data so that §9's "leave unused things
+# unused" is testable rather than incidental.
+UNUSED_ROOMS = [6, 26, 27]
+UNUSED_OBJECTS = [21, 28, 39]
+UNUSED_SUPERTILES = [0x4F, 0x9A]
+
+MAP_W, MAP_H = 54, 34
+N_SUPERTILES = 218
+N_EXTERIOR_TILES = 571
+N_INTERIOR_TILES = 194
+N_ROOMS = 52
+N_OBJECTS = 54
+N_MASKS = 30
+N_ITEMS = 16
+N_CHARACTERS = 26
+
+
+def _count(sk: Skool, label: str, stride: int, whole_block: bool = False) -> int:
+    lo, hi = sk.extent_of_block(label) if whole_block else sk.extent_of(label)
+    span = hi - lo
+    if span % stride:
+        raise ValueError(f"{label}: {span} bytes is not a multiple of {stride}")
+    return span // stride
+
+
+def extract_map(sk: Skool) -> dict[str, Any]:
+    """Exterior map: 54x34 supertile indices, 218 supertiles of 4x4 tile refs."""
+    img = sk.image
+    m = sk.addr_of("map_tiles")
+    s = sk.addr_of("super_tiles")
+
+    assert _count(sk, "map_tiles", 1) == MAP_W * MAP_H
+    assert _count(sk, "super_tiles", 16) == N_SUPERTILES
+
+    return {
+        **provenance(sk, "map_tiles"),
+        "width": MAP_W,
+        "height": MAP_H,
+        "supertileIndices": list(img[m:m + MAP_W * MAP_H]),
+        "superTiles": [
+            list(img[s + i * 16:s + i * 16 + 16]) for i in range(N_SUPERTILES)
+        ],
+        "unusedSuperTiles": UNUSED_SUPERTILES,
+        # Resolved here so the engine never chases addresses. Derived from
+        # plot_tile (c$A9AD) -- see schema.tile_bank.
+        "tileBankForSuperTile": [
+            (tile_bank(i) - 0x8590) // 8 for i in range(N_SUPERTILES)
+        ],
+    }
+
+
+def extract_tiles(sk: Skool) -> dict[str, Any]:
+    """The four 8x8 tile sets, as raw bitmap bytes."""
+    img = sk.image
+
+    def sheet(label: str, count: int | None = None) -> dict[str, Any]:
+        lo, hi = sk.extent_of(label)
+        n = (hi - lo) // 8 if count is None else count
+        return {
+            **provenance(sk, label),
+            "count": n,
+            "bytesPerTile": 8,
+            "data": b64(img[lo:lo + n * 8]),
+        }
+
+    exterior = sheet("exterior_tiles", N_EXTERIOR_TILES)
+    interior = sheet("interior_tiles", N_INTERIOR_TILES)
+
+    # tiles/mask_tiles share $8218 -- one of the four duplicate-label addresses.
+    mask_lo = sk.addr_of("mask_tiles")
+    mask_hi = sk.addr_of("exterior_tiles")
+
+    return {
+        "exterior": exterior,
+        "interior": interior,
+        "mask": {
+            **provenance(sk, "mask_tiles"),
+            "count": (mask_hi - mask_lo) // 8,
+            "bytesPerTile": 8,
+            "data": b64(img[mask_lo:mask_hi]),
+        },
+        "static": sheet("static_tiles"),
+    }
+
+
+def _read_roomdef(img: bytes, addr: int) -> dict[str, Any]:
+    """Parse one self-describing roomdef record.
+
+    Layout verified at roomdef_1_hut1_right (b$6C15):
+        byte  dimensions index
+        byte  n_bounds ; n x 4 bytes {x0, x1, y0, y1}
+        byte  n_masks  ; n x 1 byte
+        byte  n_objects; n x 3 bytes {object, x, y}
+    """
+    i = addr
+    dimensions = img[i]; i += 1
+
+    n = img[i]; i += 1
+    bounds = []
+    for _ in range(n):
+        bounds.append({"x0": img[i], "x1": img[i + 1], "y0": img[i + 2], "y1": img[i + 3]})
+        i += 4
+
+    n = img[i]; i += 1
+    masks = list(img[i:i + n]); i += n
+
+    n = img[i]; i += 1
+    objects = []
+    for _ in range(n):
+        objects.append({"object": img[i], "x": img[i + 1], "y": img[i + 2]})
+        i += 3
+
+    return {
+        "addr": f"${addr:04X}",
+        "dimensionsIndex": dimensions,
+        "bounds": bounds,
+        "masks": masks,
+        "objects": objects,
+        "bytes": i - addr,
+    }
+
+
+def extract_rooms(sk: Skool) -> dict[str, Any]:
+    """Room definitions, the 1-based pointer table, and the dimensions table."""
+    img = sk.image
+
+    dims_addr = sk.addr_of("roomdef_dimensions")
+    n_dims = _count(sk, "roomdef_dimensions", 4)
+    dimensions = [
+        {"x1": img[a], "x0": img[a + 1], "y1": img[a + 2], "y0": img[a + 3]}
+        for a, _ in fixed_records(img, dims_addr, n_dims, 4)
+    ]
+
+    # rooms_and_tunnels is 52 entries and 1-BASED: "the first entry is room 1,
+    # not room 0". Aliasing is heavy -- 33 distinct roomdefs back 52 rooms.
+    rt = sk.addr_of("rooms_and_tunnels")
+    assert _count(sk, "rooms_and_tunnels", 2) == N_ROOMS
+    pointers = pointer_table(img, rt, N_ROOMS)
+    targets, indices = resolve_pointers(pointers)
+
+    roomdefs = [_read_roomdef(img, a) for a in targets]
+    for d, a in zip(roomdefs, targets):
+        d["labels"] = sk.addr_to_labels.get(a, [])
+
+    rooms = []
+    for n, (ptr, idx) in enumerate(zip(pointers, indices), start=1):
+        first = pointers.index(ptr) + 1
+        rooms.append({
+            "room": n,
+            "roomdefIndex": idx,
+            "unused": n in UNUSED_ROOMS,
+            "aliasOf": None if first == n else first,
+        })
+
+    return {
+        **provenance(sk, "rooms_and_tunnels"),
+        "note": "rooms_and_tunnels is 1-based; entry 0 is room 1",
+        "dimensions": {**provenance(sk, "roomdef_dimensions"), "entries": dimensions},
+        "roomdefs": roomdefs,
+        "rooms": rooms,
+        "unusedRooms": UNUSED_ROOMS,
+    }
+
+
+def extract_objects(sk: Skool) -> dict[str, Any]:
+    """The 54 RLE-compressed interior objects, expanded."""
+    img = sk.image
+    base = sk.addr_of("interior_object_defs")
+    pointers = pointer_table(img, base, N_OBJECTS)
+
+    objects = []
+    for n, ptr in enumerate(pointers):
+        w, h, tiles = expand_object(img, ptr)
+        objects.append({
+            "index": n,
+            "addr": f"${ptr:04X}",
+            "width": w,
+            "height": h,
+            "tiles": tiles,
+            "unused": n in UNUSED_OBJECTS,
+        })
+
+    return {
+        **provenance(sk, "interior_object_defs"),
+        "objects": objects,
+        "unusedObjects": UNUSED_OBJECTS,
+        "note": "tile 0 is transparent: the write is skipped but the cursor advances ($6ADE)",
+    }
+
+
+def extract_masks(sk: Skool) -> dict[str, Any]:
+    """The 30 masks plus the two mask_t usage tables.
+
+    Heights are derived exactly, not inferred -- see OPEN_QUESTIONS.md §10.
+    """
+    img = sk.image
+    mp = sk.addr_of("mask_pointers")
+    region_end = sk.addr_of("interior_mask_data_source")
+    pointers = pointer_table(img, mp, N_MASKS)
+    extents = mask_extents(pointers, region_end)
+
+    masks = []
+    for n, p in enumerate(pointers):
+        lo, hi = extents[p]
+        w, h, tiles = expand_mask(img, lo, hi)
+        masks.append({
+            "index": n,
+            "addr": f"${p:04X}",
+            "kind": "exterior" if n < 15 else "interior",
+            "width": w,
+            "height": h,
+            "tiles": tiles,
+        })
+
+    def mask_records(label: str, stride: int) -> list[dict[str, Any]]:
+        addr = sk.addr_of(label)
+        out = []
+        for a, rec in fixed_records(img, addr, _count(sk, label, stride), stride):
+            out.append({
+                "addr": f"${a:04X}",
+                "index": rec[0],
+                "bounds": {"x0": rec[1], "x1": rec[2], "y0": rec[3], "y1": rec[4]},
+                "pos": list(rec[5:]),
+            })
+        return out
+
+    referenced = {r["index"] for r in mask_records("exterior_mask_data", 8)}
+    referenced |= {r["index"] for r in mask_records("interior_mask_data_source", 7)}
+
+    return {
+        **provenance(sk, "mask_pointers"),
+        "masks": masks,
+        "exteriorMaskData": mask_records("exterior_mask_data", 8),
+        "interiorMaskDataSource": mask_records("interior_mask_data_source", 7),
+        # Flagged explicitly: mask 19 is referenced by nothing, which is why the
+        # reference build renders it at a fallback height of 1.
+        "unreferencedMasks": sorted(set(range(N_MASKS)) - referenced),
+    }
+
+
+def extract_sprites(sk: Skool) -> dict[str, Any]:
+    """The sprites table: 6-byte records {width_bytes+1, height, data, mask}."""
+    img = sk.image
+    addr = sk.addr_of("sprites")
+    # The sprites array runs to the start of the animation data.
+    end = sk.addr_of("anim_crawlwait_tl")
+    count = (end - addr) // 6
+
+    sprites = []
+    for a, rec in fixed_records(img, addr, count, 6):
+        data_ptr = rec[2] | (rec[3] << 8)
+        mask_ptr = rec[4] | (rec[5] << 8)
+        sprites.append({
+            "addr": f"${a:04X}",
+            # Stored value is width in BYTES PLUS ONE (ctl line 10874).
+            "widthBytes": rec[0] - 1,
+            "widthPixels": (rec[0] - 1) * 8,
+            "height": rec[1],
+            "bitmapAddr": f"${data_ptr:04X}",
+            "maskAddr": f"${mask_ptr:04X}",
+            "bitmapLabels": sk.addr_to_labels.get(data_ptr, []),
+            "maskLabels": sk.addr_to_labels.get(mask_ptr, []),
+        })
+
+    return {
+        **provenance(sk, "sprites"),
+        "count": count,
+        "sprites": sprites,
+        "knownGlitches": [
+            "All prisoner sprites are specified one row too tall "
+            "(TheGreatEscapeGraphics.ref:21). Not visibly wrong.",
+            "Dog frame 3 ($CEA0) has height 15 but only 13 rows of data, so two "
+            "rows are lifted from the next frame -- the documented stray pixels.",
+            "Front-facing guard bitmap pointers ($CEBE) are offset back by two "
+            "bytes, drawing them one row too low.",
+        ],
+    }
+
+
+def extract_items(sk: Skool) -> dict[str, Any]:
+    # item_structs and item_attributes each own their whole block; their extents
+    # are truncated by element labels (item_structs_food, item_attributes_food).
+    img = sk.image
+    structs = sk.addr_of("item_structs")
+    stride = _count(sk, "item_structs", 1, whole_block=True) // N_ITEMS
+    assert stride == 7, f"expected 7-byte itemstructs, got {stride}"
+
+    return {
+        **provenance(sk, "item_structs"),
+        "count": N_ITEMS,
+        "structStride": stride,
+        "structs": [list(r) for _, r in fixed_records(img, structs, N_ITEMS, stride)],
+        "definitions": {
+            **provenance(sk, "item_definitions"),
+            "data": b64(sk.slice("item_definitions")),
+        },
+        "attributes": {
+            **provenance(sk, "item_attributes"),
+            "values": list(sk.slice_block("item_attributes")),
+        },
+        "defaultLocations": {
+            **provenance(sk, "default_item_locations"),
+            "values": list(sk.slice("default_item_locations")),
+        },
+        "redCrossParcelContents": {
+            **provenance(sk, "red_cross_parcel_contents_list"),
+            "values": list(sk.slice("red_cross_parcel_contents_list")),
+        },
+    }
+
+
+def extract_characters(sk: Skool) -> dict[str, Any]:
+    img = sk.image
+    structs = sk.addr_of("character_structs")
+    stride = _count(sk, "character_structs", 1) // N_CHARACTERS
+
+    return {
+        **provenance(sk, "character_structs"),
+        "count": N_CHARACTERS,
+        "structStride": stride,
+        "structs": [
+            list(r) for _, r in fixed_records(img, structs, N_CHARACTERS, stride)
+        ],
+        "vischarInitial": {
+            **provenance(sk, "vischar_initial"),
+            "data": b64(sk.slice("vischar_initial")),
+        },
+        "resetData": {
+            **provenance(sk, "character_reset_data"),
+            "data": b64(sk.slice("character_reset_data")),
+        },
+        "eventHandlerIndexMap": {
+            **provenance(sk, "character_to_event_handler_index_map"),
+            "values": list(sk.slice("character_to_event_handler_index_map")),
+        },
+    }
+
+
+def extract_geography(sk: Skool) -> dict[str, Any]:
+    """Doors, locations, walls, beds and the solitary position."""
+    img = sk.image
+
+    def raw(label: str) -> dict[str, Any]:
+        return {**provenance(sk, label), "values": list(sk.slice(label))}
+
+    # `doors` owns its whole block; extent_of() would stop at the section label
+    # doors_home_to_outside, which names a region *within* the array.
+    doors_lo, doors_hi = sk.extent_of_block("doors")
+
+    return {
+        "doors": {
+            "_label": "doors",
+            "_addr": f"${doors_lo:04X}",
+            "_bytes": doors_hi - doors_lo,
+            "values": list(sk.slice_block("doors")),
+        },
+        "doorSections": {
+            "homeToOutside": f"${sk.addr_of('doors_home_to_outside'):04X}",
+            "homeToInside": f"${sk.addr_of('doors_home_to_inside'):04X}",
+            "homeToTunnel": f"${sk.addr_of('doors_home_to_tunnel'):04X}",
+        },
+        "lockedDoors": raw("locked_doors"),
+        "solitaryPos": raw("solitary_pos"),
+        "locations": {
+            **provenance(sk, "locations"),
+            "values": words(img, sk.addr_of("locations"),
+                            _count(sk, "locations", 2)),
+        },
+        "beds": {
+            **provenance(sk, "beds"),
+            "values": words(img, sk.addr_of("beds"), _count(sk, "beds", 2)),
+        },
+        "walls": raw("walls"),
+    }
+
+
+def extract_routes(sk: Skool) -> dict[str, Any]:
+    """The route table and the individual routes within it.
+
+    A vischar's route is (index, step): the index selects a route from the
+    table at $7738, the step indexes into it, and bit 7 of the index means
+    "follow in reverse" (route_REVERSED, .skool line 510).
+
+    `routes` owns its whole block -- the route_* labels name entries inside it.
+    """
+    lo, hi = sk.extent_of_block("routes")
+    entries = []
+    for addr in sorted(a for a in sk.addr_to_labels if lo <= a < hi):
+        end = min(
+            (a for a in sk.addr_to_labels if addr < a < hi), default=hi
+        )
+        entries.append({
+            "addr": f"${addr:04X}",
+            "labels": sk.addr_to_labels[addr],
+            "offset": addr - lo,
+            "values": list(sk.image[addr:end]),
+        })
+
+    return {
+        "_label": "routes",
+        "_addr": f"${lo:04X}",
+        "_bytes": hi - lo,
+        "data": b64(sk.slice_block("routes")),
+        "entries": entries,
+        "note": "route index bit 7 (route_REVERSED) means follow in reverse order",
+    }
+
+
+def extract_text(sk: Skool) -> dict[str, Any]:
+    img = sk.image
+    mt = sk.addr_of("messages_table")
+    n = _count(sk, "messages_table", 2)
+
+    return {
+        "messagesTable": {
+            **provenance(sk, "messages_table"),
+            "pointers": [f"${p:04X}" for p in words(img, mt, n)],
+        },
+        "escapeStrings": {
+            **provenance(sk, "escape_strings"),
+            "data": b64(sk.slice("escape_strings")),
+        },
+        "bitmapFont": {
+            **provenance(sk, "bitmap_font"),
+            "data": b64(sk.slice("bitmap_font")),
+        },
+        "keycodeToGlyph": {
+            **provenance(sk, "keycode_to_glyph"),
+            "values": list(sk.slice("keycode_to_glyph")),
+        },
+        "glyphSet": {
+            "note": 'the letter "O" is absent; digit zero doubles for it',
+            "chars": list(decode_glyphs(bytes(range(48)))),
+        },
+    }
+
+
+def extract_timing(sk: Skool) -> dict[str, Any]:
+    img = sk.image
+    gw = sk.addr_of("game_window_start_addresses")
+    n = _count(sk, "game_window_start_addresses", 2)
+    assert n == 128, f"expected 128 window row pointers, got {n}"
+
+    return {
+        "timedEvents": {
+            **provenance(sk, "timed_events"),
+            "values": list(sk.slice("timed_events")),
+        },
+        "searchlightMovements": {
+            **provenance(sk, "searchlight_movements"),
+            "values": list(sk.slice("searchlight_movements")),
+        },
+        "searchlightShape": {
+            **provenance(sk, "searchlight_shape"),
+            "data": b64(sk.slice("searchlight_shape")),
+        },
+        "zoomboxTiles": {
+            **provenance(sk, "zoombox_tiles"),
+            "data": b64(sk.slice("zoombox_tiles")),
+        },
+        "gameWindow": {
+            **provenance(sk, "game_window_start_addresses"),
+            "rows": n,
+            "rowAddresses": [f"${p:04X}" for p in words(img, gw, n)],
+            # First pointer $4047 decodes to char column 7, pixel row 16.
+            "originColumn": 7,
+            "originPixelRow": 16,
+            "widthPixels": 192,
+            "heightPixels": 128,
+            "note": (
+                "The visible window is 192x128 (24x16 chars). The 24x17 figure "
+                "in BUILD_PROMPT §4 is the BUFFER (tile_buf 408B at $F0F8, "
+                "window_buf 3264B at $F290); the extra row is scroll slack and "
+                "is never blitted."
+            ),
+        },
+    }
+
+
+def extract_audio(sk: Skool) -> dict[str, Any]:
+    return {
+        "channel0": {
+            **provenance(sk, "music_channel0_data"),
+            "data": b64(sk.slice("music_channel0_data")),
+        },
+        "channel1": {
+            **provenance(sk, "music_channel1_data"),
+            "data": b64(sk.slice("music_channel1_data")),
+        },
+        "semitoneToFrequency": {
+            **provenance(sk, "semitone_to_frequency"),
+            "data": b64(sk.slice("semitone_to_frequency")),
+        },
+    }
+
+
+def extract_prng(sk: Skool) -> dict[str, Any]:
+    """The PRNG source bytes.
+
+    Not a table: $9000..$90FF lies inside exterior_tiles, so random_nibble
+    ($CB85) is reading exterior tile BITMAP data as entropy. Extracted as a raw
+    address slice -- see OPEN_QUESTIONS.md §7.
+    """
+    lo, hi = 0x9000, 0x9100
+    ext_lo, ext_hi = sk.extent_of("exterior_tiles")
+    assert ext_lo <= lo < ext_hi, "PRNG range should sit inside exterior_tiles"
+
+    return {
+        "_addr": "$9000",
+        "_bytes": hi - lo,
+        "containedIn": "exterior_tiles",
+        "data": b64(sk.raw(lo, hi)),
+        "pointerInit": "$9000",
+        "note": (
+            "random_nibble ($CB85) does INC L BEFORE the read, so the first "
+            "value comes from $9001; H is never touched, so it wraps in-page."
+        ),
+    }
+
+
+EXTRACTORS = {
+    "map": extract_map,
+    "tiles": extract_tiles,
+    "rooms": extract_rooms,
+    "objects": extract_objects,
+    "masks": extract_masks,
+    "sprites": extract_sprites,
+    "items": extract_items,
+    "characters": extract_characters,
+    "geography": extract_geography,
+    "routes": extract_routes,
+    "text": extract_text,
+    "timing": extract_timing,
+    "audio": extract_audio,
+    "prng": extract_prng,
+}

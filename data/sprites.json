@@ -1,0 +1,545 @@
+{
+  "_addr": "$CE22",
+  "_bytes": 6,
+  "_label": "sprites",
+  "count": 38,
+  "knownGlitches": [
+    "All prisoner sprites are specified one row too tall (TheGreatEscapeGraphics.ref:21). Not visibly wrong.",
+    "Dog frame 3 ($CEA0) has height 15 but only 13 rows of data, so two rows are lifted from the next frame -- the documented stray pixels.",
+    "Front-facing guard bitmap pointers ($CEBE) are offset back by two bytes, drawing them one row too low."
+  ],
+  "sprites": [
+    {
+      "addr": "$CE22",
+      "bitmapAddr": "$DB46",
+      "bitmapLabels": [
+        "bitmap_stove"
+      ],
+      "height": 22,
+      "maskAddr": "$DB72",
+      "maskLabels": [
+        "mask_stove"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE28",
+      "bitmapAddr": "$DAB6",
+      "bitmapLabels": [
+        "bitmap_crate"
+      ],
+      "height": 24,
+      "maskAddr": "$DAFE",
+      "maskLabels": [
+        "mask_crate"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE2E",
+      "bitmapAddr": "$D28C",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_top_left_1"
+      ],
+      "height": 27,
+      "maskAddr": "$D545",
+      "maskLabels": [
+        "mask_various_facing_top_left_1"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE34",
+      "bitmapAddr": "$D256",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_top_left_2"
+      ],
+      "height": 28,
+      "maskAddr": "$D505",
+      "maskLabels": [
+        "mask_various_facing_top_left_2"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE3A",
+      "bitmapAddr": "$D220",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_top_left_3"
+      ],
+      "height": 28,
+      "maskAddr": "$D4C5",
+      "maskLabels": [
+        "mask_various_facing_top_left_3"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE40",
+      "bitmapAddr": "$D1EA",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_top_left_4"
+      ],
+      "height": 28,
+      "maskAddr": "$D485",
+      "maskLabels": [
+        "mask_various_facing_top_left_4"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE46",
+      "bitmapAddr": "$D2C0",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_bottom_right_1"
+      ],
+      "height": 27,
+      "maskAddr": "$D585",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_1"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE4C",
+      "bitmapAddr": "$D2F4",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_bottom_right_2"
+      ],
+      "height": 29,
+      "maskAddr": "$D5C5",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_2"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE52",
+      "bitmapAddr": "$D32C",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_bottom_right_3"
+      ],
+      "height": 28,
+      "maskAddr": "$D605",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_3"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE58",
+      "bitmapAddr": "$D362",
+      "bitmapLabels": [
+        "bitmap_prisoner_facing_bottom_right_4"
+      ],
+      "height": 28,
+      "maskAddr": "$D63D",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_4"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CE5E",
+      "bitmapAddr": "$D3C5",
+      "bitmapLabels": [
+        "bitmap_crawl_facing_bottom_left_1"
+      ],
+      "height": 16,
+      "maskAddr": "$D677",
+      "maskLabels": [
+        "mask_crawl_facing_bottom_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE64",
+      "bitmapAddr": "$D398",
+      "bitmapLabels": [
+        "bitmap_crawl_facing_bottom_left_2"
+      ],
+      "height": 15,
+      "maskAddr": "$D677",
+      "maskLabels": [
+        "mask_crawl_facing_bottom_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE6A",
+      "bitmapAddr": "$D3F5",
+      "bitmapLabels": [
+        "bitmap_crawl_facing_top_left_1"
+      ],
+      "height": 16,
+      "maskAddr": "$D455",
+      "maskLabels": [
+        "mask_crawl_facing_top_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE70",
+      "bitmapAddr": "$D425",
+      "bitmapLabels": [
+        "bitmap_crawl_facing_top_left_2"
+      ],
+      "height": 16,
+      "maskAddr": "$D455",
+      "maskLabels": [
+        "mask_crawl_facing_top_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE76",
+      "bitmapAddr": "$D867",
+      "bitmapLabels": [
+        "bitmap_dog_facing_top_left_1"
+      ],
+      "height": 16,
+      "maskAddr": "$D921",
+      "maskLabels": [
+        "mask_dog_facing_top_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE7C",
+      "bitmapAddr": "$D897",
+      "bitmapLabels": [
+        "bitmap_dog_facing_top_left_2"
+      ],
+      "height": 16,
+      "maskAddr": "$D921",
+      "maskLabels": [
+        "mask_dog_facing_top_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE82",
+      "bitmapAddr": "$D8C7",
+      "bitmapLabels": [
+        "bitmap_dog_facing_top_left_3"
+      ],
+      "height": 15,
+      "maskAddr": "$D921",
+      "maskLabels": [
+        "mask_dog_facing_top_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE88",
+      "bitmapAddr": "$D8F4",
+      "bitmapLabels": [
+        "bitmap_dog_facing_top_left_4"
+      ],
+      "height": 15,
+      "maskAddr": "$D921",
+      "maskLabels": [
+        "mask_dog_facing_top_left"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE8E",
+      "bitmapAddr": "$D951",
+      "bitmapLabels": [
+        "bitmap_dog_facing_bottom_right_1"
+      ],
+      "height": 14,
+      "maskAddr": "$D9F9",
+      "maskLabels": [
+        "mask_dog_facing_bottom_right"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE94",
+      "bitmapAddr": "$D97B",
+      "bitmapLabels": [
+        "bitmap_dog_facing_bottom_right_2"
+      ],
+      "height": 15,
+      "maskAddr": "$D9F9",
+      "maskLabels": [
+        "mask_dog_facing_bottom_right"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CE9A",
+      "bitmapAddr": "$D9A8",
+      "bitmapLabels": [
+        "bitmap_dog_facing_bottom_right_3"
+      ],
+      "height": 15,
+      "maskAddr": "$D9F9",
+      "maskLabels": [
+        "mask_dog_facing_bottom_right"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CEA0",
+      "bitmapAddr": "$D9CF",
+      "bitmapLabels": [
+        "bitmap_dog_facing_bottom_right_4"
+      ],
+      "height": 14,
+      "maskAddr": "$D9F9",
+      "maskLabels": [
+        "mask_dog_facing_bottom_right"
+      ],
+      "widthBytes": 3,
+      "widthPixels": 24
+    },
+    {
+      "addr": "$CEA6",
+      "bitmapAddr": "$D74D",
+      "bitmapLabels": [
+        "bitmap_guard_facing_top_left_1"
+      ],
+      "height": 27,
+      "maskAddr": "$D545",
+      "maskLabels": [
+        "mask_various_facing_top_left_1"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEAC",
+      "bitmapAddr": "$D713",
+      "bitmapLabels": [
+        "bitmap_guard_facing_top_left_2"
+      ],
+      "height": 29,
+      "maskAddr": "$D505",
+      "maskLabels": [
+        "mask_various_facing_top_left_2"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEB2",
+      "bitmapAddr": "$D6DD",
+      "bitmapLabels": [
+        "bitmap_guard_facing_top_left_3"
+      ],
+      "height": 27,
+      "maskAddr": "$D4C5",
+      "maskLabels": [
+        "mask_various_facing_top_left_3"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEB8",
+      "bitmapAddr": "$D6A7",
+      "bitmapLabels": [
+        "bitmap_guard_facing_top_left_4"
+      ],
+      "height": 27,
+      "maskAddr": "$D485",
+      "maskLabels": [
+        "mask_various_facing_top_left_4"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEBE",
+      "bitmapAddr": "$D783",
+      "bitmapLabels": [
+        "bitmap_guard_facing_bottom_right_1"
+      ],
+      "height": 29,
+      "maskAddr": "$D585",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_1"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEC4",
+      "bitmapAddr": "$D7BD",
+      "bitmapLabels": [
+        "bitmap_guard_facing_bottom_right_2"
+      ],
+      "height": 29,
+      "maskAddr": "$D5C5",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_2"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CECA",
+      "bitmapAddr": "$D7F7",
+      "bitmapLabels": [
+        "bitmap_guard_facing_bottom_right_3"
+      ],
+      "height": 28,
+      "maskAddr": "$D605",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_3"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CED0",
+      "bitmapAddr": "$D82F",
+      "bitmapLabels": [
+        "bitmap_guard_facing_bottom_right_4"
+      ],
+      "height": 28,
+      "maskAddr": "$D63D",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_4"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CED6",
+      "bitmapAddr": "$D0D6",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_top_left_1"
+      ],
+      "height": 28,
+      "maskAddr": "$D545",
+      "maskLabels": [
+        "mask_various_facing_top_left_1"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEDC",
+      "bitmapAddr": "$D09A",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_top_left_2"
+      ],
+      "height": 30,
+      "maskAddr": "$D505",
+      "maskLabels": [
+        "mask_various_facing_top_left_2"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEE2",
+      "bitmapAddr": "$D060",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_top_left_3"
+      ],
+      "height": 29,
+      "maskAddr": "$D4C5",
+      "maskLabels": [
+        "mask_various_facing_top_left_3"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEE8",
+      "bitmapAddr": "$D026",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_top_left_4"
+      ],
+      "height": 29,
+      "maskAddr": "$D485",
+      "maskLabels": [
+        "mask_various_facing_top_left_4"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEEE",
+      "bitmapAddr": "$D10E",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_bottom_right_1"
+      ],
+      "height": 27,
+      "maskAddr": "$D585",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_1"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEF4",
+      "bitmapAddr": "$D144",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_bottom_right_2"
+      ],
+      "height": 28,
+      "maskAddr": "$D5C5",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_2"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CEFA",
+      "bitmapAddr": "$D17C",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_bottom_right_3"
+      ],
+      "height": 27,
+      "maskAddr": "$D605",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_3"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    },
+    {
+      "addr": "$CF00",
+      "bitmapAddr": "$D1B2",
+      "bitmapLabels": [
+        "bitmap_commandant_facing_bottom_right_4"
+      ],
+      "height": 28,
+      "maskAddr": "$D63D",
+      "maskLabels": [
+        "mask_various_facing_bottom_right_4"
+      ],
+      "widthBytes": 2,
+      "widthPixels": 16
+    }
+  ]
+}

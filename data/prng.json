@@ -1,0 +1,8 @@
+{
+  "_addr": "$9000",
+  "_bytes": 256,
+  "containedIn": "exterior_tiles",
+  "data": "cEAAAAAAAAACQAMPO3xwQAAAAAADDDBAMPCw8PDQ8PADDDDACCAs0/DQ8PDwsPDM/zwDjT/c8MAvz/f/3//v/S/LL++v7e/v76/v4+wvze/A4ODs5+Mvz8AwzPPw8Mw8EAgLBMQ0xMvW1tbW0tDUA8AwzJNU1tbW1tLU1tZWlsbw3M/T1NZWltTW1tLUVpbGAAAAAAEDBQ/LK+3tbS0NM9bW1tbW1sbSHA8DABAAAAJWFsbyPAsEA9bS1INMMsgs1tYWxvI8z9MPDAMPPy88M8sLDQ2N7U0zCw8vzTJMAwQjzzNMU1wvI9PQsLCzt7PM09S2t7e08OxMMsAgBAMMMg==",
+  "note": "random_nibble ($CB85) does INC L BEFORE the read, so the first value comes from $9001; H is never touched, so it wraps in-page.",
+  "pointerInit": "$9000"
+}

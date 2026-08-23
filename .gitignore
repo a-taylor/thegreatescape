@@ -1,0 +1,26 @@
+# The SkoolKit disassembly is a separate work by David Thomas and is NOT
+# redistributed here. Clone it into this path yourself -- see README.md.
+#
+# It also contains build/TheGreatEscape.pristine.z80, which is the original 48K
+# game image. BUILD_PROMPT.md §2 and §10 are explicit that the tape image must
+# not be shipped, so this directory stays out of the repo entirely.
+/The-Great-Escape/
+
+# Dependencies
+/node_modules/
+/.venv/
+__pycache__/
+*.py[cod]
+
+# Build output
+/dist/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# The generated asset viewer -- rebuild with `npm run assetviewer`.
+# It is a 300KB derived artefact that changes whenever data/ does.
+/tools/assetviewer/
