@@ -1,0 +1,25 @@
+{
+  "name": "the-great-escape",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A browser reimplementation of The Great Escape (Ocean Software, 1986), derived from the SkoolKit disassembly by David Thomas.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "extract": "python3 -m tools.extract build",
+    "extract:check": "python3 -m tools.extract check",
+    "extract:goldens": "python3 -m tools.extract.goldens",
+    "assetviewer": "python3 -m tools.extract.viewer"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}

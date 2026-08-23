@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Great Escape — P1 static rendering</title>
+    <style>
+      :root {
+        --bg: #0b0d0f;
+        --panel: #15181c;
+        --line: #262b33;
+        --fg: #cdc6cd;
+        --dim: #79818e;
+        --addr: #d7d700;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--fg);
+        font: 13px/1.55 var(--mono);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        padding: 28px 20px 48px;
+      }
+      h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+      .sub { color: var(--dim); font-size: 12px; margin: 0; text-align: center; max-width: 62ch; }
+      #screen {
+        display: block;
+        image-rendering: pixelated;
+        background: #000;
+        border: 1px solid var(--line);
+      }
+      .bar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+      }
+      button, select {
+        font: inherit;
+        color: var(--fg);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 5px 11px;
+        cursor: pointer;
+      }
+      button:hover, select:hover { border-color: #3a4150; }
+      button:focus-visible, select:focus-visible { outline: 2px solid var(--addr); outline-offset: 1px; }
+      button[aria-pressed='true'] { background: #2a2f14; border-color: #5c5a1d; color: var(--addr); }
+      .status { color: var(--dim); font-size: 12px; text-align: center; }
+      .status b { color: var(--fg); font-weight: 600; }
+      .status .a { color: var(--addr); }
+      kbd {
+        background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px;
+        border-radius: 3px; padding: 0 4px; font-size: 11px; color: var(--fg);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>The Great Escape — static rendering</h1>
+    <p class="sub">
+      256&times;192 Spectrum display: a 1-bit pixel buffer plus a 32&times;24 attribute grid.
+      The 192&times;128 game window is blitted from a 24&times;17 tile buffer through the
+      128 row pointers of <span style="color: var(--addr)">game_window_start_addresses</span>.
+    </p>
+
+    <canvas id="screen" width="256" height="192"></canvas>
+
+    <div class="bar">
+      <button id="mode-exterior" aria-pressed="true">Exterior</button>
+      <button id="mode-interior" aria-pressed="false">Interior</button>
+      <select id="room" aria-label="Room"></select>
+      <button id="night" aria-pressed="false">Night</button>
+      <button id="torch" aria-pressed="false">Torch</button>
+    </div>
+
+    <p class="status" id="status"></p>
+    <p class="sub">
+      <kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd> pan the map ·
+      <kbd>shift</kbd> to pan by a supertile · <kbd>[</kbd><kbd>]</kbd> change room
+    </p>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
