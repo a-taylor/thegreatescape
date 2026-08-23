@@ -1,177 +1,195 @@
 /**
- * P1 demo: draw the game window with the real display model.
+ * P2 demo: a walkable hero.
  *
- * Deliberately not a game loop -- P1 is static rendering. This exists to make
- * the pipeline visible end to end: tile buffer -> pixel buffer -> 128-row blit
- * -> attributes -> ImageData -> integer-scaled canvas.
+ * The hero moves through the real chain -- input -> animindices -> animation
+ * frames -> position -> bounds check -> door handling -- and the map window
+ * follows. Sprite plotting with masks is P3, so the hero is drawn here as a
+ * marker at his projected isometric position.
  */
 
-import { mapData, exteriorTiles, interiorTiles, roomsData } from './data/load.js';
+import { exteriorTiles, interiorTiles, roomsData } from './data/load.js';
+import { calcIsoPos, toTinyPos } from './game/coords.js';
+import { INTERIOR_MAP_POSITION } from './game/doors.js';
+import { createHero, encodeInput, step } from './game/hero.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
-import { fillExterior, fillRoom } from './render/scene.js';
+import { ExteriorView, MAP_ROW_BIAS } from './render/exterior.js';
+import { fillRoom } from './render/scene.js';
 import {
   BUFFER_ROWS,
   GameWindowBuffers,
   WINDOW_COLS,
+  WINDOW_ORIGIN_COL,
+  WINDOW_ORIGIN_PIXEL_ROW,
   plotGameWindow,
   setWindowAttributes,
 } from './render/window.js';
 import { CanvasPresenter } from './spectrum/canvas.js';
-import { SpectrumScreen } from './spectrum/display.js';
+import { SCREEN_COLS, SpectrumScreen, screenAddress } from './spectrum/display.js';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!;
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
-const roomSelect = document.querySelector<HTMLSelectElement>('#room')!;
-const btnExterior = document.querySelector<HTMLButtonElement>('#mode-exterior')!;
-const btnInterior = document.querySelector<HTMLButtonElement>('#mode-interior')!;
 const btnNight = document.querySelector<HTMLButtonElement>('#night')!;
 const btnTorch = document.querySelector<HTMLButtonElement>('#torch')!;
+const btnReset = document.querySelector<HTMLButtonElement>('#reset')!;
 
 const presenter = new CanvasPresenter(canvas);
 const screen = new SpectrumScreen();
 const buffers = new GameWindowBuffers();
 
-/** Tile columns/rows of exterior map beyond which the window would run off. */
-const MAX_MAP_X = mapData.width * 4 - WINDOW_COLS;
-const MAX_MAP_Y = mapData.height * 4 - BUFFER_ROWS;
+/** Start on open ground inside the camp. */
+const START = { x: 0x2a * 8, y: 0x3e * 8, height: 0 };
 
-const state = {
-  mode: 'exterior' as 'exterior' | 'interior',
-  mapX: 0,
-  mapY: 40, // the upper map is blank; start where the camp is
-  room: 1,
-  night: false,
-  torch: false,
-};
+const hero = createHero({ ...START }, 0, 0);
+const view = new ExteriorView(0, 0);
+const keys = new Set<string>();
+let night = false;
+let torch = false;
+let lastEvent = '';
 
-// Rooms 6, 26 and 27 are unused indices; they are listed but marked, because
-// §9 requires unused things to stay visibly unused rather than be filtered out.
-for (const entry of roomsData.rooms) {
-  const option = document.createElement('option');
-  option.value = String(entry.room);
-  const notes: string[] = [];
-  if (entry.unused) notes.push('unused');
-  if (entry.aliasOf) notes.push(`= room ${entry.aliasOf}`);
-  option.textContent = `Room ${entry.room}${notes.length ? ` (${notes.join(', ')})` : ''}`;
-  roomSelect.append(option);
+/**
+ * Keep the hero roughly centred by deriving the map position from his tinypos.
+ *
+ * ASSUMPTION: the original tracks this through hero_map_position ($81B8) and
+ * the shunt_map_* routines, which move the window one tile at a time as the
+ * hero crosses a threshold. Centring produces the same view for a static frame
+ * but not necessarily the same scroll timing. Recorded in OPEN_QUESTIONS.md
+ * rather than presented as faithful.
+ */
+function followHero(): void {
+  // Integer arithmetic only: BUILD_PROMPT §5 forbids floats in game state, and
+  // map_position is a pair of bytes in the original. `>> 1` rather than `/ 2`.
+  const tiny = toTinyPos(hero.pos);
+  const x = tiny.x - (WINDOW_COLS >> 1);
+  const y = tiny.y - (BUFFER_ROWS >> 1) + MAP_ROW_BIAS;
+  view.position.x = Math.max(0, Math.min(54 * 4 - WINDOW_COLS, x));
+  view.position.y = Math.max(
+    MAP_ROW_BIAS,
+    Math.min(34 * 4 - BUFFER_ROWS + MAP_ROW_BIAS, y),
+  );
+  view.refresh();
 }
-roomSelect.value = String(state.room);
 
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
+/** Draw the hero as a marker until sprite plotting arrives in P3. */
+function plotHeroMarker(): void {
+  const iso = calcIsoPos(hero.pos);
+  // iso_pos is in half-pixels on x; the window shows a moving portion of it.
+  const tiny = toTinyPos(hero.pos);
+  const col = tiny.x - view.position.x;
+  const row = tiny.y - (view.position.y - MAP_ROW_BIAS);
+  if (col < 0 || col >= WINDOW_COLS || row < 0 || row >= BUFFER_ROWS) return;
+
+  const screenCol = WINDOW_ORIGIN_COL + col;
+  const baseRow = WINDOW_ORIGIN_PIXEL_ROW + row * 8;
+  for (let r = 0; r < 8; r++) {
+    const addr = screenAddress(screenCol, baseRow + r);
+    screen.writeByte(addr, screen.readByte(addr) ^ 0xff);
+  }
+  // Mark the cell so it stands out against the terrain.
+  const charRow = (baseRow >> 3) & 0x1f;
+  if (screenCol < SCREEN_COLS && charRow < 24) {
+    screen.setAttribute(screenCol, charRow, 0x46); // bright yellow over black
+  }
+  void iso;
 }
 
 function render(): void {
-  const room = state.mode === 'exterior' ? 0 : state.room;
-  const itemsHeld: [number, number] = state.torch ? [4, 0xff] : [0xff, 0xff];
-  const { attribute, wipeTiles } = chooseGameWindowAttributes(room, state.night, itemsHeld);
+  const itemsHeld: [number, number] = torch ? [4, 0xff] : [0xff, 0xff];
+  const { attribute, wipeTiles } = chooseGameWindowAttributes(hero.room, night, itemsHeld);
 
   if (wipeTiles) {
-    // An unlit tunnel draws nothing at all ($AB96 calls wipe_visible_tiles).
     buffers.wipeTiles();
-  } else if (state.mode === 'exterior') {
-    fillExterior(buffers, state.mapX, state.mapY);
+  } else if (hero.room === 0) {
+    followHero();
+    view.render(buffers);
   } else {
-    fillRoom(buffers, state.room);
+    fillRoom(buffers, hero.room);
   }
 
-  buffers.expandTiles(state.mode === 'exterior' ? exteriorTiles() : interiorTiles());
+  buffers.expandTiles(hero.room === 0 ? exteriorTiles() : interiorTiles());
 
   screen.clear(0x00, 0x00);
   plotGameWindow(screen, buffers);
   setWindowAttributes(screen, attribute);
+  if (!wipeTiles) plotHeroMarker();
   presenter.present(screen);
 
+  const tiny = toTinyPos(hero.pos);
+  const dirNames = ['TL', 'TR', 'BR', 'BL'];
   const where =
-    state.mode === 'exterior'
-      ? `map tile <b>(${state.mapX}, ${state.mapY})</b> · supertile (${Math.floor(state.mapX / 4)}, ${Math.floor(state.mapY / 4)})`
-      : `room <b>${state.room}</b> · roomdef <span class="a">${roomsData.roomdefs[roomsData.rooms[state.room - 1]!.roomdefIndex]!.addr}</span>`;
-
-  const attrName =
-    attribute === 0x07
-      ? 'white over black'
-      : attribute === 0x41
-        ? 'bright blue over black'
-        : attribute === 0x05
-          ? 'cyan over black'
-          : 'red over black';
+    hero.room === 0
+      ? `outdoors · map (${view.position.x}, ${view.position.y})`
+      : `room <b>${hero.room}</b> · roomdef <span class="a">${
+          roomsData.roomdefs[roomsData.rooms[hero.room - 1]!.roomdefIndex]!.addr
+        }</span>`;
 
   statusEl.innerHTML =
-    `${where} · attribute <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span> ` +
-    `(${attrName})${wipeTiles ? ' · <b>unlit tunnel: tiles wiped</b>' : ''}`;
+    `pos <b>(${hero.pos.x}, ${hero.pos.y})</b> · tiny (${tiny.x}, ${tiny.y}) · ` +
+    `facing <b>${dirNames[hero.direction & 3]}</b>${hero.direction & 4 ? ' crawling' : ''} · ` +
+    `${where} · attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span>` +
+    (lastEvent ? ` · <b>${lastEvent}</b>` : '');
 }
 
-function setMode(mode: 'exterior' | 'interior'): void {
-  state.mode = mode;
-  btnExterior.setAttribute('aria-pressed', String(mode === 'exterior'));
-  btnInterior.setAttribute('aria-pressed', String(mode === 'interior'));
-  roomSelect.disabled = mode === 'exterior';
+function tick(): void {
+  const input = encodeInput(
+    keys.has('ArrowUp'),
+    keys.has('ArrowDown'),
+    keys.has('ArrowLeft'),
+    keys.has('ArrowRight'),
+  );
+
+  const outcome = step(hero, input);
+  if (outcome.enteredRoom !== null) {
+    lastEvent = outcome.enteredRoom === 0 ? 'stepped outside' : `entered room ${outcome.enteredRoom}`;
+    if (outcome.enteredRoom !== 0) {
+      view.position.x = INTERIOR_MAP_POSITION.x;
+      view.position.y = INTERIOR_MAP_POSITION.y;
+    }
+  } else if (outcome.lockedDoor !== null) {
+    lastEvent = 'THE DOOR IS LOCKED';
+  } else if (outcome.blocked) {
+    lastEvent = 'blocked';
+  } else if (input !== 0) {
+    lastEvent = '';
+  }
+
   render();
 }
 
-btnExterior.addEventListener('click', () => setMode('exterior'));
-btnInterior.addEventListener('click', () => setMode('interior'));
-
-roomSelect.addEventListener('change', () => {
-  state.room = Number(roomSelect.value);
-  setMode('interior');
-});
-
-btnNight.addEventListener('click', () => {
-  state.night = !state.night;
-  btnNight.setAttribute('aria-pressed', String(state.night));
-  render();
-});
-
-btnTorch.addEventListener('click', () => {
-  state.torch = !state.torch;
-  btnTorch.setAttribute('aria-pressed', String(state.torch));
-  render();
-});
+// The original runs its logic on a fixed tick, not on wall-clock time, so the
+// loop is a fixed-step interval rather than requestAnimationFrame chasing.
+const TICK_MS = 1000 / 25;
+setInterval(tick, TICK_MS);
 
 window.addEventListener('keydown', (e) => {
-  const step = e.shiftKey ? 4 : 1;
-  let handled = true;
-
-  switch (e.key) {
-    case 'ArrowLeft':
-      state.mapX = clamp(state.mapX - step, 0, MAX_MAP_X);
-      break;
-    case 'ArrowRight':
-      state.mapX = clamp(state.mapX + step, 0, MAX_MAP_X);
-      break;
-    case 'ArrowUp':
-      state.mapY = clamp(state.mapY - step, 0, MAX_MAP_Y);
-      break;
-    case 'ArrowDown':
-      state.mapY = clamp(state.mapY + step, 0, MAX_MAP_Y);
-      break;
-    case '[':
-      state.room = clamp(state.room - 1, 1, roomsData.rooms.length);
-      roomSelect.value = String(state.room);
-      setMode('interior');
-      return;
-    case ']':
-      state.room = clamp(state.room + 1, 1, roomsData.rooms.length);
-      roomSelect.value = String(state.room);
-      setMode('interior');
-      return;
-    default:
-      handled = false;
-  }
-
-  if (handled) {
+  if (e.key.startsWith('Arrow')) {
+    keys.add(e.key);
     e.preventDefault();
-    if (state.mode !== 'exterior') setMode('exterior');
-    else render();
   }
+});
+window.addEventListener('keyup', (e) => keys.delete(e.key));
+window.addEventListener('blur', () => keys.clear());
+
+btnNight.addEventListener('click', () => {
+  night = !night;
+  btnNight.setAttribute('aria-pressed', String(night));
+  render();
+});
+btnTorch.addEventListener('click', () => {
+  torch = !torch;
+  btnTorch.setAttribute('aria-pressed', String(torch));
+  render();
+});
+btnReset.addEventListener('click', () => {
+  hero.pos = { ...START };
+  hero.room = 0;
+  hero.direction = 0;
+  lastEvent = '';
+  render();
 });
 
 function fit(): void {
   presenter.resize(window.innerWidth - 48, window.innerHeight - 260);
   render();
 }
-
 window.addEventListener('resize', fit);
-setMode('exterior');
 fit();

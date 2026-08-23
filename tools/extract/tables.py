@@ -373,12 +373,30 @@ def extract_geography(sk: Skool) -> dict[str, Any]:
     # doors_home_to_outside, which names a region *within* the array.
     doors_lo, doors_hi = sk.extent_of_block("doors")
 
+    # 62 PAIRS of 4-byte half-doors (124 entries). Each half gives the TARGET
+    # room, the direction the door faces, and its position; the pair's other
+    # half is where you arrive. Outdoor coordinates are stored divided by four.
+    half_doors = []
+    for a, rec in fixed_records(img, doors_lo, (doors_hi - doors_lo) // 4, 4):
+        half_doors.append({
+            "addr": f"${a:04X}",
+            "targetRoom": (rec[0] >> 2) & 0x3F,
+            "direction": rec[0] & 0x03,
+            "pos": {"x": rec[1], "y": rec[2], "height": rec[3]},
+        })
+
     return {
         "doors": {
             "_label": "doors",
             "_addr": f"${doors_lo:04X}",
             "_bytes": doors_hi - doors_lo,
-            "values": list(sk.slice_block("doors")),
+            "pairCount": len(half_doors) // 2,
+            "halfDoors": half_doors,
+            "note": (
+                "Each door is a PAIR of half-doors; entry 2n and 2n+1. "
+                "Outdoor positions are divided by four (transition c$68A2 "
+                "multiplies them back by 4)."
+            ),
         },
         "doorSections": {
             "homeToOutside": f"${sk.addr_of('doors_home_to_outside'):04X}",
@@ -396,7 +414,106 @@ def extract_geography(sk: Skool) -> dict[str, Any]:
             **provenance(sk, "beds"),
             "values": words(img, sk.addr_of("beds"), _count(sk, "beds", 2)),
         },
-        "walls": raw("walls"),
+        # 24 wall/boundary volumes in map space, stride 6:
+        # {minx, maxx, miny, maxy, minh, maxh}. bounds_check (c$B14C) tests the
+        # hero against every one of them.
+        "walls": {
+            **provenance(sk, "walls"),
+            "stride": 6,
+            "fields": ["minx", "maxx", "miny", "maxy", "minh", "maxh"],
+            "entries": [
+                dict(zip(("minx", "maxx", "miny", "maxy", "minh", "maxh"), rec))
+                for _, rec in fixed_records(
+                    img, sk.addr_of("walls"), _count(sk, "walls", 6), 6
+                )
+            ],
+        },
+        # Three permitted areas, stride 4: {x0, x1, y0, y1} in tinypos space.
+        # within_camp_bounds (c$A01A) indexes this with 0..2.
+        "permittedBounds": {
+            **provenance(sk, "permitted_bounds"),
+            "entries": [
+                dict(zip(("x0", "x1", "y0", "y1"), rec))
+                for _, rec in fixed_records(
+                    img,
+                    sk.addr_of("permitted_bounds"),
+                    _count(sk, "permitted_bounds", 4),
+                    4,
+                )
+            ],
+        },
+        "routeToPermitted": {
+            **provenance(sk, "route_to_permitted"),
+            "values": list(sk.slice("route_to_permitted")),
+        },
+    }
+
+
+def extract_animations(sk: Skool) -> dict[str, Any]:
+    """The animation table, the (direction, input) lookup, and the frame data.
+
+    Movement is entirely data-driven: animindices ($CDAA) maps a character's
+    direction and input to an animation index plus a reverse flag, animations
+    ($CDF2) resolves that to a pointer, and each frame carries signed dx/dy/dh
+    deltas. Nothing about how far a step moves is hardcoded in the engine.
+
+    An animation is a 4-byte header {nframes, ...} followed by nframes frames of
+    {dx, dy, dh, spriteindex}, the last with a flip flag in its top bit.
+    """
+    img = sk.image
+    anims_addr = sk.addr_of("animations")
+    n_anims = _count(sk, "animations", 2)
+    pointers = pointer_table(img, anims_addr, n_anims)
+
+    def signed(b: int) -> int:
+        return b - 256 if b >= 128 else b
+
+    animations = []
+    for i, ptr in enumerate(pointers):
+        nframes = img[ptr]
+        frames = []
+        for f in range(nframes):
+            o = ptr + 4 + f * 4
+            frames.append({
+                "dx": signed(img[o]),
+                "dy": signed(img[o + 1]),
+                "dh": signed(img[o + 2]),
+                "sprite": img[o + 3] & 0x7F,
+                "flip": bool(img[o + 3] & 0x80),
+            })
+        animations.append({
+            "index": i,
+            "addr": f"${ptr:04X}",
+            "labels": sk.addr_to_labels.get(ptr, []),
+            "header": list(img[ptr:ptr + 4]),
+            "frames": frames,
+        })
+
+    # animindices is 8 rows (direction 0..7) x 9 columns (the 3x3 input grid).
+    ai = sk.addr_of("animindices")
+    rows = []
+    for d in range(8):
+        row = []
+        for inp in range(9):
+            v = img[ai + d * 9 + inp]
+            row.append({"animation": v & 0x7F, "reverse": bool(v & 0x80)})
+        rows.append(row)
+
+    return {
+        **provenance(sk, "animations"),
+        "count": n_anims,
+        "animations": animations,
+        "animIndices": {
+            **provenance(sk, "animindices"),
+            "rows": 8,
+            "columns": 9,
+            "note": (
+                "row = direction (TL/TR/BR/BL, then the same four crawling); "
+                "column = input, encoded as horizontal*3 + vertical where "
+                "up=1 down=2 left=3 right=6"
+            ),
+            "table": rows,
+        },
     }
 
 
@@ -554,6 +671,7 @@ EXTRACTORS = {
     "items": extract_items,
     "characters": extract_characters,
     "geography": extract_geography,
+    "animations": extract_animations,
     "routes": extract_routes,
     "text": extract_text,
     "timing": extract_timing,

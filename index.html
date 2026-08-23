@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>The Great Escape — P1 static rendering</title>
+    <title>The Great Escape — P2 hero movement</title>
     <style>
       :root {
         --bg: #0b0d0f;
@@ -64,7 +64,7 @@
     </style>
   </head>
   <body>
-    <h1>The Great Escape — static rendering</h1>
+    <h1>The Great Escape — walkable hero</h1>
     <p class="sub">
       256&times;192 Spectrum display: a 1-bit pixel buffer plus a 32&times;24 attribute grid.
       The 192&times;128 game window is blitted from a 24&times;17 tile buffer through the
@@ -74,17 +74,17 @@
     <canvas id="screen" width="256" height="192"></canvas>
 
     <div class="bar">
-      <button id="mode-exterior" aria-pressed="true">Exterior</button>
-      <button id="mode-interior" aria-pressed="false">Interior</button>
-      <select id="room" aria-label="Room"></select>
       <button id="night" aria-pressed="false">Night</button>
       <button id="torch" aria-pressed="false">Torch</button>
+      <button id="reset">Reset position</button>
     </div>
 
     <p class="status" id="status"></p>
     <p class="sub">
-      <kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd> pan the map ·
-      <kbd>shift</kbd> to pan by a supertile · <kbd>[</kbd><kbd>]</kbd> change room
+      <kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd> walk. The four
+      screen directions map onto the four world diagonals, so pressing a direction you are
+      not already facing turns the hero rather than moving him &mdash; exactly as the
+      <code>animindices</code> table dictates. Walk into a door to change room.
     </p>
 
     <script type="module" src="/src/main.ts"></script>

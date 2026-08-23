@@ -299,6 +299,56 @@ absence from the reference build is visible rather than silent.
 
 ---
 
+## 11. How map_position tracks the hero is not yet traced
+
+**Status:** Assumed. Found during P2.
+
+**What I was reading:** `get_supertiles` (c$A7C9), the `shunt_map_*` family
+(c$A9E4 onward), and `hero_map_position` (`g$81B8`).
+
+The shunt routines are implemented faithfully — each moves `map_position` by one
+tile, refreshes `map_buf` and redraws a single edge. What is *not* yet traced is
+the rule that decides **when** to shunt: the original compares the hero's
+position against thresholds and calls the appropriate `shunt_map_*`, and I have
+not followed that logic through `$B2FC` and `hero_map_position` yet.
+
+**Assumption I am proceeding with:** the demo centres the window on the hero's
+tinypos each frame. For any single frame this produces the same view the shunt
+sequence would reach, so nothing renders incorrectly — but the *timing* of the
+scroll may differ, and centring is certainly not how the original behaves at the
+map edges. Marked `// ASSUMPTION:` in `src/main.ts::followHero`.
+
+This only affects the demo harness. The `shunt_map_*` operations themselves are
+tested and agree with a from-scratch render of the destination, so replacing the
+centring with the real trigger rule is a local change.
+
+---
+
+## 12. The fourth byte of an animation header is unidentified
+
+**Status:** Assumed.
+
+An animation is `{nframes, dirFrom, dirTo, ?}` followed by frames. The first
+three are established by inspection across all 24 animations:
+
+| Animation | Header | Reading |
+|---|---|---|
+| `anim_walk_tl` | `[4, 0, 0, 2]` | 4 frames, TL → TL (walking never turns) |
+| `anim_turn_tl` | `[2, 0, 1, 255]` | 2 frames, TL → TR |
+| `anim_wait_tl` | `[1, 0, 0, 255]` | 1 frame, TL → TL |
+
+The fourth byte is `255` for every turn and wait, but for the four walks it is
+the *opposite* direction (`walk_tl` → 2, `walk_tr` → 3, `walk_br` → 0,
+`walk_bl` → 1).
+
+**Assumption:** it is the direction to face when the animation is played in
+reverse — walking backwards would leave you facing the other way. Not relied on:
+`src/game/hero.ts` derives the resulting direction from `dirFrom`/`dirTo`, which
+are unambiguous, and ignores the fourth byte entirely. To be resolved by reading
+`animate` (c$B5CE) properly in P3, where sprite selection makes it matter.
+
+---
+
 ## Not open, but worth recording
 
 Two things that looked like problems and are not:

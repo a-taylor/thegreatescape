@@ -21,504 +21,1250 @@
     "_addr": "$78D6",
     "_bytes": 496,
     "_label": "doors",
-    "values": [
-      1,
-      178,
-      138,
-      6,
-      3,
-      178,
-      142,
-      6,
-      1,
-      178,
-      122,
-      6,
-      3,
-      178,
-      126,
-      6,
-      136,
-      138,
-      179,
-      6,
-      2,
-      16,
-      52,
-      12,
-      192,
-      204,
-      121,
-      6,
-      2,
-      16,
-      52,
-      12,
-      113,
-      217,
-      163,
-      6,
-      3,
-      42,
-      28,
-      24,
-      4,
-      212,
-      189,
-      6,
-      2,
-      30,
-      46,
-      24,
-      9,
-      193,
-      163,
-      6,
-      3,
-      42,
-      28,
-      24,
-      12,
-      188,
-      189,
-      6,
-      2,
-      32,
-      46,
-      24,
-      17,
-      169,
-      163,
-      6,
-      3,
-      42,
-      28,
-      24,
-      20,
-      164,
-      189,
-      6,
-      2,
-      32,
-      46,
-      24,
-      84,
-      252,
-      202,
-      6,
-      2,
-      28,
-      36,
-      24,
-      80,
-      252,
-      218,
-      6,
-      2,
-      26,
-      34,
-      24,
-      61,
-      247,
-      227,
-      6,
-      3,
-      38,
-      25,
-      24,
-      53,
-      223,
-      227,
-      6,
-      3,
-      42,
-      28,
-      24,
-      33,
-      151,
-      211,
-      6,
-      3,
-      42,
-      21,
-      24,
-      25,
-      0,
-      0,
-      0,
-      3,
-      34,
-      34,
-      24,
-      5,
-      44,
-      52,
-      24,
-      115,
-      38,
-      26,
-      24,
-      13,
-      36,
-      54,
-      24,
-      11,
-      38,
-      26,
-      24,
-      21,
-      36,
-      54,
-      24,
-      19,
-      38,
-      26,
-      24,
-      93,
-      40,
-      66,
-      24,
-      103,
-      38,
-      24,
-      24,
-      92,
-      62,
-      36,
-      24,
-      86,
-      32,
-      46,
-      24,
-      77,
-      34,
-      66,
-      24,
-      95,
-      34,
-      28,
-      24,
-      73,
-      36,
-      54,
-      24,
-      79,
-      56,
-      34,
-      24,
-      85,
-      44,
-      54,
-      24,
-      91,
-      34,
-      28,
-      24,
-      89,
-      44,
-      54,
-      24,
-      99,
-      42,
-      38,
-      24,
-      49,
-      66,
-      58,
-      24,
-      75,
-      34,
-      28,
-      24,
-      68,
-      60,
-      36,
-      24,
-      30,
-      28,
-      34,
-      24,
-      60,
-      64,
-      40,
-      24,
-      58,
-      30,
-      40,
-      24,
-      65,
-      34,
-      66,
-      24,
-      59,
-      34,
-      28,
-      24,
-      64,
-      62,
-      46,
-      24,
-      54,
-      26,
-      34,
-      24,
-      0,
-      68,
-      48,
-      24,
-      2,
-      32,
-      48,
-      24,
-      52,
-      74,
-      40,
-      24,
-      46,
-      26,
-      34,
-      24,
-      28,
-      64,
-      36,
-      24,
-      66,
-      26,
-      34,
-      24,
-      40,
-      54,
-      53,
-      24,
-      34,
-      23,
-      38,
-      24,
-      36,
-      54,
-      28,
-      24,
-      34,
-      26,
-      34,
-      24,
-      48,
-      62,
-      36,
-      24,
-      70,
-      26,
-      34,
-      24,
-      117,
-      54,
-      54,
-      24,
-      39,
-      56,
-      10,
-      12,
-      209,
-      56,
-      98,
-      12,
-      123,
-      56,
-      10,
-      12,
-      120,
-      100,
-      52,
-      12,
-      126,
-      56,
-      38,
-      12,
-      121,
-      56,
-      98,
-      12,
-      147,
-      56,
-      10,
-      12,
-      124,
-      100,
-      52,
-      12,
-      130,
-      10,
-      52,
-      12,
-      129,
-      56,
-      98,
-      12,
-      135,
-      32,
-      52,
-      12,
-      133,
-      64,
-      52,
-      12,
-      143,
-      56,
-      10,
-      12,
-      140,
-      100,
-      52,
-      12,
-      138,
-      10,
-      52,
-      12,
-      144,
-      100,
-      52,
-      12,
-      142,
-      56,
-      28,
-      12,
-      148,
-      62,
-      34,
-      24,
-      10,
-      16,
-      52,
-      12,
-      152,
-      100,
-      52,
-      12,
-      150,
-      16,
-      52,
-      12,
-      157,
-      64,
-      52,
-      12,
-      155,
-      32,
-      52,
-      12,
-      160,
-      100,
-      52,
-      12,
-      154,
-      56,
-      84,
-      12,
-      161,
-      56,
-      98,
-      12,
-      167,
-      56,
-      10,
-      12,
-      164,
-      100,
-      52,
-      12,
-      170,
-      56,
-      38,
-      12,
-      165,
-      56,
-      98,
-      12,
-      183,
-      56,
-      10,
-      12,
-      180,
-      100,
-      52,
-      12,
-      178,
-      56,
-      28,
-      12,
-      173,
-      32,
-      52,
-      12,
-      179,
-      56,
-      10,
-      12,
-      169,
-      56,
-      98,
-      12,
-      175,
-      32,
-      52,
-      12,
-      184,
-      100,
-      52,
-      12,
-      158,
-      56,
-      28,
-      12,
-      189,
-      56,
-      98,
-      12,
-      187,
-      32,
-      52,
-      12,
-      200,
-      100,
-      52,
-      12,
-      190,
-      56,
-      86,
-      12,
-      201,
-      56,
-      98,
-      12,
-      199,
-      56,
-      10,
-      12,
-      196,
-      100,
-      52,
-      12,
-      194,
-      56,
-      28,
-      12,
-      205,
-      56,
-      98,
-      12,
-      119,
-      32,
-      52,
-      12,
-      208,
-      100,
-      52,
-      12,
-      206,
-      56,
-      84,
-      12
-    ]
+    "halfDoors": [
+      {
+        "addr": "$78D6",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 178,
+          "y": 138
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$78DA",
+        "direction": 3,
+        "pos": {
+          "height": 6,
+          "x": 178,
+          "y": 142
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$78DE",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 178,
+          "y": 122
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$78E2",
+        "direction": 3,
+        "pos": {
+          "height": 6,
+          "x": 178,
+          "y": 126
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$78E6",
+        "direction": 0,
+        "pos": {
+          "height": 6,
+          "x": 138,
+          "y": 179
+        },
+        "targetRoom": 34
+      },
+      {
+        "addr": "$78EA",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 16,
+          "y": 52
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$78EE",
+        "direction": 0,
+        "pos": {
+          "height": 6,
+          "x": 204,
+          "y": 121
+        },
+        "targetRoom": 48
+      },
+      {
+        "addr": "$78F2",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 16,
+          "y": 52
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$78F6",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 217,
+          "y": 163
+        },
+        "targetRoom": 28
+      },
+      {
+        "addr": "$78FA",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 42,
+          "y": 28
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$78FE",
+        "direction": 0,
+        "pos": {
+          "height": 6,
+          "x": 212,
+          "y": 189
+        },
+        "targetRoom": 1
+      },
+      {
+        "addr": "$7902",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 30,
+          "y": 46
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$7906",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 193,
+          "y": 163
+        },
+        "targetRoom": 2
+      },
+      {
+        "addr": "$790A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 42,
+          "y": 28
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$790E",
+        "direction": 0,
+        "pos": {
+          "height": 6,
+          "x": 188,
+          "y": 189
+        },
+        "targetRoom": 3
+      },
+      {
+        "addr": "$7912",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 32,
+          "y": 46
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$7916",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 169,
+          "y": 163
+        },
+        "targetRoom": 4
+      },
+      {
+        "addr": "$791A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 42,
+          "y": 28
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$791E",
+        "direction": 0,
+        "pos": {
+          "height": 6,
+          "x": 164,
+          "y": 189
+        },
+        "targetRoom": 5
+      },
+      {
+        "addr": "$7922",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 32,
+          "y": 46
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$7926",
+        "direction": 0,
+        "pos": {
+          "height": 6,
+          "x": 252,
+          "y": 202
+        },
+        "targetRoom": 21
+      },
+      {
+        "addr": "$792A",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 28,
+          "y": 36
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$792E",
+        "direction": 0,
+        "pos": {
+          "height": 6,
+          "x": 252,
+          "y": 218
+        },
+        "targetRoom": 20
+      },
+      {
+        "addr": "$7932",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 26,
+          "y": 34
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$7936",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 247,
+          "y": 227
+        },
+        "targetRoom": 15
+      },
+      {
+        "addr": "$793A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 38,
+          "y": 25
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$793E",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 223,
+          "y": 227
+        },
+        "targetRoom": 13
+      },
+      {
+        "addr": "$7942",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 42,
+          "y": 28
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$7946",
+        "direction": 1,
+        "pos": {
+          "height": 6,
+          "x": 151,
+          "y": 211
+        },
+        "targetRoom": 8
+      },
+      {
+        "addr": "$794A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 42,
+          "y": 21
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$794E",
+        "direction": 1,
+        "pos": {
+          "height": 0,
+          "x": 0,
+          "y": 0
+        },
+        "targetRoom": 6
+      },
+      {
+        "addr": "$7952",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 34,
+          "y": 34
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$7956",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 44,
+          "y": 52
+        },
+        "targetRoom": 1
+      },
+      {
+        "addr": "$795A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 38,
+          "y": 26
+        },
+        "targetRoom": 28
+      },
+      {
+        "addr": "$795E",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 36,
+          "y": 54
+        },
+        "targetRoom": 3
+      },
+      {
+        "addr": "$7962",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 38,
+          "y": 26
+        },
+        "targetRoom": 2
+      },
+      {
+        "addr": "$7966",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 36,
+          "y": 54
+        },
+        "targetRoom": 5
+      },
+      {
+        "addr": "$796A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 38,
+          "y": 26
+        },
+        "targetRoom": 4
+      },
+      {
+        "addr": "$796E",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 40,
+          "y": 66
+        },
+        "targetRoom": 23
+      },
+      {
+        "addr": "$7972",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 38,
+          "y": 24
+        },
+        "targetRoom": 25
+      },
+      {
+        "addr": "$7976",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 62,
+          "y": 36
+        },
+        "targetRoom": 23
+      },
+      {
+        "addr": "$797A",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 32,
+          "y": 46
+        },
+        "targetRoom": 21
+      },
+      {
+        "addr": "$797E",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 34,
+          "y": 66
+        },
+        "targetRoom": 19
+      },
+      {
+        "addr": "$7982",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 34,
+          "y": 28
+        },
+        "targetRoom": 23
+      },
+      {
+        "addr": "$7986",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 36,
+          "y": 54
+        },
+        "targetRoom": 18
+      },
+      {
+        "addr": "$798A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 56,
+          "y": 34
+        },
+        "targetRoom": 19
+      },
+      {
+        "addr": "$798E",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 44,
+          "y": 54
+        },
+        "targetRoom": 21
+      },
+      {
+        "addr": "$7992",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 34,
+          "y": 28
+        },
+        "targetRoom": 22
+      },
+      {
+        "addr": "$7996",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 44,
+          "y": 54
+        },
+        "targetRoom": 22
+      },
+      {
+        "addr": "$799A",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 42,
+          "y": 38
+        },
+        "targetRoom": 24
+      },
+      {
+        "addr": "$799E",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 66,
+          "y": 58
+        },
+        "targetRoom": 12
+      },
+      {
+        "addr": "$79A2",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 34,
+          "y": 28
+        },
+        "targetRoom": 18
+      },
+      {
+        "addr": "$79A6",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 60,
+          "y": 36
+        },
+        "targetRoom": 17
+      },
+      {
+        "addr": "$79AA",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 28,
+          "y": 34
+        },
+        "targetRoom": 7
+      },
+      {
+        "addr": "$79AE",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 64,
+          "y": 40
+        },
+        "targetRoom": 15
+      },
+      {
+        "addr": "$79B2",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 30,
+          "y": 40
+        },
+        "targetRoom": 14
+      },
+      {
+        "addr": "$79B6",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 34,
+          "y": 66
+        },
+        "targetRoom": 16
+      },
+      {
+        "addr": "$79BA",
+        "direction": 3,
+        "pos": {
+          "height": 24,
+          "x": 34,
+          "y": 28
+        },
+        "targetRoom": 14
+      },
+      {
+        "addr": "$79BE",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 62,
+          "y": 46
+        },
+        "targetRoom": 16
+      },
+      {
+        "addr": "$79C2",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 26,
+          "y": 34
+        },
+        "targetRoom": 13
+      },
+      {
+        "addr": "$79C6",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 68,
+          "y": 48
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$79CA",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 32,
+          "y": 48
+        },
+        "targetRoom": 0
+      },
+      {
+        "addr": "$79CE",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 74,
+          "y": 40
+        },
+        "targetRoom": 13
+      },
+      {
+        "addr": "$79D2",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 26,
+          "y": 34
+        },
+        "targetRoom": 11
+      },
+      {
+        "addr": "$79D6",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 64,
+          "y": 36
+        },
+        "targetRoom": 7
+      },
+      {
+        "addr": "$79DA",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 26,
+          "y": 34
+        },
+        "targetRoom": 16
+      },
+      {
+        "addr": "$79DE",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 54,
+          "y": 53
+        },
+        "targetRoom": 10
+      },
+      {
+        "addr": "$79E2",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 23,
+          "y": 38
+        },
+        "targetRoom": 8
+      },
+      {
+        "addr": "$79E6",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 54,
+          "y": 28
+        },
+        "targetRoom": 9
+      },
+      {
+        "addr": "$79EA",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 26,
+          "y": 34
+        },
+        "targetRoom": 8
+      },
+      {
+        "addr": "$79EE",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 62,
+          "y": 36
+        },
+        "targetRoom": 12
+      },
+      {
+        "addr": "$79F2",
+        "direction": 2,
+        "pos": {
+          "height": 24,
+          "x": 26,
+          "y": 34
+        },
+        "targetRoom": 17
+      },
+      {
+        "addr": "$79F6",
+        "direction": 1,
+        "pos": {
+          "height": 24,
+          "x": 54,
+          "y": 54
+        },
+        "targetRoom": 29
+      },
+      {
+        "addr": "$79FA",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 9
+      },
+      {
+        "addr": "$79FE",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 52
+      },
+      {
+        "addr": "$7A02",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 30
+      },
+      {
+        "addr": "$7A06",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 30
+      },
+      {
+        "addr": "$7A0A",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 38
+        },
+        "targetRoom": 31
+      },
+      {
+        "addr": "$7A0E",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 30
+      },
+      {
+        "addr": "$7A12",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 36
+      },
+      {
+        "addr": "$7A16",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 31
+      },
+      {
+        "addr": "$7A1A",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 10,
+          "y": 52
+        },
+        "targetRoom": 32
+      },
+      {
+        "addr": "$7A1E",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 32
+      },
+      {
+        "addr": "$7A22",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 32,
+          "y": 52
+        },
+        "targetRoom": 33
+      },
+      {
+        "addr": "$7A26",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 64,
+          "y": 52
+        },
+        "targetRoom": 33
+      },
+      {
+        "addr": "$7A2A",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 35
+      },
+      {
+        "addr": "$7A2E",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 35
+      },
+      {
+        "addr": "$7A32",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 10,
+          "y": 52
+        },
+        "targetRoom": 34
+      },
+      {
+        "addr": "$7A36",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 36
+      },
+      {
+        "addr": "$7A3A",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 28
+        },
+        "targetRoom": 35
+      },
+      {
+        "addr": "$7A3E",
+        "direction": 0,
+        "pos": {
+          "height": 24,
+          "x": 62,
+          "y": 34
+        },
+        "targetRoom": 37
+      },
+      {
+        "addr": "$7A42",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 16,
+          "y": 52
+        },
+        "targetRoom": 2
+      },
+      {
+        "addr": "$7A46",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 38
+      },
+      {
+        "addr": "$7A4A",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 16,
+          "y": 52
+        },
+        "targetRoom": 37
+      },
+      {
+        "addr": "$7A4E",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 64,
+          "y": 52
+        },
+        "targetRoom": 39
+      },
+      {
+        "addr": "$7A52",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 32,
+          "y": 52
+        },
+        "targetRoom": 38
+      },
+      {
+        "addr": "$7A56",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 40
+      },
+      {
+        "addr": "$7A5A",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 84
+        },
+        "targetRoom": 38
+      },
+      {
+        "addr": "$7A5E",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 40
+      },
+      {
+        "addr": "$7A62",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 41
+      },
+      {
+        "addr": "$7A66",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 41
+      },
+      {
+        "addr": "$7A6A",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 38
+        },
+        "targetRoom": 42
+      },
+      {
+        "addr": "$7A6E",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 41
+      },
+      {
+        "addr": "$7A72",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 45
+      },
+      {
+        "addr": "$7A76",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 45
+      },
+      {
+        "addr": "$7A7A",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 28
+        },
+        "targetRoom": 44
+      },
+      {
+        "addr": "$7A7E",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 32,
+          "y": 52
+        },
+        "targetRoom": 43
+      },
+      {
+        "addr": "$7A82",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 44
+      },
+      {
+        "addr": "$7A86",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 42
+      },
+      {
+        "addr": "$7A8A",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 32,
+          "y": 52
+        },
+        "targetRoom": 43
+      },
+      {
+        "addr": "$7A8E",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 46
+      },
+      {
+        "addr": "$7A92",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 28
+        },
+        "targetRoom": 39
+      },
+      {
+        "addr": "$7A96",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 47
+      },
+      {
+        "addr": "$7A9A",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 32,
+          "y": 52
+        },
+        "targetRoom": 46
+      },
+      {
+        "addr": "$7A9E",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 50
+      },
+      {
+        "addr": "$7AA2",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 86
+        },
+        "targetRoom": 47
+      },
+      {
+        "addr": "$7AA6",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 50
+      },
+      {
+        "addr": "$7AAA",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 10
+        },
+        "targetRoom": 49
+      },
+      {
+        "addr": "$7AAE",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 49
+      },
+      {
+        "addr": "$7AB2",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 28
+        },
+        "targetRoom": 48
+      },
+      {
+        "addr": "$7AB6",
+        "direction": 1,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 98
+        },
+        "targetRoom": 51
+      },
+      {
+        "addr": "$7ABA",
+        "direction": 3,
+        "pos": {
+          "height": 12,
+          "x": 32,
+          "y": 52
+        },
+        "targetRoom": 29
+      },
+      {
+        "addr": "$7ABE",
+        "direction": 0,
+        "pos": {
+          "height": 12,
+          "x": 100,
+          "y": 52
+        },
+        "targetRoom": 52
+      },
+      {
+        "addr": "$7AC2",
+        "direction": 2,
+        "pos": {
+          "height": 12,
+          "x": 56,
+          "y": 84
+        },
+        "targetRoom": 51
+      }
+    ],
+    "note": "Each door is a PAIR of half-doors; entry 2n and 2n+1. Outdoor positions are divided by four (transition c$68A2 multiplies them back by 4).",
+    "pairCount": 62
   },
   "locations": {
     "_addr": "$783A",
@@ -623,6 +1369,87 @@
       0
     ]
   },
+  "permittedBounds": {
+    "_addr": "$9F15",
+    "_bytes": 12,
+    "_label": "permitted_bounds",
+    "entries": [
+      {
+        "x0": 86,
+        "x1": 94,
+        "y0": 61,
+        "y1": 72
+      },
+      {
+        "x0": 78,
+        "x1": 132,
+        "y0": 71,
+        "y1": 116
+      },
+      {
+        "x0": 79,
+        "x1": 105,
+        "y0": 47,
+        "y1": 63
+      }
+    ]
+  },
+  "routeToPermitted": {
+    "_addr": "$9EE4",
+    "_bytes": 49,
+    "_label": "route_to_permitted",
+    "values": [
+      42,
+      249,
+      158,
+      5,
+      252,
+      158,
+      14,
+      1,
+      159,
+      16,
+      8,
+      159,
+      44,
+      14,
+      159,
+      43,
+      17,
+      159,
+      45,
+      19,
+      159,
+      130,
+      130,
+      255,
+      131,
+      1,
+      1,
+      1,
+      255,
+      1,
+      1,
+      1,
+      0,
+      2,
+      2,
+      255,
+      1,
+      1,
+      149,
+      151,
+      153,
+      255,
+      131,
+      130,
+      255,
+      153,
+      255,
+      1,
+      255
+    ]
+  },
   "solitaryPos": {
     "_addr": "$7AC6",
     "_bytes": 3,
@@ -637,151 +1464,208 @@
     "_addr": "$B53E",
     "_bytes": 144,
     "_label": "walls",
-    "values": [
-      106,
-      110,
-      82,
-      98,
-      0,
-      11,
-      94,
-      98,
-      82,
-      98,
-      0,
-      11,
-      82,
-      86,
-      82,
-      98,
-      0,
-      11,
-      62,
-      90,
-      106,
-      128,
-      0,
-      48,
-      52,
-      128,
-      114,
-      128,
-      0,
-      48,
-      126,
-      152,
-      94,
-      128,
-      0,
-      48,
-      130,
-      152,
-      90,
-      128,
-      0,
-      48,
-      134,
-      140,
-      70,
-      128,
-      0,
-      10,
-      130,
-      134,
-      70,
-      74,
-      0,
-      18,
-      110,
-      130,
-      70,
-      71,
-      0,
-      10,
-      109,
-      111,
-      69,
-      73,
-      0,
-      18,
-      103,
-      105,
-      69,
-      73,
-      0,
-      18,
-      70,
-      70,
-      70,
-      106,
-      0,
-      8,
-      62,
-      62,
-      62,
-      106,
-      0,
-      8,
-      78,
-      78,
-      46,
-      62,
-      0,
-      8,
-      104,
-      104,
-      46,
-      69,
-      0,
-      8,
-      62,
-      104,
-      62,
-      62,
-      0,
-      8,
-      78,
-      104,
-      46,
-      46,
-      0,
-      8,
-      70,
-      103,
-      70,
-      70,
-      0,
-      8,
-      104,
-      106,
-      56,
-      58,
-      0,
-      8,
-      78,
-      80,
-      46,
-      48,
-      0,
-      8,
-      70,
-      72,
-      70,
-      72,
-      0,
-      8,
-      70,
-      72,
-      94,
-      96,
-      0,
-      8,
-      105,
-      109,
-      70,
-      73,
-      0,
-      8
-    ]
+    "entries": [
+      {
+        "maxh": 11,
+        "maxx": 110,
+        "maxy": 98,
+        "minh": 0,
+        "minx": 106,
+        "miny": 82
+      },
+      {
+        "maxh": 11,
+        "maxx": 98,
+        "maxy": 98,
+        "minh": 0,
+        "minx": 94,
+        "miny": 82
+      },
+      {
+        "maxh": 11,
+        "maxx": 86,
+        "maxy": 98,
+        "minh": 0,
+        "minx": 82,
+        "miny": 82
+      },
+      {
+        "maxh": 48,
+        "maxx": 90,
+        "maxy": 128,
+        "minh": 0,
+        "minx": 62,
+        "miny": 106
+      },
+      {
+        "maxh": 48,
+        "maxx": 128,
+        "maxy": 128,
+        "minh": 0,
+        "minx": 52,
+        "miny": 114
+      },
+      {
+        "maxh": 48,
+        "maxx": 152,
+        "maxy": 128,
+        "minh": 0,
+        "minx": 126,
+        "miny": 94
+      },
+      {
+        "maxh": 48,
+        "maxx": 152,
+        "maxy": 128,
+        "minh": 0,
+        "minx": 130,
+        "miny": 90
+      },
+      {
+        "maxh": 10,
+        "maxx": 140,
+        "maxy": 128,
+        "minh": 0,
+        "minx": 134,
+        "miny": 70
+      },
+      {
+        "maxh": 18,
+        "maxx": 134,
+        "maxy": 74,
+        "minh": 0,
+        "minx": 130,
+        "miny": 70
+      },
+      {
+        "maxh": 10,
+        "maxx": 130,
+        "maxy": 71,
+        "minh": 0,
+        "minx": 110,
+        "miny": 70
+      },
+      {
+        "maxh": 18,
+        "maxx": 111,
+        "maxy": 73,
+        "minh": 0,
+        "minx": 109,
+        "miny": 69
+      },
+      {
+        "maxh": 18,
+        "maxx": 105,
+        "maxy": 73,
+        "minh": 0,
+        "minx": 103,
+        "miny": 69
+      },
+      {
+        "maxh": 8,
+        "maxx": 70,
+        "maxy": 106,
+        "minh": 0,
+        "minx": 70,
+        "miny": 70
+      },
+      {
+        "maxh": 8,
+        "maxx": 62,
+        "maxy": 106,
+        "minh": 0,
+        "minx": 62,
+        "miny": 62
+      },
+      {
+        "maxh": 8,
+        "maxx": 78,
+        "maxy": 62,
+        "minh": 0,
+        "minx": 78,
+        "miny": 46
+      },
+      {
+        "maxh": 8,
+        "maxx": 104,
+        "maxy": 69,
+        "minh": 0,
+        "minx": 104,
+        "miny": 46
+      },
+      {
+        "maxh": 8,
+        "maxx": 104,
+        "maxy": 62,
+        "minh": 0,
+        "minx": 62,
+        "miny": 62
+      },
+      {
+        "maxh": 8,
+        "maxx": 104,
+        "maxy": 46,
+        "minh": 0,
+        "minx": 78,
+        "miny": 46
+      },
+      {
+        "maxh": 8,
+        "maxx": 103,
+        "maxy": 70,
+        "minh": 0,
+        "minx": 70,
+        "miny": 70
+      },
+      {
+        "maxh": 8,
+        "maxx": 106,
+        "maxy": 58,
+        "minh": 0,
+        "minx": 104,
+        "miny": 56
+      },
+      {
+        "maxh": 8,
+        "maxx": 80,
+        "maxy": 48,
+        "minh": 0,
+        "minx": 78,
+        "miny": 46
+      },
+      {
+        "maxh": 8,
+        "maxx": 72,
+        "maxy": 72,
+        "minh": 0,
+        "minx": 70,
+        "miny": 70
+      },
+      {
+        "maxh": 8,
+        "maxx": 72,
+        "maxy": 96,
+        "minh": 0,
+        "minx": 70,
+        "miny": 94
+      },
+      {
+        "maxh": 8,
+        "maxx": 109,
+        "maxy": 73,
+        "minh": 0,
+        "minx": 105,
+        "miny": 70
+      }
+    ],
+    "fields": [
+      "minx",
+      "maxx",
+      "miny",
+      "maxy",
+      "minh",
+      "maxh"
+    ],
+    "stride": 6
   }
 }

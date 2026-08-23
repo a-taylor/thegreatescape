@@ -111,6 +111,8 @@ than to the game.
 - **P0 — extraction** ✅ pipeline, `data/`, PNG sheets, asset viewer, golden tests
 - **P1 — static rendering** ✅ Spectrum display model, tile plotting, game window, room and
   map rendering, window attribute selection
-- **P2 — hero movement** — next
+- **P2 — hero movement** ✅ arithmetic primitives, the three coordinate systems, map window
+  and `shunt_map_*`, bounds checking, doors and transitions, input and animation
+- **P3 — sprites and masking** — next
 
 See `PLAN.md` §6 for the phase breakdown.

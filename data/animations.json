@@ -1,0 +1,1018 @@
+{
+  "_addr": "$CDF2",
+  "_bytes": 48,
+  "_label": "animations",
+  "animIndices": {
+    "_addr": "$CDAA",
+    "_bytes": 72,
+    "_label": "animindices",
+    "columns": 9,
+    "note": "row = direction (TL/TR/BR/BL, then the same four crawling); column = input, encoded as horizontal*3 + vertical where up=1 down=2 left=3 right=6",
+    "rows": 8,
+    "table": [
+      [
+        {
+          "animation": 8,
+          "reverse": false
+        },
+        {
+          "animation": 0,
+          "reverse": false
+        },
+        {
+          "animation": 4,
+          "reverse": false
+        },
+        {
+          "animation": 7,
+          "reverse": true
+        },
+        {
+          "animation": 0,
+          "reverse": false
+        },
+        {
+          "animation": 7,
+          "reverse": true
+        },
+        {
+          "animation": 4,
+          "reverse": false
+        },
+        {
+          "animation": 4,
+          "reverse": false
+        },
+        {
+          "animation": 4,
+          "reverse": false
+        }
+      ],
+      [
+        {
+          "animation": 9,
+          "reverse": false
+        },
+        {
+          "animation": 4,
+          "reverse": true
+        },
+        {
+          "animation": 5,
+          "reverse": false
+        },
+        {
+          "animation": 5,
+          "reverse": false
+        },
+        {
+          "animation": 4,
+          "reverse": true
+        },
+        {
+          "animation": 5,
+          "reverse": false
+        },
+        {
+          "animation": 1,
+          "reverse": false
+        },
+        {
+          "animation": 1,
+          "reverse": false
+        },
+        {
+          "animation": 5,
+          "reverse": false
+        }
+      ],
+      [
+        {
+          "animation": 10,
+          "reverse": false
+        },
+        {
+          "animation": 5,
+          "reverse": true
+        },
+        {
+          "animation": 2,
+          "reverse": false
+        },
+        {
+          "animation": 6,
+          "reverse": false
+        },
+        {
+          "animation": 5,
+          "reverse": true
+        },
+        {
+          "animation": 6,
+          "reverse": false
+        },
+        {
+          "animation": 5,
+          "reverse": true
+        },
+        {
+          "animation": 5,
+          "reverse": true
+        },
+        {
+          "animation": 2,
+          "reverse": false
+        }
+      ],
+      [
+        {
+          "animation": 11,
+          "reverse": false
+        },
+        {
+          "animation": 7,
+          "reverse": false
+        },
+        {
+          "animation": 6,
+          "reverse": true
+        },
+        {
+          "animation": 3,
+          "reverse": false
+        },
+        {
+          "animation": 7,
+          "reverse": false
+        },
+        {
+          "animation": 3,
+          "reverse": false
+        },
+        {
+          "animation": 7,
+          "reverse": false
+        },
+        {
+          "animation": 7,
+          "reverse": false
+        },
+        {
+          "animation": 6,
+          "reverse": true
+        }
+      ],
+      [
+        {
+          "animation": 20,
+          "reverse": false
+        },
+        {
+          "animation": 12,
+          "reverse": false
+        },
+        {
+          "animation": 12,
+          "reverse": true
+        },
+        {
+          "animation": 19,
+          "reverse": true
+        },
+        {
+          "animation": 12,
+          "reverse": false
+        },
+        {
+          "animation": 19,
+          "reverse": true
+        },
+        {
+          "animation": 16,
+          "reverse": false
+        },
+        {
+          "animation": 16,
+          "reverse": false
+        },
+        {
+          "animation": 12,
+          "reverse": true
+        }
+      ],
+      [
+        {
+          "animation": 21,
+          "reverse": false
+        },
+        {
+          "animation": 16,
+          "reverse": true
+        },
+        {
+          "animation": 17,
+          "reverse": false
+        },
+        {
+          "animation": 13,
+          "reverse": true
+        },
+        {
+          "animation": 16,
+          "reverse": true
+        },
+        {
+          "animation": 21,
+          "reverse": true
+        },
+        {
+          "animation": 13,
+          "reverse": false
+        },
+        {
+          "animation": 13,
+          "reverse": false
+        },
+        {
+          "animation": 17,
+          "reverse": false
+        }
+      ],
+      [
+        {
+          "animation": 22,
+          "reverse": false
+        },
+        {
+          "animation": 14,
+          "reverse": true
+        },
+        {
+          "animation": 14,
+          "reverse": false
+        },
+        {
+          "animation": 18,
+          "reverse": false
+        },
+        {
+          "animation": 14,
+          "reverse": true
+        },
+        {
+          "animation": 14,
+          "reverse": false
+        },
+        {
+          "animation": 17,
+          "reverse": true
+        },
+        {
+          "animation": 17,
+          "reverse": true
+        },
+        {
+          "animation": 14,
+          "reverse": false
+        }
+      ],
+      [
+        {
+          "animation": 23,
+          "reverse": false
+        },
+        {
+          "animation": 19,
+          "reverse": false
+        },
+        {
+          "animation": 18,
+          "reverse": true
+        },
+        {
+          "animation": 15,
+          "reverse": false
+        },
+        {
+          "animation": 19,
+          "reverse": false
+        },
+        {
+          "animation": 15,
+          "reverse": false
+        },
+        {
+          "animation": 15,
+          "reverse": true
+        },
+        {
+          "animation": 15,
+          "reverse": true
+        },
+        {
+          "animation": 18,
+          "reverse": true
+        }
+      ]
+    ]
+  },
+  "animations": [
+    {
+      "addr": "$CF26",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 0
+        },
+        {
+          "dh": 0,
+          "dx": 2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 1
+        },
+        {
+          "dh": 0,
+          "dx": 2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 2
+        },
+        {
+          "dh": 0,
+          "dx": 2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 3
+        }
+      ],
+      "header": [
+        4,
+        0,
+        0,
+        2
+      ],
+      "index": 0,
+      "labels": [
+        "anim_walk_tl"
+      ]
+    },
+    {
+      "addr": "$CF3A",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 2,
+          "flip": true,
+          "sprite": 0
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 2,
+          "flip": true,
+          "sprite": 1
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 2,
+          "flip": true,
+          "sprite": 2
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 2,
+          "flip": true,
+          "sprite": 3
+        }
+      ],
+      "header": [
+        4,
+        1,
+        1,
+        3
+      ],
+      "index": 1,
+      "labels": [
+        "anim_walk_tr"
+      ]
+    },
+    {
+      "addr": "$CF4E",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": -2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 4
+        },
+        {
+          "dh": 0,
+          "dx": -2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 5
+        },
+        {
+          "dh": 0,
+          "dx": -2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 6
+        },
+        {
+          "dh": 0,
+          "dx": -2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 7
+        }
+      ],
+      "header": [
+        4,
+        2,
+        2,
+        0
+      ],
+      "index": 2,
+      "labels": [
+        "anim_walk_br"
+      ]
+    },
+    {
+      "addr": "$CF62",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": -2,
+          "flip": true,
+          "sprite": 4
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": -2,
+          "flip": true,
+          "sprite": 5
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": -2,
+          "flip": true,
+          "sprite": 6
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": -2,
+          "flip": true,
+          "sprite": 7
+        }
+      ],
+      "header": [
+        4,
+        3,
+        3,
+        1
+      ],
+      "index": 3,
+      "labels": [
+        "anim_walk_bl"
+      ]
+    },
+    {
+      "addr": "$CF96",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 0
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 0
+        }
+      ],
+      "header": [
+        2,
+        0,
+        1,
+        255
+      ],
+      "index": 4,
+      "labels": [
+        "anim_turn_tl"
+      ]
+    },
+    {
+      "addr": "$CFA2",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 0
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 4
+        }
+      ],
+      "header": [
+        2,
+        1,
+        2,
+        255
+      ],
+      "index": 5,
+      "labels": [
+        "anim_turn_tr"
+      ]
+    },
+    {
+      "addr": "$CFAE",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 4
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 4
+        }
+      ],
+      "header": [
+        2,
+        2,
+        3,
+        255
+      ],
+      "index": 6,
+      "labels": [
+        "anim_turn_br"
+      ]
+    },
+    {
+      "addr": "$CFBA",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 4
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 0
+        }
+      ],
+      "header": [
+        2,
+        3,
+        0,
+        255
+      ],
+      "index": 7,
+      "labels": [
+        "anim_turn_bl"
+      ]
+    },
+    {
+      "addr": "$CF76",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 0
+        }
+      ],
+      "header": [
+        1,
+        0,
+        0,
+        255
+      ],
+      "index": 8,
+      "labels": [
+        "anim_wait_tl"
+      ]
+    },
+    {
+      "addr": "$CF7E",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 0
+        }
+      ],
+      "header": [
+        1,
+        1,
+        1,
+        255
+      ],
+      "index": 9,
+      "labels": [
+        "anim_wait_tr"
+      ]
+    },
+    {
+      "addr": "$CF86",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 4
+        }
+      ],
+      "header": [
+        1,
+        2,
+        2,
+        255
+      ],
+      "index": 10,
+      "labels": [
+        "anim_wait_br"
+      ]
+    },
+    {
+      "addr": "$CF8E",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 4
+        }
+      ],
+      "header": [
+        1,
+        3,
+        3,
+        255
+      ],
+      "index": 11,
+      "labels": [
+        "anim_wait_bl"
+      ]
+    },
+    {
+      "addr": "$CFC6",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 10
+        },
+        {
+          "dh": 0,
+          "dx": 2,
+          "dy": 0,
+          "flip": false,
+          "sprite": 11
+        }
+      ],
+      "header": [
+        2,
+        4,
+        4,
+        2
+      ],
+      "index": 12,
+      "labels": [
+        "anim_crawl_tl"
+      ]
+    },
+    {
+      "addr": "$CFD2",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 2,
+          "flip": true,
+          "sprite": 10
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 2,
+          "flip": true,
+          "sprite": 11
+        }
+      ],
+      "header": [
+        2,
+        5,
+        5,
+        3
+      ],
+      "index": 13,
+      "labels": [
+        "anim_crawl_tr"
+      ]
+    },
+    {
+      "addr": "$CFDE",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": -2,
+          "dy": 0,
+          "flip": true,
+          "sprite": 8
+        },
+        {
+          "dh": 0,
+          "dx": -2,
+          "dy": 0,
+          "flip": true,
+          "sprite": 9
+        }
+      ],
+      "header": [
+        2,
+        6,
+        6,
+        0
+      ],
+      "index": 14,
+      "labels": [
+        "anim_crawl_br"
+      ]
+    },
+    {
+      "addr": "$CFEA",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": -2,
+          "flip": false,
+          "sprite": 8
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": -2,
+          "flip": false,
+          "sprite": 9
+        }
+      ],
+      "header": [
+        2,
+        7,
+        7,
+        1
+      ],
+      "index": 15,
+      "labels": [
+        "anim_crawl_bl"
+      ]
+    },
+    {
+      "addr": "$CFF6",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 10
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 10
+        }
+      ],
+      "header": [
+        2,
+        4,
+        5,
+        255
+      ],
+      "index": 16,
+      "labels": [
+        "anim_crawlturn_tl"
+      ]
+    },
+    {
+      "addr": "$D002",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 10
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 8
+        }
+      ],
+      "header": [
+        2,
+        5,
+        6,
+        255
+      ],
+      "index": 17,
+      "labels": [
+        "anim_crawlturn_tr"
+      ]
+    },
+    {
+      "addr": "$D00E",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 8
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 8
+        }
+      ],
+      "header": [
+        2,
+        6,
+        7,
+        255
+      ],
+      "index": 18,
+      "labels": [
+        "anim_crawlturn_br"
+      ]
+    },
+    {
+      "addr": "$D01A",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 8
+        },
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 10
+        }
+      ],
+      "header": [
+        2,
+        7,
+        4,
+        255
+      ],
+      "index": 19,
+      "labels": [
+        "anim_crawlturn_bl"
+      ]
+    },
+    {
+      "addr": "$CF06",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 10
+        }
+      ],
+      "header": [
+        1,
+        4,
+        4,
+        255
+      ],
+      "index": 20,
+      "labels": [
+        "anim_crawlwait_tl"
+      ]
+    },
+    {
+      "addr": "$CF0E",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 10
+        }
+      ],
+      "header": [
+        1,
+        5,
+        5,
+        255
+      ],
+      "index": 21,
+      "labels": [
+        "anim_crawlwait_tr"
+      ]
+    },
+    {
+      "addr": "$CF16",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": true,
+          "sprite": 8
+        }
+      ],
+      "header": [
+        1,
+        6,
+        6,
+        255
+      ],
+      "index": 22,
+      "labels": [
+        "anim_crawlwait_br"
+      ]
+    },
+    {
+      "addr": "$CF1E",
+      "frames": [
+        {
+          "dh": 0,
+          "dx": 0,
+          "dy": 0,
+          "flip": false,
+          "sprite": 8
+        }
+      ],
+      "header": [
+        1,
+        7,
+        7,
+        255
+      ],
+      "index": 23,
+      "labels": [
+        "anim_crawlwait_bl"
+      ]
+    }
+  ],
+  "count": 24
+}
