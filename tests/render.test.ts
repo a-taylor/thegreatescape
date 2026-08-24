@@ -22,6 +22,7 @@ import {
   WINDOW_ORIGIN_COL,
   WINDOW_ORIGIN_PIXEL_ROW,
   WINDOW_STRIDE,
+  BLIT_BYTES,
   plotGameWindow,
 } from '../src/render/window.js';
 import { SpectrumScreen, screenAddress } from '../src/spectrum/display.js';
@@ -242,11 +243,13 @@ describe('game window blit', () => {
   });
 
   it('rolls pixels by half a byte when the offset high byte is 255', () => {
-    // This is the slow blit path behind Fact:alternatingSpeed. Each output byte
-    // takes the low nibble of its predecessor as its high nibble.
+    // The slow blit path behind Fact:alternatingSpeed. RRD merges the PREVIOUS
+    // byte's low nibble into the top of the current one, and A is pre-loaded
+    // from buffer + offset ($EF32) -- so the first output byte's high nibble
+    // comes from buffer byte 0, while the DATA starts at buffer byte 1.
     const buffers = new GameWindowBuffers();
     buffers.pixels.fill(0x00);
-    buffers.pixels[0] = 0xab;
+    buffers.pixels[0] = 0xab; // seeds the carry only
     buffers.pixels[1] = 0xcd;
 
     const screen = new SpectrumScreen();
@@ -254,9 +257,9 @@ describe('game window blit', () => {
     plotGameWindow(screen, buffers, { low: 0, high: 0xff });
 
     const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW);
-    expect(screen.readByte(addr)).toBe(0x0a); // carry 0, high nibble of $AB
-    expect(screen.readByte(addr + 1)).toBe(0xbc); // low nibble of $AB, high of $CD
-    expect(screen.readByte(addr + 2)).toBe(0xd0); // low nibble of $CD, then zeros
+    expect(screen.readByte(addr)).toBe(0xbc); // low nibble of $AB, high of $CD
+    expect(screen.readByte(addr + 1)).toBe(0xd0); // low nibble of $CD, then zeros
+    expect(screen.readByte(addr + 2)).toBe(0x00);
   });
 
   it('takes the aligned fast path when the high byte is zero', () => {
@@ -272,25 +275,46 @@ describe('game window blit', () => {
     expect(screen.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW))).toBe(0xab);
   });
 
-  it('skips buffer byte 0 on the aligned path but not the unaligned one', () => {
-    // $EEDE starts at $F291 and $EF1D skips the 24th byte, so the two paths
-    // show windows one byte apart. With the unaligned path's four-pixel roll
-    // that is what sums to a whole 8-pixel step across a shunt cycle.
+  it('writes 23 bytes per row, leaving the rightmost column alone', () => {
+    // Both paths stop one byte short of the buffer width ($EF1D skips the 24th;
+    // $EF3C is "4 iterations of 5, plus 3 at the end = 23"), so the 24th window
+    // column is never written by the blit.
     const buffers = new GameWindowBuffers();
-    buffers.pixels.fill(0x00);
-    buffers.pixels[0] = 0xff;
+    buffers.pixels.fill(0xff);
+    for (const high of [0, 0xff]) {
+      const screen = new SpectrumScreen();
+      screen.clear(0x00, 0x00);
+      plotGameWindow(screen, buffers, { low: 0, high });
+      const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW);
+      expect(screen.readByte(addr + BLIT_BYTES - 1), `high ${high}`).not.toBe(0);
+      expect(screen.readByte(addr + BLIT_BYTES), `high ${high}`).toBe(0);
+    }
+  });
+
+  it('both paths read the same 23 source bytes', () => {
+    // The ONLY difference between them is the roll. If they read different
+    // windows the view jitters horizontally by 8 pixels every frame, because
+    // game_window_offset alternates between the paths every frame -- which is
+    // exactly the regression this pins.
+    const buffers = new GameWindowBuffers();
+    for (let i = 0; i < buffers.pixels.length; i++) buffers.pixels[i] = (i * 7) & 0xff;
 
     const aligned = new SpectrumScreen();
     aligned.clear(0x00, 0x00);
     plotGameWindow(aligned, buffers, { low: 0, high: 0 });
-    expect(aligned.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW))).toBe(0);
 
     const unaligned = new SpectrumScreen();
     unaligned.clear(0x00, 0x00);
     plotGameWindow(unaligned, buffers, { low: 0, high: 0xff });
-    expect(
-      unaligned.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW)),
-    ).toBe(0x0f);
+
+    const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW);
+    for (let c = 0; c < BLIT_BYTES; c++) {
+      const prev = c === 0 ? buffers.pixels[0]! : aligned.readByte(addr + c - 1);
+      const cur = aligned.readByte(addr + c);
+      expect(unaligned.readByte(addr + c), `byte ${c}`).toBe(
+        (((prev & 0x0f) << 4) | (cur >> 4)) & 0xff,
+      );
+    }
   });
 });
 

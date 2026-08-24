@@ -30,6 +30,15 @@ export const WINDOW_STRIDE = WINDOW_COLS;
 export const BUFFER_PIXEL_ROWS = BUFFER_ROWS * 8;
 /** Pixel rows actually blitted -- the count of game_window_start_addresses. */
 export const VISIBLE_PIXEL_ROWS = 128;
+/**
+ * Bytes copied per row by plot_game_window: 23, not 24.
+ *
+ * Both blit paths read buffer + offset + 1 and stop one byte short of the
+ * buffer's width ($EEDE with 23 LDIs then $EF1D skipping the 24th; $EF3C's
+ * "4 iterations of 5, plus 3 at the end = 23"). The rightmost window column is
+ * therefore never written by the blit.
+ */
+export const BLIT_BYTES = 23;
 
 /** Where the window sits on the 32x24 screen; from $4047, the first row pointer. */
 export const WINDOW_ORIGIN_COL = 7;
@@ -138,24 +147,27 @@ export function plotGameWindow(
     const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW + y);
     const dst = addr - 0x4000;
 
+    // BOTH paths read from buffer + offset + 1 and write 23 bytes. Getting this
+    // wrong puts the two paths a byte apart horizontally, and since the offset
+    // alternates between them every frame, the whole view jitters by 8 pixels.
     if (!rollNibble) {
-      // Aligned fast path ($EEDE): the source starts ONE BYTE into the buffer
-      // and copies 23 bytes, then skips the 24th ($EF1D). The aligned and
-      // unaligned paths therefore show windows one byte apart horizontally --
-      // which, with the unaligned path's four-pixel roll, is what adds up to a
-      // whole 8-pixel step across a shunt cycle.
-      screen.display.set(buffers.pixels.subarray(src + 1, src + WINDOW_STRIDE), dst);
+      // Aligned fast path ($EEDE): source $F291 + offset, 23 LDIs, then skip
+      // the 24th input byte ($EF1D).
+      screen.display.set(buffers.pixels.subarray(src + 1, src + BLIT_BYTES + 1), dst);
       continue;
     }
 
-    // Unaligned slow path: roll each byte right by half a byte, carrying the
-    // low nibble of the previous byte into the high nibble of this one. This is
-    // the source of Fact:alternatingSpeed -- the game visibly runs slower when
-    // the buffer is not byte-aligned with the screen, because every byte goes
-    // through this instead of a block copy.
-    let carry = 0;
-    for (let c = 0; c < WINDOW_STRIDE; c++) {
-      const byte = buffers.pixels[src + c] ?? 0;
+    // Unaligned slow path ($EF27): the same 23 bytes, each rolled right by half
+    // a byte. RRD merges the PREVIOUS byte's low nibble into the top of this
+    // one, and A is pre-loaded from buffer + offset before the loop ($EF32) --
+    // so the carry is seeded from the byte just left of the window, not zero.
+    //
+    // This is Fact:alternatingSpeed: the game visibly runs slower whenever the
+    // buffer is not byte-aligned, because every byte goes through this instead
+    // of a block copy.
+    let carry = (buffers.pixels[src] ?? 0) & 0x0f;
+    for (let c = 0; c < BLIT_BYTES; c++) {
+      const byte = buffers.pixels[src + 1 + c] ?? 0;
       screen.display[dst + c] = ((carry << 4) | (byte >> 4)) & 0xff;
       carry = byte & 0x0f;
     }
