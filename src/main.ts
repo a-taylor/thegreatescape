@@ -15,7 +15,8 @@ import { animations, createHero, encodeInput, step } from './game/hero.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { ExteriorView } from './render/exterior.js';
 import { isoPlacement, windowPlacement } from './render/place.js';
-import { MASK_BUFFER_WIDTH, plotMaskedSprite } from './render/sprites.js';
+import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
+import { renderMaskBuffer } from './render/maskbuffer.js';
 import { fillRoom } from './render/scene.js';
 import {
   GameWindowBuffers,
@@ -87,14 +88,8 @@ function followHero(): void {
 /** The prisoner sprite base: sprites[2] is bitmap_prisoner_facing_top_left_1. */
 const PRISONER_SPRITE_BASE = 2;
 
-/**
- * Plot the hero through the real masked-sprite path.
- *
- * The foreground mask is all-permitting for now: render_mask_buffer is not
- * implemented yet, so the hero draws in front of scenery rather than behind it.
- * That is the remaining half of P3.
- */
-const permissiveForeground = new Uint8Array(MASK_BUFFER_WIDTH * 64).fill(0xff);
+/** The per-frame foreground occlusion mask, rebuilt by render_mask_buffer. */
+const foreground = new Uint8Array(MASK_BUFFER_SIZE);
 
 function plotHeroSprite(): void {
   const anim = animations[hero.animation];
@@ -107,8 +102,20 @@ function plotHeroSprite(): void {
   const place = windowPlacement(hero.pos, view.position, record.widthBytes, record.height);
   if (!place.visible) return;
 
+  // render_mask_buffer works in the units setup_vischar_plotting leaves behind:
+  // state.iso_pos is vischar.iso_pos / 8, tinypos_stash is mi.pos / 8.
+  const iso = isoPlacement(hero.pos);
+  const tiny = toTinyPos(hero.pos);
+  renderMaskBuffer(foreground, {
+    isoX: iso.column,
+    isoY: iso.pixelRow >> 3,
+    tinyX: tiny.x,
+    tinyY: tiny.y,
+    tinyHeight: tiny.height,
+  });
+
   plotMaskedSprite(
-    { pixels: buffers.pixels, foreground: permissiveForeground },
+    { pixels: buffers.pixels, foreground },
     {
       bitmap: decodeBase64(record.bitmap),
       mask: decodeBase64(record.mask),
