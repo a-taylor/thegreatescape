@@ -12,6 +12,7 @@
  */
 
 import animationsJson from '../../data/animations.json';
+import charactersJson from '../../data/characters.json';
 
 import {
   boundsCheck,
@@ -20,6 +21,7 @@ import {
 } from './bounds.js';
 import { DIRECTION_MASK, DIRECTION_CRAWL, type Pos } from './coords.js';
 import { tryDoor } from './doors.js';
+import { decodeBase64 } from '../data/load.js';
 
 export interface AnimFrame {
   readonly dx: number;
@@ -49,6 +51,30 @@ const data = animationsJson as unknown as {
 };
 
 export const animations: readonly Animation[] = data.animations;
+
+/**
+ * The hero's standing height, read from vischar_initial ($F1C9) rather than
+ * hardcoded.
+ *
+ * This matters more than it looks: iso_pos.y is $800 - x - y - HEIGHT, so the
+ * height directly sets how high up the screen the sprite is drawn. Leaving it
+ * at zero draws the character 24 pixels -- three tiles -- too low, which reads
+ * as him walking through scenery he should be behind and failing to reach
+ * walls he is in fact touching.
+ */
+export const HERO_STANDING_HEIGHT = (() => {
+  const initial = decodeBase64(
+    (charactersJson as unknown as { vischarInitial: { data: string } }).vischarInitial.data,
+  );
+  const MI_POS_HEIGHT = 0x0f + 4; // mi at $0F, then x and y words
+  return (initial[MI_POS_HEIGHT] ?? 24) | ((initial[MI_POS_HEIGHT + 1] ?? 0) << 8);
+})();
+
+/**
+ * Height while crawling, set by action_wiresnips (the header's note on $8013:
+ * "set to 24 in process_player_input ... set to 12 in action_wiresnips").
+ */
+export const HERO_CRAWLING_HEIGHT = 12;
 export const animIndices: readonly (readonly AnimIndexCell[])[] = data.animIndices.table;
 
 /**
@@ -103,7 +129,9 @@ export interface HeroState {
 
 export function createHero(pos: Pos, room = 0, direction = 0): HeroState {
   return {
-    pos: { ...pos },
+    // Default to the standing height unless the caller states one, so a
+    // position literal without a height cannot silently sink the sprite.
+    pos: { ...pos, height: pos.height || HERO_STANDING_HEIGHT },
     direction,
     room,
     animation: 8, // anim_wait_tl -- (TL, no input) per the animindices example

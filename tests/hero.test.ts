@@ -4,7 +4,10 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { calcIsoPos } from '../src/game/coords.js';
 import {
+  HERO_CRAWLING_HEIGHT,
+  HERO_STANDING_HEIGHT,
   INPUT_DOWN,
   INPUT_FIRE,
   INPUT_LEFT,
@@ -224,5 +227,33 @@ describe('stepping', () => {
     for (let i = 0; i < 40; i++) if (step(hero, INPUT_UP).moved) moved++;
     expect(moved).toBe(40);
     expect(hero.pos).not.toEqual(start);
+  });
+});
+
+describe('the hero has a height, and it matters', () => {
+  it('takes the standing height from vischar_initial, not from a literal', () => {
+    // vischar_initial ($F1C9) has mi.pos.height = 24.
+    expect(HERO_STANDING_HEIGHT).toBe(24);
+    // The header's note on $8013: "set to 12 in action_wiresnips".
+    expect(HERO_CRAWLING_HEIGHT).toBe(12);
+  });
+
+  it('defaults a height-less start position to standing', () => {
+    // A position literal written without a height must not silently sink the
+    // sprite -- that is exactly the bug this guards.
+    const hero = createHero({ x: 100, y: 100, height: 0 });
+    expect(hero.pos.height).toBe(HERO_STANDING_HEIGHT);
+  });
+
+  it('lifts the sprite so the feet land on the ground point', () => {
+    // iso_pos.y = $800 - x - y - height, so height raises the sprite. The
+    // prisoner sprite is 27 rows and the height is 24, which puts the feet at
+    // the ground rather than the head. A height of zero draws him 24 pixels --
+    // three tiles -- too low, which reads as walking through scenery he should
+    // be behind and stopping short of walls he is touching.
+    const ground = calcIsoPos({ x: 800, y: 592, height: 0 });
+    const standing = calcIsoPos({ x: 800, y: 592, height: HERO_STANDING_HEIGHT });
+    expect(ground.y - standing.y).toBe(HERO_STANDING_HEIGHT);
+    expect(standing.x).toBe(ground.x); // height never affects the horizontal
   });
 });

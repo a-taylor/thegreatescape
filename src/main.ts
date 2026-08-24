@@ -11,7 +11,13 @@
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
 import { toTinyPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
-import { animations, createHero, encodeInput, step } from './game/hero.js';
+import {
+  HERO_STANDING_HEIGHT,
+  animations,
+  createHero,
+  encodeInput,
+  step,
+} from './game/hero.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { ExteriorView } from './render/exterior.js';
 import { isoPlacement, windowPlacement } from './render/place.js';
@@ -46,7 +52,7 @@ const buffers = new GameWindowBuffers();
  * y 82-98, so x*8 / y*8 lands beside it. This projects to roughly iso tile
  * (96, 60), comfortably inside the 216x136 map.
  */
-const START = { x: 100 * 8, y: 74 * 8, height: 0 };
+const START = { x: 100 * 8, y: 74 * 8, height: HERO_STANDING_HEIGHT };
 
 /**
  * The map position that puts START near the middle of the window.
