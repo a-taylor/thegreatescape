@@ -68,10 +68,22 @@ export function windowPlacement(
   mapPosition: { x: number; y: number },
   widthBytes = 2,
   height = 1,
+  offsetRows = 0,
 ): WindowPlacement {
   const iso = isoPlacement(pos);
   const column = iso.column - mapPosition.x; // $DCBC
-  const pixelRow = ((iso.pixelRow >> 3) - mapPosition.y) * 8; // $DCA7..$DCBA
+  // $DCA7..$DCBA gives the tile-aligned row. `offsetRows` is added back because
+  // plot_game_window scrolls the WHOLE buffer -- sprite included -- by
+  // game_window_offset when it blits. Without compensating, the sprite inherits
+  // the terrain's sub-tile scroll on top of its own tile-aligned position and
+  // visibly bounces by up to six pixels every four frames.
+  //
+  // ASSUMPTION: the original does not compensate here. It relies on the phase
+  // between the hero crossing a tile boundary and move_map firing its shunt,
+  // which falls out of the game's own initialisation -- something this demo
+  // does not reproduce, since its map position is derived by centring.
+  // See OPEN_QUESTIONS.md §13.
+  const pixelRow = ((iso.pixelRow >> 3) - mapPosition.y) * 8 + offsetRows;
 
   const visible =
     column + widthBytes > 0 &&

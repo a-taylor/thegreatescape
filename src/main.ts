@@ -29,6 +29,7 @@ import {
   NO_OFFSET,
   VISIBLE_PIXEL_ROWS,
   WINDOW_COLS,
+  WINDOW_STRIDE,
   plotGameWindow,
   setWindowAttributes,
 } from './render/window.js';
@@ -105,7 +106,13 @@ function plotHeroSprite(): void {
   const record = spritesData.sprites[PRISONER_SPRITE_BASE + frame.sprite];
   if (!record) return;
 
-  const place = windowPlacement(hero.pos, view.position, record.widthBytes, record.height);
+  const place = windowPlacement(
+    hero.pos,
+    view.position,
+    record.widthBytes,
+    record.height,
+    windowOffset.low / WINDOW_STRIDE,
+  );
   if (!place.visible) return;
 
   // render_mask_buffer works in the units setup_vischar_plotting leaves behind:
@@ -179,7 +186,8 @@ function render(): void {
   statusEl.innerHTML =
     `pos <b>(${hero.pos.x}, ${hero.pos.y})</b> · tiny (${tiny.x}, ${tiny.y}) · ` +
     `facing <b>${dirNames[hero.direction & 3]}</b>${hero.direction & 4 ? ' crawling' : ''} · ` +
-    `${where} · attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span>` +
+    `${where} · gwo (${windowOffset.low},${windowOffset.high}) · ` +
+    `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span>` +
     (lastEvent ? ` · <b>${lastEvent}</b>` : '');
 }
 

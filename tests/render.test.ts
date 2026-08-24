@@ -201,10 +201,12 @@ describe('game window blit', () => {
     screen.clear(0x00, 0);
     plotGameWindow(screen, buffers);
 
+    // The aligned path sources from buffer + 1 and copies 23 bytes ($EEDE /
+    // $EF1D), so screen column c shows buffer byte c + 1.
     for (const y of [0, 1, 63, 64, 127]) {
       const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW + y);
-      for (const c of [0, 12, 23]) {
-        expect(screen.readByte(addr + c)).toBe((y + c) & 0xff);
+      for (const c of [0, 12, 22]) {
+        expect(screen.readByte(addr + c)).toBe((y + c + 1) & 0xff);
       }
     }
   });
@@ -260,13 +262,35 @@ describe('game window blit', () => {
   it('takes the aligned fast path when the high byte is zero', () => {
     const buffers = new GameWindowBuffers();
     buffers.pixels.fill(0x00);
-    buffers.pixels[0] = 0xab;
+    // Byte 1, not byte 0: the aligned path starts one byte into the buffer.
+    buffers.pixels[1] = 0xab;
 
     const screen = new SpectrumScreen();
     screen.clear(0x00, 0x00);
     plotGameWindow(screen, buffers, { low: 0, high: 0 });
     // Unrolled: the byte lands verbatim.
     expect(screen.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW))).toBe(0xab);
+  });
+
+  it('skips buffer byte 0 on the aligned path but not the unaligned one', () => {
+    // $EEDE starts at $F291 and $EF1D skips the 24th byte, so the two paths
+    // show windows one byte apart. With the unaligned path's four-pixel roll
+    // that is what sums to a whole 8-pixel step across a shunt cycle.
+    const buffers = new GameWindowBuffers();
+    buffers.pixels.fill(0x00);
+    buffers.pixels[0] = 0xff;
+
+    const aligned = new SpectrumScreen();
+    aligned.clear(0x00, 0x00);
+    plotGameWindow(aligned, buffers, { low: 0, high: 0 });
+    expect(aligned.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW))).toBe(0);
+
+    const unaligned = new SpectrumScreen();
+    unaligned.clear(0x00, 0x00);
+    plotGameWindow(unaligned, buffers, { low: 0, high: 0xff });
+    expect(
+      unaligned.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW)),
+    ).toBe(0x0f);
   });
 });
 

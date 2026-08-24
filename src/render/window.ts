@@ -139,10 +139,12 @@ export function plotGameWindow(
     const dst = addr - 0x4000;
 
     if (!rollNibble) {
-      // Aligned fast path: a window row is 24 contiguous bytes on screen, since
-      // the display file's column index occupies the low 5 bits and columns
-      // 7..30 do not cross a row boundary.
-      screen.display.set(buffers.pixels.subarray(src, src + WINDOW_STRIDE), dst);
+      // Aligned fast path ($EEDE): the source starts ONE BYTE into the buffer
+      // and copies 23 bytes, then skips the 24th ($EF1D). The aligned and
+      // unaligned paths therefore show windows one byte apart horizontally --
+      // which, with the unaligned path's four-pixel roll, is what adds up to a
+      // whole 8-pixel step across a shunt cycle.
+      screen.display.set(buffers.pixels.subarray(src + 1, src + WINDOW_STRIDE), dst);
       continue;
     }
 
