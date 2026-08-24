@@ -121,6 +121,9 @@ function plotHeroSprite(): void {
       shift: place.shift,
       skipRows: Math.max(0, -place.pixelRow),
       rows: record.height,
+      // TL/TR and BR/BL are the same artwork mirrored; the frame's own flip
+      // flag is the only thing distinguishing them.
+      flip: frame.flip,
     },
   );
 }

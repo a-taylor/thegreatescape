@@ -110,6 +110,15 @@ export interface PlotPlacement {
   readonly skipRows: number;
   /** Rows actually drawn. */
   readonly rows: number;
+  /**
+   * Mirror the sprite horizontally, from bit 7 of the frame's sprite index.
+   *
+   * Not optional in practice: the four facings are only two sets of artwork.
+   * Top-left and top-right share sprites 0..3, bottom-right and bottom-left
+   * share 4..7, and the right-facing pair is the left-facing pair flipped. Skip
+   * this and the character faces the wrong way half the time.
+   */
+  readonly flip?: boolean;
 }
 
 /**
@@ -134,11 +143,18 @@ export function plotMaskedSprite(
     const dstRow = place.row + r;
     if (dstRow < 0) continue;
 
-    const bmRow: number[] = [];
-    const mkRow: number[] = [];
+    let bmRow: number[] = [];
+    let mkRow: number[] = [];
     for (let c = 0; c < sprite.widthBytes; c++) {
       bmRow.push(sprite.bitmap[srcRow * sprite.widthBytes + c] ?? 0);
       mkRow.push(sprite.mask[srcRow * sprite.widthBytes + c] ?? 0xff);
+    }
+
+    // $E2CE..$E2D2: flip_16_masked_pixels runs on the loaded bitmap AND mask
+    // bytes BEFORE the shift, so the order here matters.
+    if (place.flip) {
+      bmRow = flipRow(bmRow);
+      mkRow = flipRow(mkRow);
     }
 
     const bm = shiftRowRight(bmRow, place.shift, false);

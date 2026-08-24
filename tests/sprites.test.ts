@@ -229,3 +229,45 @@ describe('plotMaskedSprite', () => {
     expect(buffers.pixelByte(0, 6)).toBe(0x00);
   });
 });
+
+describe('flipping in plotMaskedSprite', () => {
+  // TL/TR and BR/BL share artwork: sprites 0..3 and 4..7 respectively, with the
+  // right-facing member of each pair drawn flipped. Without this the character
+  // faces the wrong way for two of the four directions.
+  const asymmetric = {
+    bitmap: new Uint8Array([0b1000_0000, 0b0000_0000]),
+    mask: new Uint8Array([0x00, 0x00]),
+    widthBytes: 2,
+    height: 1,
+  };
+
+  function plot(flip: boolean): number[] {
+    const buffers = new GameWindowBuffers();
+    buffers.pixels.fill(0x00);
+    const foreground = new Uint8Array(MASK_BUFFER_WIDTH * 8).fill(0xff);
+    plotMaskedSprite({ pixels: buffers.pixels, foreground }, asymmetric, {
+      column: 4,
+      row: 3,
+      shift: 0,
+      skipRows: 0,
+      rows: 1,
+      flip,
+    });
+    return [buffers.pixelByte(4, 3), buffers.pixelByte(5, 3)];
+  }
+
+  it('mirrors the sprite when the frame says so', () => {
+    // The single set pixel is at the far left unflipped, far right flipped.
+    expect(plot(false)).toEqual([0b1000_0000, 0b0000_0000]);
+    expect(plot(true)).toEqual([0b0000_0000, 0b0000_0001]);
+  });
+
+  it('leaves a symmetric sprite unchanged', () => {
+    expect(flipRow([0b1000_0001, 0b1000_0001])).toEqual([0b1000_0001, 0b1000_0001]);
+  });
+
+  it('flipping twice is the identity', () => {
+    const row = [0b1011_0010, 0b0100_1101];
+    expect(flipRow(flipRow(row))).toEqual(row);
+  });
+});
