@@ -320,37 +320,29 @@ is a different space, and it looked plausible only because both are "small
 numbers of tiles". The correction is in `src/render/place.ts`, which states the
 relationship explicitly so it cannot be re-guessed.
 
-**Still assumed: when to scroll.** The original does not centre the view. It
-shunts by one tile when the hero crosses a threshold, so the window lags and
-clamps differently, especially at the map edges. `centreOn` in `place.ts` is the
-demo's stand-in, marked `// ASSUMPTION:`. The `shunt_map_*` operations
-themselves are tested and agree with a from-scratch render of the destination,
-so swapping in the real trigger rule is a local change.
+**Resolved: when to scroll.** `move_map` (c$AAB2) does not chase the hero at
+all. The animation's own header names a direction to shunt, and a counter
+`move_map_y` (`g$A7C6`) cycles 0..3 to spread one tile of travel across the four
+frames of a walk cycle, filling the gaps with a sub-tile `game_window_offset`
+(`g$A7C7`). Both are implemented in `ExteriorView.moveMap`.
+
+Centring on the hero instead is what produced the visible jitter: the terrain
+moved a whole tile while the hero moved two or four pixels.
 
 ---
 
-## 12. The fourth byte of an animation header is unidentified
+## 12. The fourth byte of an animation header — RESOLVED
 
-**Status:** Assumed.
+**Status:** Resolved during P3.
 
-An animation is `{nframes, dirFrom, dirTo, ?}` followed by frames. The first
-three are established by inspection across all 24 animations:
+An animation is `{nframes, dirFrom, dirTo, mapDirection}`. The fourth byte is the
+**map scroll direction**, read by `move_map` at `$AAC8`, with `255` meaning
+"don't move" (`$AAC9`). That is why it is `255` for every turn and wait, and the
+*opposite* direction for the four walks: "the map is shunted around in the
+opposite direction to the apparent character motion."
 
-| Animation | Header | Reading |
-|---|---|---|
-| `anim_walk_tl` | `[4, 0, 0, 2]` | 4 frames, TL → TL (walking never turns) |
-| `anim_turn_tl` | `[2, 0, 1, 255]` | 2 frames, TL → TR |
-| `anim_wait_tl` | `[1, 0, 0, 255]` | 1 frame, TL → TL |
-
-The fourth byte is `255` for every turn and wait, but for the four walks it is
-the *opposite* direction (`walk_tl` → 2, `walk_tr` → 3, `walk_br` → 0,
-`walk_bl` → 1).
-
-**Assumption:** it is the direction to face when the animation is played in
-reverse — walking backwards would leave you facing the other way. Not relied on:
-`src/game/hero.ts` derives the resulting direction from `dirFrom`/`dirTo`, which
-are unambiguous, and ignores the fourth byte entirely. To be resolved by reading
-`animate` (c$B5CE) properly in P3, where sprite selection makes it matter.
+Reversing an animation exchanges up and down by XORing the direction with 2
+(`$AACC..$AAD0`).
 
 ---
 

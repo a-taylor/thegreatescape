@@ -9,7 +9,13 @@
  */
 
 import { mapData } from '../data/load.js';
-import { BUFFER_ROWS, WINDOW_COLS, type GameWindowBuffers } from './window.js';
+import {
+  BUFFER_ROWS,
+  NO_OFFSET,
+  WINDOW_COLS,
+  type GameWindowBuffers,
+  type GameWindowOffset,
+} from './window.js';
 
 /** map_buf is 7 supertiles wide by 5 tall ($FF58). */
 export const MAP_BUF_COLS = 7;
@@ -119,6 +125,10 @@ export function plotAllTiles(
 export class ExteriorView {
   readonly position: MapPosition;
   readonly mapBuf = new Uint8Array(MAP_BUF_COLS * MAP_BUF_ROWS);
+  /** move_map_y ($A7C6): the 0..3 shunt-pattern counter. */
+  moveMapY = 0;
+  /** game_window_offset ($A7C7): the sub-tile scroll for this frame. */
+  gameWindowOffset: GameWindowOffset = NO_OFFSET;
 
   constructor(x = 0, y = 0) {
     this.position = { x: x & 0xff, y: y & 0xff };
@@ -153,29 +163,105 @@ export class ExteriorView {
     this.refresh();
   }
 
-  /** shunt_map_up ($AA4B). */
+  /**
+   * shunt_map_up ($AA4B): INCREMENTS map_position.y.
+   *
+   * The sign is the opposite of what the name suggests, on both vertical
+   * routines: "up" moves the MAP up, which brings lower rows of terrain into
+   * view, so the position increases. Guessing the sign scrolls the world the
+   * wrong way and shows up as the view sliding away from the hero.
+   */
   shuntUp(): void {
-    this.position.y = (this.position.y - 1) & 0xff;
-    this.refresh();
-  }
-
-  /** shunt_map_down ($AA6C). */
-  shuntDown(): void {
     this.position.y = (this.position.y + 1) & 0xff;
     this.refresh();
   }
 
-  /** shunt_map_up_right ($AA26): both axes in one step. */
+  /** shunt_map_down ($AA6C): DECREMENTS map_position.y. */
+  shuntDown(): void {
+    this.position.y = (this.position.y - 1) & 0xff;
+    this.refresh();
+  }
+
+  /** shunt_map_up_right ($AA26): x - 1, y + 1. */
   shuntUpRight(): void {
     this.position.x = (this.position.x - 1) & 0xff;
+    this.position.y = (this.position.y + 1) & 0xff;
+    this.refresh();
+  }
+
+  /** shunt_map_down_left ($AA8D): INC L / DEC H, i.e. x + 1, y - 1. */
+  shuntDownLeft(): void {
+    this.position.x = (this.position.x + 1) & 0xff;
     this.position.y = (this.position.y - 1) & 0xff;
     this.refresh();
   }
 
-  /** shunt_map_down_left ($AA8D). */
-  shuntDownLeft(): void {
-    this.position.x = (this.position.x + 1) & 0xff;
-    this.position.y = (this.position.y + 1) & 0xff;
-    this.refresh();
+  /**
+   * move_map ($AAB2): scroll the map in response to the hero's animation.
+   *
+   * "The map is shunted around in the opposite direction to the apparent
+   * character motion." The direction comes from the animation's own header --
+   * byte 3, the map direction field ($AAC8) -- with 255 meaning "don't move".
+   * Reversing the animation exchanges up and down ($AAD0 XOR $02).
+   *
+   * The subtlety that makes motion smooth: it does NOT shunt every frame. A
+   * counter, move_map_y ($A7C6), cycles 0..3 and selects both which shunt (if
+   * any) happens and a game_window_offset that scrolls sub-tile at blit time.
+   * Over four frames that yields one tile of travel on each axis, matching the
+   * hero's own four-frame walk cycle.
+   *
+   * @returns the game_window_offset for this frame
+   */
+  moveMap(mapDirection: number, reverse: boolean): GameWindowOffset {
+    if (mapDirection === 0xff) return this.gameWindowOffset; // $AAC9
+
+    let dir = mapDirection & 0x03;
+    if (reverse) dir ^= 0x02; // $AACC..$AAD0
+
+    // $AAE2..$AAF3: the clamp beyond which we would render off the map.
+    const limitX = dir === 1 || dir === 2 ? 0x00 : 0xc0;
+    const limitY = dir >= 2 ? 0x00 : 0x7c;
+
+    // $AAF8 / $AAFF: at either limit, do nothing at all.
+    if (this.position.x === limitX) return this.gameWindowOffset;
+    if (this.position.y === limitY) return this.gameWindowOffset;
+
+    // $AB04..$AB13: forwards for the TOP directions, backwards for BOTTOM.
+    this.moveMapY = (dir < 2 ? this.moveMapY + 1 : this.moveMapY - 1) & 0x03;
+
+    // $AB15..$AB2A.
+    this.gameWindowOffset =
+      this.moveMapY === 0
+        ? { low: 0x00, high: 0x00 }
+        : this.moveMapY === 1
+          ? { low: 0x30, high: 0xff }
+          : this.moveMapY === 2
+            ? { low: 0x60, high: 0x00 }
+            : { low: 0x90, high: 0xff };
+
+    // $AB31 jump table -> move_map_up_left / _up_right / _down_right / _down_left.
+    const y = this.moveMapY;
+    switch (dir) {
+      case 0: // move_map_up_left ($AB39): up / none / left / left
+        if (y === 0) this.shuntUp();
+        else if (y !== 2) this.shuntLeft();
+        break;
+      case 1: // move_map_up_right ($AB44): up-right / none / right / none
+        if (y === 0) this.shuntUpRight();
+        else if (y === 2) this.shuntRight();
+        break;
+      case 2: // move_map_down_right ($AB4F): right / none / right / down
+        if (y === 3) this.shuntDown();
+        else if ((y & 1) === 0) this.shuntRight();
+        break;
+      case 3: // move_map_down_left ($AB5A): none / left / none / down-left
+        if (y === 1) this.shuntLeft();
+        else if (y === 3) this.shuntDownLeft();
+        break;
+      default:
+        break;
+    }
+
+    return this.gameWindowOffset;
   }
 }

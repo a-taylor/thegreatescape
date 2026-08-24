@@ -1,10 +1,11 @@
 /**
-* P3 demo: a walkable hero drawn with the real sprite plotter.
+ * P3 demo: a walkable hero drawn with the real sprite plotter.
  *
  * The hero moves through the real chain -- input -> animindices -> animation
-* frames -> position -> bounds check -> door handling -- and is composited by
-* plot_masked_sprite. The foreground mask is not built yet, so he draws in
-* front of scenery rather than behind it; that is the rest of P3.
+ * frames -> position -> bounds check -> door handling -- and is composited by
+ * plot_masked_sprite. The map scrolls through move_map rather than by chasing
+ * him. The foreground mask is not built yet, so he draws in front of scenery
+ * rather than behind it; that is the rest of P3.
  */
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
@@ -13,10 +14,17 @@ import { INTERIOR_MAP_POSITION } from './game/doors.js';
 import { animations, createHero, encodeInput, step } from './game/hero.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { ExteriorView } from './render/exterior.js';
-import { centreOn, windowPlacement } from './render/place.js';
+import { isoPlacement, windowPlacement } from './render/place.js';
 import { MASK_BUFFER_WIDTH, plotMaskedSprite } from './render/sprites.js';
 import { fillRoom } from './render/scene.js';
-import { GameWindowBuffers, plotGameWindow, setWindowAttributes } from './render/window.js';
+import {
+  GameWindowBuffers,
+  NO_OFFSET,
+  VISIBLE_PIXEL_ROWS,
+  WINDOW_COLS,
+  plotGameWindow,
+  setWindowAttributes,
+} from './render/window.js';
 import { CanvasPresenter } from './spectrum/canvas.js';
 import { SpectrumScreen } from './spectrum/display.js';
 
@@ -39,27 +47,41 @@ const buffers = new GameWindowBuffers();
  */
 const START = { x: 100 * 8, y: 74 * 8, height: 0 };
 
+/**
+ * The map position that puts START near the middle of the window.
+ *
+ * Derived rather than hardcoded: guessing it put the hero below the visible
+ * 128 rows, since only 128 of the buffer's 136 are ever blitted.
+ */
+const START_MAP = (() => {
+  const iso = isoPlacement(START);
+  return {
+    x: iso.column - (WINDOW_COLS >> 1),
+    y: (iso.pixelRow - (VISIBLE_PIXEL_ROWS >> 1)) >> 3,
+  };
+})();
+
 const hero = createHero({ ...START }, 0, 0);
-const view = new ExteriorView(0, 0);
+const view = new ExteriorView(START_MAP.x, START_MAP.y);
 const keys = new Set<string>();
 let night = false;
 let torch = false;
 let lastEvent = '';
+let windowOffset = NO_OFFSET;
 
 /**
- * Keep the hero roughly centred by deriving the map position from his tinypos.
+ * move_map ($AAB2): scroll in response to the hero's animation.
  *
- * ASSUMPTION: the original tracks this through hero_map_position ($81B8) and
- * the shunt_map_* routines, which move the window one tile at a time as the
- * hero crosses a threshold. Centring produces the same view for a static frame
- * but not necessarily the same scroll timing. Recorded in OPEN_QUESTIONS.md
- * rather than presented as faithful.
+ * Not a camera that chases the hero. The animation's own header byte 3 names
+ * the direction to shunt, and a 0..3 counter spreads one tile of travel across
+ * the four frames of a walk cycle, filling the gaps with a sub-tile
+ * game_window_offset. Centring on the hero instead makes the terrain jump a
+ * whole tile while he moves two or four pixels, which is visible as jitter.
  */
 function followHero(): void {
-  const centred = centreOn(hero.pos);
-  view.position.x = centred.x;
-  view.position.y = centred.y;
-  view.refresh();
+  const anim = animations[hero.animation];
+  const mapDirection = anim?.header[3] ?? 0xff;
+  windowOffset = view.moveMap(mapDirection, hero.reverse);
 }
 
 /** The prisoner sprite base: sprites[2] is bitmap_prisoner_facing_top_left_1. */
@@ -110,7 +132,6 @@ function render(): void {
   if (wipeTiles) {
     buffers.wipeTiles();
   } else if (hero.room === 0) {
-    followHero();
     view.render(buffers);
   } else {
     fillRoom(buffers, hero.room);
@@ -125,7 +146,7 @@ function render(): void {
   if (!wipeTiles && hero.room === 0) plotHeroSprite();
 
   screen.clear(0x00, 0x00);
-  plotGameWindow(screen, buffers);
+  plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);
   setWindowAttributes(screen, attribute);
   presenter.present(screen);
 
@@ -154,6 +175,11 @@ function tick(): void {
   );
 
   const outcome = step(hero, input);
+
+  // move_map runs once per logic step, after the hero has animated -- the same
+  // place the original calls it from ($6939 / $9D7B).
+  if (hero.room === 0 && outcome.moved) followHero();
+
   if (outcome.enteredRoom !== null) {
     lastEvent = outcome.enteredRoom === 0 ? 'stepped outside' : `entered room ${outcome.enteredRoom}`;
     if (outcome.enteredRoom !== 0) {
@@ -199,6 +225,10 @@ btnReset.addEventListener('click', () => {
   hero.pos = { ...START };
   hero.room = 0;
   hero.direction = 0;
+  view.position.x = START_MAP.x;
+  view.position.y = START_MAP.y;
+  view.refresh();
+  windowOffset = NO_OFFSET;
   lastEvent = '';
   render();
 });

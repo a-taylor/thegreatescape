@@ -111,18 +111,24 @@ describe('shunt_map_* (c$A9E4 onward)', () => {
     expect(view.position).toEqual({ x: 40, y: 40 });
   });
 
-  it('shunting up decreases the map y position', () => {
+  it('shunting up INCREASES the map y position', () => {
+    // $AA4E is an INC and $AA6F a DEC -- the opposite of what the names imply,
+    // because they describe the map's motion, not the viewport's. Asserting the
+    // intuitive sign here hid a real bug: the world scrolled away from the hero
+    // vertically, which read as jitter while walking.
     const view = new ExteriorView(40, 40);
     view.shuntUp();
-    expect(view.position).toEqual({ x: 40, y: 39 });
+    expect(view.position).toEqual({ x: 40, y: 41 });
     view.shuntDown();
     expect(view.position).toEqual({ x: 40, y: 40 });
   });
 
   it('the diagonals move both axes at once', () => {
+    // shunt_map_up_right: x - 1, y + 1. shunt_map_down_left ($AA8D): INC L,
+    // DEC H -- x + 1, y - 1.
     const view = new ExteriorView(40, 40);
     view.shuntUpRight();
-    expect(view.position).toEqual({ x: 39, y: 39 });
+    expect(view.position).toEqual({ x: 39, y: 41 });
     view.shuntDownLeft();
     expect(view.position).toEqual({ x: 40, y: 40 });
   });
@@ -134,7 +140,7 @@ describe('shunt_map_* (c$A9E4 onward)', () => {
     for (let i = 0; i < 5; i++) walked.shuntLeft();
     for (let i = 0; i < 3; i++) walked.shuntDown();
 
-    const direct = new ExteriorView(45, 43);
+    const direct = new ExteriorView(45, 37);
 
     const a = new GameWindowBuffers();
     const b = new GameWindowBuffers();

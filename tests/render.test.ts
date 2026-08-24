@@ -229,14 +229,44 @@ describe('game window blit', () => {
     ).toBe(0);
   });
 
-  it('scrolls sub-tile via the row offset', () => {
+  it('scrolls sub-tile via the game_window_offset low byte', () => {
     const buffers = new GameWindowBuffers();
     for (let y = 0; y < 136; y++) buffers.pixels.fill(y, y * WINDOW_STRIDE, (y + 1) * WINDOW_STRIDE);
 
     const screen = new SpectrumScreen();
-    plotGameWindow(screen, buffers, 8);
-    // With an 8-row offset, the top visible row is buffer row 8.
+    // The low byte is a BYTE offset into window_buf, so a whole row is 24.
+    plotGameWindow(screen, buffers, { low: 8 * WINDOW_STRIDE, high: 0 });
     expect(screen.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW))).toBe(8);
+  });
+
+  it('rolls pixels by half a byte when the offset high byte is 255', () => {
+    // This is the slow blit path behind Fact:alternatingSpeed. Each output byte
+    // takes the low nibble of its predecessor as its high nibble.
+    const buffers = new GameWindowBuffers();
+    buffers.pixels.fill(0x00);
+    buffers.pixels[0] = 0xab;
+    buffers.pixels[1] = 0xcd;
+
+    const screen = new SpectrumScreen();
+    screen.clear(0x00, 0x00);
+    plotGameWindow(screen, buffers, { low: 0, high: 0xff });
+
+    const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW);
+    expect(screen.readByte(addr)).toBe(0x0a); // carry 0, high nibble of $AB
+    expect(screen.readByte(addr + 1)).toBe(0xbc); // low nibble of $AB, high of $CD
+    expect(screen.readByte(addr + 2)).toBe(0xd0); // low nibble of $CD, then zeros
+  });
+
+  it('takes the aligned fast path when the high byte is zero', () => {
+    const buffers = new GameWindowBuffers();
+    buffers.pixels.fill(0x00);
+    buffers.pixels[0] = 0xab;
+
+    const screen = new SpectrumScreen();
+    screen.clear(0x00, 0x00);
+    plotGameWindow(screen, buffers, { low: 0, high: 0 });
+    // Unrolled: the byte lands verbatim.
+    expect(screen.readByte(screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW))).toBe(0xab);
   });
 });
 

@@ -129,17 +129,56 @@ export class GameWindowBuffers {
 export function plotGameWindow(
   screen: SpectrumScreen,
   buffers: GameWindowBuffers,
-  rowOffset = 0,
+  offset: GameWindowOffset = NO_OFFSET,
 ): void {
+  const rollNibble = offset.high === 0xff;
+
   for (let y = 0; y < VISIBLE_PIXEL_ROWS; y++) {
-    const src = (rowOffset + y) * WINDOW_STRIDE;
+    const src = offset.low + y * WINDOW_STRIDE;
     const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW + y);
     const dst = addr - 0x4000;
-    // A window row is 24 contiguous bytes on screen: the display file's column
-    // index occupies the low 5 bits, so columns 7..30 do not cross a row.
-    screen.display.set(buffers.pixels.subarray(src, src + WINDOW_STRIDE), dst);
+
+    if (!rollNibble) {
+      // Aligned fast path: a window row is 24 contiguous bytes on screen, since
+      // the display file's column index occupies the low 5 bits and columns
+      // 7..30 do not cross a row boundary.
+      screen.display.set(buffers.pixels.subarray(src, src + WINDOW_STRIDE), dst);
+      continue;
+    }
+
+    // Unaligned slow path: roll each byte right by half a byte, carrying the
+    // low nibble of the previous byte into the high nibble of this one. This is
+    // the source of Fact:alternatingSpeed -- the game visibly runs slower when
+    // the buffer is not byte-aligned with the screen, because every byte goes
+    // through this instead of a block copy.
+    let carry = 0;
+    for (let c = 0; c < WINDOW_STRIDE; c++) {
+      const byte = buffers.pixels[src + c] ?? 0;
+      screen.display[dst + c] = ((carry << 4) | (byte >> 4)) & 0xff;
+      carry = byte & 0x0f;
+    }
   }
 }
+
+/**
+ * game_window_offset ($A7C7), set by move_map.
+ *
+ * The low byte is a byte offset added to the window_buf source pointer, which
+ * scrolls the view vertically by whole pixel rows without moving the map. The
+ * high byte being 255 means the blit rolls every byte by half a byte, scrolling
+ * horizontally by four pixels.
+ *
+ * Between them these provide the sub-tile motion: the map itself only shunts a
+ * whole tile every fourth animation frame, and this fills in the steps between.
+ * Without it the terrain jumps eight pixels at a time while the hero moves two
+ * or four, which reads as jitter.
+ */
+export interface GameWindowOffset {
+  readonly low: number;
+  readonly high: number;
+}
+
+export const NO_OFFSET: GameWindowOffset = { low: 0, high: 0 };
 
 /** Set the window's attribute block. choose_game_window_attributes picks the value. */
 export function setWindowAttributes(screen: SpectrumScreen, attribute: number): void {
