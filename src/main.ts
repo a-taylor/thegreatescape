@@ -9,7 +9,7 @@
  */
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
-import { toTinyPos } from './game/coords.js';
+import { tinyposStash, toTinyPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
 import {
   HERO_STANDING_HEIGHT,
@@ -111,7 +111,8 @@ function plotHeroSprite(): void {
   // render_mask_buffer works in the units setup_vischar_plotting leaves behind:
   // state.iso_pos is vischar.iso_pos / 8, tinypos_stash is mi.pos / 8.
   const iso = isoPlacement(hero.pos);
-  const tiny = toTinyPos(hero.pos);
+  // tinypos_stash, not toTinyPos: only x rounds. See coords.tinyposStash.
+  const tiny = tinyposStash(hero.pos, hero.room === 0);
   renderMaskBuffer(foreground, {
     isoX: iso.column,
     isoY: iso.pixelRow >> 3,

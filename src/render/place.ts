@@ -44,6 +44,25 @@ export interface WindowPlacement {
   readonly visible: boolean;
 }
 
+/**
+ * Where a character sits inside the window.
+ *
+ * The two axes are NOT symmetrical, which is the part worth knowing:
+ *
+ *   horizontal  byte granularity plus a sub-byte shift. $DCBC computes
+ *               `iso_pos_x - map_position_x` in bytes, and the plotter rolls
+ *               the sprite by `iso_pos.x & 7` on top ($E2A2).
+ *
+ *   vertical    WHOLE TILE ROWS, no sub-tile component at all. $DCA7 computes
+ *               `iso_pos_y - map_position_y` where iso_pos_y is the /8 value,
+ *               then multiplies by 192 -- and 192 bytes of a 24-byte-wide
+ *               buffer is exactly 8 pixel rows.
+ *
+ * Placing the sprite at pixel granularity vertically looks more precise but is
+ * wrong, and it slides the sprite up to 7 pixels against the foreground mask,
+ * which is built in tile rows. The result is a sprite shredded incoherently by
+ * its own occlusion mask rather than banded by it.
+ */
 export function windowPlacement(
   pos: Pos,
   mapPosition: { x: number; y: number },
@@ -51,8 +70,8 @@ export function windowPlacement(
   height = 1,
 ): WindowPlacement {
   const iso = isoPlacement(pos);
-  const column = iso.column - mapPosition.x; // $BAFF / $BB18
-  const pixelRow = iso.pixelRow - mapPosition.y * 8; // $BB33
+  const column = iso.column - mapPosition.x; // $DCBC
+  const pixelRow = ((iso.pixelRow >> 3) - mapPosition.y) * 8; // $DCA7..$DCBA
 
   const visible =
     column + widthBytes > 0 &&

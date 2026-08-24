@@ -13,7 +13,7 @@
  * the projection is a genuine 3D-to-2D flattening, not a rotation.
  */
 
-import { divideBy8WithRounding, type Pos, type TinyPos } from './math.js';
+import { divideBy8, divideBy8WithRounding, type Pos, type TinyPos } from './math.js';
 
 export type { Pos, TinyPos };
 
@@ -29,6 +29,29 @@ export function toTinyPos(pos: Pos): TinyPos {
     x: divideBy8WithRounding((pos.x >> 8) & 0xff, pos.x & 0xff),
     y: divideBy8WithRounding((pos.y >> 8) & 0xff, pos.y & 0xff),
     height: divideBy8WithRounding((pos.height >> 8) & 0xff, pos.height & 0xff),
+  };
+}
+
+/**
+ * tinypos_stash, as setup_vischar_plotting builds it outdoors (c$E438).
+ *
+ * NOT the same as toTinyPos: only x is rounded ($E43B calls
+ * divide_by_8_with_rounding), while y and height are truncated ($E446 calls
+ * divide_by_8 with no rounding). The difference is at most 1, but it lands
+ * directly on the mask culling tests -- `tinypos.y < mask.pos.y` decides
+ * whether a character is in front of a mask, so rounding y makes occlusion
+ * start and stop a step early.
+ *
+ * Indoors the routine copies the low bytes without scaling at all ($E42D).
+ */
+export function tinyposStash(pos: Pos, outdoors = true): TinyPos {
+  if (!outdoors) {
+    return { x: pos.x & 0xff, y: pos.y & 0xff, height: pos.height & 0xff };
+  }
+  return {
+    x: divideBy8WithRounding((pos.x >> 8) & 0xff, pos.x & 0xff),
+    y: divideBy8((pos.y >> 8) & 0xff, pos.y & 0xff),
+    height: divideBy8((pos.height >> 8) & 0xff, pos.height & 0xff),
   };
 }
 
