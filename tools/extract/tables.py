@@ -276,16 +276,26 @@ def extract_sprites(sk: Skool) -> dict[str, Any]:
     for a, rec in fixed_records(img, addr, count, 6):
         data_ptr = rec[2] | (rec[3] << 8)
         mask_ptr = rec[4] | (rec[5] << 8)
+        width_bytes = rec[0] - 1
+        height = rec[1]
+        size = width_bytes * height
         sprites.append({
             "addr": f"${a:04X}",
             # Stored value is width in BYTES PLUS ONE (ctl line 10874).
-            "widthBytes": rec[0] - 1,
-            "widthPixels": (rec[0] - 1) * 8,
-            "height": rec[1],
+            "widthBytes": width_bytes,
+            "widthPixels": width_bytes * 8,
+            "height": height,
             "bitmapAddr": f"${data_ptr:04X}",
             "maskAddr": f"${mask_ptr:04X}",
             "bitmapLabels": sk.addr_to_labels.get(data_ptr, []),
             "maskLabels": sk.addr_to_labels.get(mask_ptr, []),
+            # The bytes themselves, read at the size the table declares. Some
+            # declared heights are wrong in the original data (the dog's third
+            # frame claims 15 rows when 13 exist), so this deliberately reads
+            # what the table says and inherits the documented glitch rather
+            # than silently correcting it.
+            "bitmap": b64(img[data_ptr:data_ptr + size]),
+            "mask": b64(img[mask_ptr:mask_ptr + size]),
         })
 
     return {

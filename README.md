@@ -113,6 +113,7 @@ than to the game.
   map rendering, window attribute selection
 - **P2 — hero movement** ✅ arithmetic primitives, the three coordinate systems, map window
   and `shunt_map_*`, bounds checking, doors and transitions, input and animation
-- **P3 — sprites and masking** — next
+- **P3 — sprites and masking** 🚧 masked sprite compositor and hero plotting done;
+  foreground mask buffer, clipping, `restore_tiles` and movable items outstanding
 
 See `PLAN.md` §6 for the phase breakdown.

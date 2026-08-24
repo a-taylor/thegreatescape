@@ -299,28 +299,33 @@ absence from the reference build is visible rather than silent.
 
 ---
 
-## 11. How map_position tracks the hero is not yet traced
+## 11. How map_position tracks the hero — partly resolved in P3
 
-**Status:** Assumed. Found during P2.
+**Status:** the coordinate space is **Resolved**; the scroll trigger is still
+**Assumed**.
 
 **What I was reading:** `get_supertiles` (c$A7C9), the `shunt_map_*` family
-(c$A9E4 onward), and `hero_map_position` (`g$81B8`).
+(c$A9E4 onward), `hero_map_position` (`g$81B8`), and — the one that settled it —
+`vischar_visible` (c$BAF7).
 
-The shunt routines are implemented faithfully — each moves `map_position` by one
-tile, refreshes `map_buf` and redraws a single edge. What is *not* yet traced is
-the rule that decides **when** to shunt: the original compares the hero's
-position against thresholds and calls the appropriate `shunt_map_*`, and I have
-not followed that logic through `$B2FC` and `hero_map_position` yet.
+**Resolved: `map_position` is in ISO space, not world or tinypos space.**
+`vischar_visible` compares it directly against `iso_pos.x / 8` on the horizontal
+axis (`$BAFF`) and against `map_position.y * 8` in pixels on the vertical
+(`$BB33`). The exterior map's tile grid *is* the isometric projection — the
+artwork has the projection baked in — so a character is placed by projecting its
+world position through `calc_vischar_iso_pos` and subtracting the window origin.
 
-**Assumption I am proceeding with:** the demo centres the window on the hero's
-tinypos each frame. For any single frame this produces the same view the shunt
-sequence would reach, so nothing renders incorrectly — but the *timing* of the
-scroll may differ, and centring is certainly not how the original behaves at the
-map edges. Marked `// ASSUMPTION:` in `src/main.ts::followHero`.
+I originally derived `map_position` from the hero's tinypos in the P2 demo. That
+is a different space, and it looked plausible only because both are "small
+numbers of tiles". The correction is in `src/render/place.ts`, which states the
+relationship explicitly so it cannot be re-guessed.
 
-This only affects the demo harness. The `shunt_map_*` operations themselves are
-tested and agree with a from-scratch render of the destination, so replacing the
-centring with the real trigger rule is a local change.
+**Still assumed: when to scroll.** The original does not centre the view. It
+shunts by one tile when the hero crosses a threshold, so the window lags and
+clamps differently, especially at the map edges. `centreOn` in `place.ts` is the
+demo's stand-in, marked `// ASSUMPTION:`. The `shunt_map_*` operations
+themselves are tested and agree with a from-scratch render of the destination,
+so swapping in the real trigger rule is a local change.
 
 ---
 

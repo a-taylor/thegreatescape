@@ -11,11 +11,13 @@
   "sprites": [
     {
       "addr": "$CE22",
+      "bitmap": "HAATwAwwE8gf+A/wE8gMMA/wD/Af+BmYFmg1rDZsO9w8PC/0F+g73DPMYAY=",
       "bitmapAddr": "$DB46",
       "bitmapLabels": [
         "bitmap_stove"
       ],
       "height": 22,
+      "mask": "wD/AD+AHwAPAA+AHwAPgB+AH4AfAA8ADwAOAAYABgAGAAYABwAOAAYABDDA=",
       "maskAddr": "$DB72",
       "maskLabels": [
         "mask_stove"
@@ -25,11 +27,13 @@
     },
     {
       "addr": "$CE28",
+      "bitmap": "ADAAAPwAA/8AD+fAP5nwTmZ8c5n/eOf8ez/ze8/PO/M/S/z/c/3/eP38ez3ze83Pe/E/O/z/C/3/A/3/AP38AD3wAA3AAAEA",
       "bitmapAddr": "$DAB6",
       "bitmapLabels": [
         "bitmap_crate"
       ],
       "height": 24,
+      "mask": "/wP//AD/8AA/wAAPgAADAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAwAAA8AAA/AAA/wAD/8AP//A/",
       "maskAddr": "$DAFE",
       "maskLabels": [
         "mask_crate"
@@ -39,11 +43,13 @@
     },
     {
       "addr": "$CE2E",
+      "bitmap": "AAAA8AHwAcAA8AEAAHAB+AP4B/gG8A7wDugGiAZwAvAF0AbQCbAPoA9gDuAO4AxANCAY4AAA",
       "bitmapAddr": "$D28C",
       "bitmapLabels": [
         "bitmap_prisoner_facing_top_left_1"
       ],
       "height": 27,
+      "mask": "/g/8B/gD/AH8AfgB/AH8APgA8ADgAOAB4APgA+AD8APgA+AB4AHgA+AD4APAA8ADgAOAA8AH",
       "maskAddr": "$D545",
       "maskLabels": [
         "mask_various_facing_top_left_1"
@@ -53,11 +59,13 @@
     },
     {
       "addr": "$CE34",
+      "bitmap": "AAAA8AHwAcAA8AEAAHgB/AP0B/QG9Ab0DuQNlAx4Ffgb2AfYD9AH0AegB6ADoANAAWAGAAMAAAA=",
       "bitmapAddr": "$D256",
       "bitmapLabels": [
         "bitmap_prisoner_facing_top_left_2"
       ],
       "height": 28,
+      "mask": "/g/8B/gH/AP8AfgB/AH4AfAA4ADAAMAAwADAAYAAgACAAcADgAPAA8ADwAPAB8AP4A/wB/AP4B8=",
       "maskAddr": "$D505",
       "maskLabels": [
         "mask_various_facing_top_left_2"
@@ -67,11 +75,13 @@
     },
     {
       "addr": "$CE3A",
+      "bitmap": "AAAA8AHwAcAA8AEAAHgD/Af0B/QP7A7sHewblFRwb/QP0A/QB7AHoAegB0ADQAOABYAAQAPAAAA=",
       "bitmapAddr": "$D220",
       "bitmapLabels": [
         "bitmap_prisoner_facing_top_left_3"
       ],
       "height": 28,
+      "mask": "/g/8B/gD/AH8AfgB/AH4AfAA4ADAAMAAwAAAAAAAAAAAAMABwAPAA8ADwAOAA4AHwA/gD/AP+A8=",
       "maskAddr": "$D4C5",
       "maskLabels": [
         "mask_various_facing_top_left_3"
@@ -81,11 +91,13 @@
     },
     {
       "addr": "$CE40",
+      "bitmap": "AAAA8AHwAcAA8AEAAHgD/Af0B/QG9A70DegNlAx4Ffgb2AfYD7APcAdwB3ADYANgDGADAABgAAA=",
       "bitmapAddr": "$D1EA",
       "bitmapLabels": [
         "bitmap_prisoner_facing_top_left_4"
       ],
       "height": 28,
+      "mask": "/g/8B/gD/AH8AfgB/AH4APAA8ADgAOAA4ADAAMABwAPAAeABwAHgAeAB4AHgA+AHwAfgB/AH+Ac=",
       "maskAddr": "$D485",
       "maskLabels": [
         "mask_various_facing_top_left_4"
@@ -95,11 +107,13 @@
     },
     {
       "addr": "$CE46",
+      "bitmap": "AAADgAXAB4AEQAOADWAe4D7wN1A1UHdQbzhuVFHMX8CewN7AD0APQAcABwAWABYABQADgAAA",
       "bitmapAddr": "$D2C0",
       "bitmapLabels": [
         "bitmap_prisoner_facing_bottom_right_1"
       ],
       "height": 27,
+      "mask": "+B/wD+AP4AfwD8APgAfAA4ADAAcABwADAAEAAQABAAMADwAPAA+AB4AHgAfAD8Af4D/gH/QP",
       "maskAddr": "$D585",
       "maskLabels": [
         "mask_various_facing_bottom_right_1"
@@ -109,11 +123,13 @@
     },
     {
       "addr": "$CE4C",
+      "bitmap": "AAADgAXAB4AEQAOADUAe4D7gN1B1UHdQd1A0MDPAN9APQDdgD2A+4B7AHsAdgB0AGoAJwBQADgAAAA==",
       "bitmapAddr": "$D2F4",
       "bitmapLabels": [
         "bitmap_prisoner_facing_bottom_right_2"
       ],
       "height": 29,
+      "mask": "+B/wD+AP4AfwD+APwAfAA4AHgAcABwADAAMAB4AHgAPAB4ADgAOAB4AHgAeAB4AHwAPgA8An4D/wfw==",
       "maskAddr": "$D5C5",
       "maskLabels": [
         "mask_various_facing_bottom_right_2"
@@ -123,11 +139,13 @@
     },
     {
       "addr": "$CE52",
+      "bitmap": "AAADgAXAB4AEQAOADUAe4B7gN0A1QDdAN0AaIBnABcANQBNgHuAe4BzAPcA5gDGAUEBg4DAAAAA=",
       "bitmapAddr": "$D32C",
       "bitmapLabels": [
         "bitmap_prisoner_facing_bottom_right_3"
       ],
       "height": 28,
+      "mask": "+B/wD+AP4AfwD8APgAfAA8AHgAeABwADAAMAAYABwAOAB4AHgAeAB4AHgA+ABwAHAA8AB4MDx8c=",
       "maskAddr": "$D605",
       "maskLabels": [
         "mask_various_facing_bottom_right_3"
@@ -137,11 +155,13 @@
     },
     {
       "addr": "$CE58",
+      "bitmap": "AAADgAXAB4AEQAOADWAe4B7wO1A5UDdQN1A2MCHIL+gXYDdgD2AfQAdABsAOgA2ACAAFgA7AAAA=",
       "bitmapAddr": "$D362",
       "bitmapLabels": [
         "bitmap_prisoner_facing_bottom_right_4"
       ],
       "height": 28,
+      "mask": "+B/wD+AP4AfwD+APwAfAA8ADgAeABwAHAAMAB4ADgAOAB4AHgAeAB4AHgA/AH8AP4B/AD+AH8A8=",
       "maskAddr": "$D63D",
       "maskLabels": [
         "mask_various_facing_bottom_right_4"
@@ -151,11 +171,13 @@
     },
     {
       "addr": "$CE5E",
+      "bitmap": "AAAAAAoAAD2AAP6AA/7AA/7YDf3MHvugHveYHncsDO/wMO/AEMcAAYAAAQAABgAA",
       "bitmapAddr": "$D3C5",
       "bitmapLabels": [
         "bitmap_crawl_facing_bottom_left_1"
       ],
       "height": 16,
+      "mask": "//X//8B//wA//AAf+AAH8AAD4AABwAABwAAAgAABAAADAAAPBgA/rAD/+A//8B//",
       "maskAddr": "$D677",
       "maskLabels": [
         "mask_crawl_facing_bottom_left"
@@ -165,11 +187,13 @@
     },
     {
       "addr": "$CE64",
+      "bitmap": "AAAAAAoAADmAAP7AA/7AB/7ACP7AB33MD3vWL7X4NzjgwBgAQDAAABAAAGAA",
       "bitmapAddr": "$D398",
       "bitmapLabels": [
         "bitmap_crawl_facing_bottom_left_2"
       ],
       "height": 15,
+      "mask": "//X//8B//wA//AAf+AAH8AAD4AABwAABwAAAgAABAAADAAAPBgA/rAD/+A//",
       "maskAddr": "$D677",
       "maskLabels": [
         "mask_crawl_facing_bottom_left"
@@ -179,11 +203,13 @@
     },
     {
       "addr": "$CE6A",
+      "bitmap": "A4AAB6AAB3gABv4AAfwAB/OAz+/Avt9AED9AAD7AAH3AAHOAAHnAABroAAMsAAEE",
       "bitmapAddr": "$D3F5",
       "bitmapLabels": [
         "bitmap_crawl_facing_top_left_1"
       ],
       "height": 16,
+      "mask": "+B//8Af/8AH/8AD/+AB/MAA/AAAfAAAfAAAfgAAf0AAf/wA//wAX/4AD/+AB//gB",
       "maskAddr": "$D455",
       "maskLabels": [
         "mask_crawl_facing_top_left"
@@ -193,11 +219,13 @@
     },
     {
       "addr": "$CE70",
+      "bitmap": "A4AAB4AABngABf4AA/gAB/eAB2/AA59AN59ALx8AAB8AAB4AAA7AAA8AAAdgAAEw",
       "bitmapAddr": "$D425",
       "bitmapLabels": [
         "bitmap_crawl_facing_top_left_2"
       ],
       "height": 16,
+      "mask": "+B//8Af/8AH/8AD/+AB/MAA/AAAfAAAfAAAfgAAf0AAf/wA//wAX/4AD/+AB//gB",
       "maskAddr": "$D455",
       "maskLabels": [
         "mask_crawl_facing_top_left"
@@ -207,11 +235,13 @@
     },
     {
       "addr": "$CE76",
+      "bitmap": "GsAAH4AAC4AABMAAA/AAA/wAAf8AD//AE//gAH/gAB/gAAPQAAHQAACIAACgAAMQ",
       "bitmapAddr": "$D867",
       "bitmapLabels": [
         "bitmap_dog_facing_top_left_1"
       ],
       "height": 16,
+      "mask": "wB//wB//4D//8A//+AP/+AD/8AA/4AAfwAAP6AAP8AAP8AAH+fAH/+AD//AH//gH",
       "maskAddr": "$D921",
       "maskLabels": [
         "mask_dog_facing_top_left"
@@ -221,11 +251,13 @@
     },
     {
       "addr": "$CE7C",
+      "bitmap": "GoAAH8AAC4AABMAAA/AAA/gAA/8AAf/AAf/gAX/gAxvgBgPQAAOwAAHQAABAAADA",
       "bitmapAddr": "$D897",
       "bitmapLabels": [
         "bitmap_dog_facing_top_left_2"
       ],
       "height": 16,
+      "mask": "wB//wB//4D//8A//+AP/+AD/8AA/4AAfwAAP6AAP8AAP8AAH+fAH/+AD//AH//gH",
       "maskAddr": "$D921",
       "maskLabels": [
         "mask_dog_facing_top_left"
@@ -235,11 +267,13 @@
     },
     {
       "addr": "$CE82",
+      "bitmap": "GoAAH8AAC4AABMAAA+AAA/gAA/8AA//AAf/gAT/gAd3gAAPQAAGwAACQAAMA",
       "bitmapAddr": "$D8C7",
       "bitmapLabels": [
         "bitmap_dog_facing_top_left_3"
       ],
       "height": 15,
+      "mask": "wB//wB//4D//8A//+AP/+AD/8AA/4AAfwAAP6AAP8AAP8AAH+fAH/+AD//AH",
       "maskAddr": "$D921",
       "maskLabels": [
         "mask_dog_facing_top_left"
@@ -249,11 +283,13 @@
     },
     {
       "addr": "$CE88",
+      "bitmap": "GsAAH4AAC4AABMAAA/AAA/wAA/8AAf/AAf/gA3/gBr3gAAPQAAMwAA7IAAGA",
       "bitmapAddr": "$D8F4",
       "bitmapLabels": [
         "bitmap_dog_facing_top_left_4"
       ],
       "height": 15,
+      "mask": "wB//wB//4D//8A//+AP/+AD/8AA/4AAfwAAP6AAP8AAP8AAH+fAH/+AD//AH",
       "maskAddr": "$D921",
       "maskLabels": [
         "mask_dog_facing_top_left"
@@ -263,11 +299,13 @@
     },
     {
       "addr": "$CE8E",
+      "bitmap": "AAAADgAAH4AAH8AAH/AAH/gAD/2ADv8ABP/ACH7ACB3gAAxgAAIAAAGA",
       "bitmapAddr": "$D951",
       "bitmapLabels": [
         "bitmap_dog_facing_bottom_right_1"
       ],
       "height": 14,
+      "mask": "8f//4H//wD//wA//wAf/wAJ/4AA/gAA/AAAfgAAf4AAP8AAP/oAf/8A/",
       "maskAddr": "$D9F9",
       "maskLabels": [
         "mask_dog_facing_bottom_right"
@@ -277,11 +315,13 @@
     },
     {
       "addr": "$CE94",
+      "bitmap": "AAAADgAAHwAAH8AAH+AAH/gAD/0AHv8AaP/AAH7AAB3gABhgAAoAABIAAAgA",
       "bitmapAddr": "$D97B",
       "bitmapLabels": [
         "bitmap_dog_facing_bottom_right_2"
       ],
       "height": 15,
+      "mask": "8f//4H//wD//wA//wAf/wAJ/4AA/gAA/AAAfgAAf4AAP8AAP/oAf/8A//+B/",
       "maskAddr": "$D9F9",
       "maskLabels": [
         "mask_dog_facing_bottom_right"
@@ -291,11 +331,13 @@
     },
     {
       "addr": "$CE9A",
+      "bitmap": "AAAADAAAHwAAH8AAH+AAH/gAD/0ADv8AGP/ACX7ABBngAGxgABoAAAAADAAA",
       "bitmapAddr": "$D9A8",
       "bitmapLabels": [
         "bitmap_dog_facing_bottom_right_3"
       ],
       "height": 15,
+      "mask": "8f//4H//wD//wA//wAf/wAJ/4AA/gAA/AAAfgAAf4AAP8AAP/oAf/8A//+B/",
       "maskAddr": "$D9F9",
       "maskLabels": [
         "mask_dog_facing_bottom_right"
@@ -305,11 +347,13 @@
     },
     {
       "addr": "$CEA0",
+      "bitmap": "AAAADAAAHwAAH8AAH/AAD/gAD/2ADv8ABn/ABH7AAh3gAQpgAA0AABgA",
       "bitmapAddr": "$D9CF",
       "bitmapLabels": [
         "bitmap_dog_facing_bottom_right_4"
       ],
       "height": 14,
+      "mask": "8f//4H//wD//wA//wAf/wAJ/4AA/gAA/AAAfgAAf4AAP8AAP/oAf/8A/",
       "maskAddr": "$D9F9",
       "maskLabels": [
         "mask_dog_facing_bottom_right"
@@ -319,11 +363,13 @@
     },
     {
       "addr": "$CEA6",
+      "bitmap": "AAAB4APwAfAB5AL0AQQAeAP8B9gPxAw4DfANwA44BngG2AnYBtgJ2A+YD5gfkB9AJ3A4ABgA",
       "bitmapAddr": "$D74D",
       "bitmapLabels": [
         "bitmap_guard_facing_top_left_1"
       ],
       "height": 27,
+      "mask": "/g/8B/gD/AH8AfgB/AH8APgA8ADgAOAB4APgA+AD8APgA+AB4AHgA+AD4APAA8ADgAOAA8AH",
       "maskAddr": "$D545",
       "maskLabels": [
         "mask_various_facing_top_left_1"
@@ -333,11 +379,13 @@
     },
     {
       "addr": "$CEAC",
+      "bitmap": "AAAB4APwAfAB5AL0AQQAeAf8D7wfhB50HegbkDhwNPg1uA+4L7gPuB+4H7gfkB9AD0AAAAMACwAGAA==",
       "bitmapAddr": "$D713",
       "bitmapLabels": [
         "bitmap_guard_facing_top_left_2"
       ],
       "height": 29,
+      "mask": "/g/8B/gH/AP8AfgB/AH4AfAA4ADAAMAAwADAAYAAgACAAcADgAPAA8ADwAPAB8AP4A/wB/AP4B/wPw==",
       "maskAddr": "$D505",
       "maskLabels": [
         "mask_various_facing_top_left_2"
@@ -347,11 +395,13 @@
     },
     {
       "addr": "$CEB2",
+      "bitmap": "AAAB4APwAfAB5AL0AQQAeAf8D6wfjBhsG+g7yLQwrPAN+B+4H7gfOB84Hzg+OD2wHQADQAYA",
       "bitmapAddr": "$D6DD",
       "bitmapLabels": [
         "bitmap_guard_facing_top_left_3"
       ],
       "height": 27,
+      "mask": "/g/8B/gD/AH8AfgB/AH4AfAA4ADAAMAAwAAAAAAAAAAAAMABwAPAA8ADwAOAA4AHwA/gD/AP",
       "maskAddr": "$D4C5",
       "maskLabels": [
         "mask_various_facing_top_left_3"
@@ -361,11 +411,13 @@
     },
     {
       "addr": "$CEB8",
+      "bitmap": "AAAB4APwAfAB5AL0AQgAfAf8B9wPxA40DvQdxBw4Gnga3APcG9wH3A/cD5wPmAdgGHAOsADg",
       "bitmapAddr": "$D6A7",
       "bitmapLabels": [
         "bitmap_guard_facing_top_left_4"
       ],
       "height": 27,
+      "mask": "/g/8B/gD/AH8AfgB/AH4APAA8ADgAOAA4ADAAMABwAPAAeABwAHgAeAB4AHgA+AHwAfgB/AH",
       "maskAddr": "$D485",
       "maskLabels": [
         "mask_various_facing_top_left_4"
@@ -375,11 +427,13 @@
     },
     {
       "addr": "$CEBE",
+      "bitmap": "AAAAAAeAD8APgAdADIAjoBRwFtBq0OtQ61BlOHTUJUwa4CLgNvA1cDOwP7A/oB+AHkABgAuABeAAgA==",
       "bitmapAddr": "$D783",
       "bitmapLabels": [
         "bitmap_guard_facing_bottom_right_1"
       ],
       "height": 29,
+      "mask": "+B/wD+AP4AfwD8APgAfAA4ADAAcABwADAAEAAQABAAMADwAPAA+AB4AHgAfAD8Af4D/gH/QP/h//fw==",
       "maskAddr": "$D585",
       "maskLabels": [
         "mask_various_facing_bottom_right_1"
@@ -389,11 +443,13 @@
     },
     {
       "addr": "$CEC4",
+      "bitmap": "AAAAAAeAD8APgAdADIAToBRwFtAW0CtQa1BrEGjQNWg1aArgGvAm8DVwM3A/YD8AP2AcYAMwBgADgA==",
       "bitmapAddr": "$D7BD",
       "bitmapLabels": [
         "bitmap_guard_facing_bottom_right_2"
       ],
       "height": 29,
+      "mask": "+B/wD+AP4AfwD+APwAfAA4AHgAcABwADAAMAB4AHgAPAB4ADgAOAB4AHgAeAB4AHwAPgA8An4D/wfw==",
       "maskAddr": "$D5C5",
       "maskLabels": [
         "mask_various_facing_bottom_right_2"
@@ -403,11 +459,13 @@
     },
     {
       "addr": "$CECA",
+      "bitmap": "AAAAAAeAD8APgAdADIAjoBRgFtAq0CtQa0B1AHTgOWAVYCzwMvA28DVwMvA+wD4wHnBgYHBwODg=",
       "bitmapAddr": "$D7F7",
       "bitmapLabels": [
         "bitmap_guard_facing_bottom_right_3"
       ],
       "height": 28,
+      "mask": "+B/wD+AP4AfwD8APgAfAA8AHgAeABwADAAMAAYABwAOAB4AHgAeAB4AHgA+ABwAHAA8AB4MDx8c=",
       "maskAddr": "$D605",
       "maskLabels": [
         "mask_various_facing_bottom_right_3"
@@ -417,11 +475,13 @@
     },
     {
       "addr": "$CED0",
+      "bitmap": "AAAAAAeAD8APgAdADIAToBRwFtAW0CtQa1BrEGjQNWA1YArgGvAlcCtwJ7A/sB+AH0AMgBLAD2A=",
       "bitmapAddr": "$D82F",
       "bitmapLabels": [
         "bitmap_guard_facing_bottom_right_4"
       ],
       "height": 28,
+      "mask": "+B/wD+AP4AfwD+APwAfAA8ADgAeABwAHAAMAB4ADgAOAB4AHgAeAB4AHgA/AH8AP4B/AD+AH8A8=",
       "maskAddr": "$D63D",
       "maskLabels": [
         "mask_various_facing_bottom_right_4"
@@ -431,11 +491,13 @@
     },
     {
       "addr": "$CED6",
+      "bitmap": "AAAAYADwAPgA/AF8AXgABAD+A/4H+gb6BvoHegNkBxgG+ArwDcwCHAfYB9gDoAQ4B7gDmAsYBzA=",
       "bitmapAddr": "$D0D6",
       "bitmapLabels": [
         "bitmap_commandant_facing_top_left_1"
       ],
       "height": 28,
+      "mask": "/g/8B/gD/AH8AfgB/AH8APgA8ADgAOAB4APgA+AD8APgA+AB4AHgA+AD4APAA8ADgAOAA8AH4M8=",
       "maskAddr": "$D545",
       "maskLabels": [
         "mask_various_facing_top_left_1"
@@ -445,11 +507,13 @@
     },
     {
       "addr": "$CEDC",
+      "bitmap": "AAAAYADwAPgA/AF8AXgABAH+A/4H+gf6BvoG9A7KDjoN+AXgC5gEUAPQB6ADoANAAKADsAOgAYAHgAGA",
       "bitmapAddr": "$D09A",
       "bitmapLabels": [
         "bitmap_commandant_facing_top_left_2"
       ],
       "height": 30,
+      "mask": "/g/8B/gH/AP8AfgB/AH4AfAA4ADAAMAAwADAAYAAgACAAcADgAPAA8ADwAPAB8AP4A/wB/AP4B/wP/g/",
       "maskAddr": "$D505",
       "maskLabels": [
         "mask_various_facing_top_left_2"
@@ -459,11 +523,13 @@
     },
     {
       "addr": "$CEE2",
+      "bitmap": "AAAAYADwAPgA/AF8AXgAAAD8A/4D+gf6BvYG9g7GDToV+Bv2A8gEGAfYA4ACMAHQAcAA4AFgAGAAwA==",
       "bitmapAddr": "$D060",
       "bitmapLabels": [
         "bitmap_commandant_facing_top_left_3"
       ],
       "height": 29,
+      "mask": "/g/8B/gD/AH8AfgB/AH4AfAA4ADAAMAAwAAAAAAAAAAAAMABwAPAA8ADwAOAA4AHwA/gD/AP+A/+Hw==",
       "maskAddr": "$D4C5",
       "maskLabels": [
         "mask_various_facing_top_left_3"
@@ -473,11 +539,13 @@
     },
     {
       "addr": "$CEE8",
+      "bitmap": "AAAAYADwAPgA/AF8AXgABAD+A/4H+gf6BvoO9g7GDjgG+AbgCZgEWAOwA7ABgAJwA7ABsAewATAAIA==",
       "bitmapAddr": "$D026",
       "bitmapLabels": [
         "bitmap_commandant_facing_top_left_4"
       ],
       "height": 29,
+      "mask": "/g/8B/gD/AH8AfgB/AH4APAA8ADgAOAA4ADAAMABwAPAAeABwAHgAeAB4AHgA+AHwAfgB/AH+Af+jw==",
       "maskAddr": "$D485",
       "maskLabels": [
         "mask_various_facing_top_left_4"
@@ -487,11 +555,13 @@
     },
     {
       "addr": "$CEEE",
+      "bitmap": "AAABwAPgB8ADsABgAYAGsA94H6g/sDuwd6g3jCB0F7A3gAugDGAPQA4AAUAHQAcABwADAAPA",
       "bitmapAddr": "$D10E",
       "bitmapLabels": [
         "bitmap_commandant_facing_bottom_right_1"
       ],
       "height": 27,
+      "mask": "+B/wD+AP4AfwD8APgAfAA4ADAAcABwADAAEAAQABAAMADwAPAA+AB4AHgAfAD8Af4D/gH/QP",
       "maskAddr": "$D585",
       "maskLabels": [
         "mask_various_facing_bottom_right_1"
@@ -501,11 +571,13 @@
     },
     {
       "addr": "$CEF4",
+      "bitmap": "AAABwAPgB8ADsABgAYACsA9oH7AfsBuwO6g7iDRwN7A3qAcQKLgPuA9gDhABcA5wDmAMOA4AAwA=",
       "bitmapAddr": "$D144",
       "bitmapLabels": [
         "bitmap_commandant_facing_bottom_right_2"
       ],
       "height": 28,
+      "mask": "+B/wD+AP4AfwD+APwAfAA4AHgAcABwADAAMAB4AHgAPAB4ADgAOAB4AHgAeAB4AHwAPgA8An4D8=",
       "maskAddr": "$D5C5",
       "maskLabels": [
         "mask_various_facing_bottom_right_2"
@@ -515,11 +587,13 @@
     },
     {
       "addr": "$CEFA",
+      "bitmap": "AAABwAPgB8ADsABgAYACsAdoD7APsB2wG6gbiBx0CrQGoAmQDnAPcAbgCAAe4BzgGOAYYAhw",
       "bitmapAddr": "$D17C",
       "bitmapLabels": [
         "bitmap_commandant_facing_bottom_right_3"
       ],
       "height": 27,
+      "mask": "+B/wD+AP4AfwD8APgAfAA8AHgAeABwADAAMAAYABwAOAB4AHgAeAB4AHgA+ABwAHAA8AB4MD",
       "maskAddr": "$D605",
       "maskLabels": [
         "mask_various_facing_bottom_right_3"
@@ -529,11 +603,13 @@
     },
     {
       "addr": "$CF00",
+      "bitmap": "AAABwAPgB8ADsABgAYAGsA9oH6gfsDuwO7A7iDBwN7APqDcQCHAHYANABKAHYAdABsAGgANgAGA=",
       "bitmapAddr": "$D1B2",
       "bitmapLabels": [
         "bitmap_commandant_facing_bottom_right_4"
       ],
       "height": 28,
+      "mask": "+B/wD+AP4AfwD+APwAfAA8ADgAeABwAHAAMAB4ADgAOAB4AHgAeAB4AHgA/AH8AP4B/AD+AH8A8=",
       "maskAddr": "$D63D",
       "maskLabels": [
         "mask_various_facing_bottom_right_4"

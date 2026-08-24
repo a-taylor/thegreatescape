@@ -1,30 +1,24 @@
 /**
- * P2 demo: a walkable hero.
+* P3 demo: a walkable hero drawn with the real sprite plotter.
  *
  * The hero moves through the real chain -- input -> animindices -> animation
- * frames -> position -> bounds check -> door handling -- and the map window
- * follows. Sprite plotting with masks is P3, so the hero is drawn here as a
- * marker at his projected isometric position.
+* frames -> position -> bounds check -> door handling -- and is composited by
+* plot_masked_sprite. The foreground mask is not built yet, so he draws in
+* front of scenery rather than behind it; that is the rest of P3.
  */
 
-import { exteriorTiles, interiorTiles, roomsData } from './data/load.js';
-import { calcIsoPos, toTinyPos } from './game/coords.js';
+import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
+import { toTinyPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
-import { createHero, encodeInput, step } from './game/hero.js';
+import { animations, createHero, encodeInput, step } from './game/hero.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
-import { ExteriorView, MAP_ROW_BIAS } from './render/exterior.js';
+import { ExteriorView } from './render/exterior.js';
+import { centreOn, windowPlacement } from './render/place.js';
+import { MASK_BUFFER_WIDTH, plotMaskedSprite } from './render/sprites.js';
 import { fillRoom } from './render/scene.js';
-import {
-  BUFFER_ROWS,
-  GameWindowBuffers,
-  WINDOW_COLS,
-  WINDOW_ORIGIN_COL,
-  WINDOW_ORIGIN_PIXEL_ROW,
-  plotGameWindow,
-  setWindowAttributes,
-} from './render/window.js';
+import { GameWindowBuffers, plotGameWindow, setWindowAttributes } from './render/window.js';
 import { CanvasPresenter } from './spectrum/canvas.js';
-import { SCREEN_COLS, SpectrumScreen, screenAddress } from './spectrum/display.js';
+import { SpectrumScreen } from './spectrum/display.js';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!;
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
@@ -36,8 +30,14 @@ const presenter = new CanvasPresenter(canvas);
 const screen = new SpectrumScreen();
 const buffers = new GameWindowBuffers();
 
-/** Start on open ground inside the camp. */
-const START = { x: 0x2a * 8, y: 0x3e * 8, height: 0 };
+/**
+ * Start on open ground by the huts.
+ *
+ * World coordinates, not iso: the walls table puts hut 0 at tinypos x 106-110,
+ * y 82-98, so x*8 / y*8 lands beside it. This projects to roughly iso tile
+ * (96, 60), comfortably inside the 216x136 map.
+ */
+const START = { x: 100 * 8, y: 74 * 8, height: 0 };
 
 const hero = createHero({ ...START }, 0, 0);
 const view = new ExteriorView(0, 0);
@@ -56,40 +56,51 @@ let lastEvent = '';
  * rather than presented as faithful.
  */
 function followHero(): void {
-  // Integer arithmetic only: BUILD_PROMPT §5 forbids floats in game state, and
-  // map_position is a pair of bytes in the original. `>> 1` rather than `/ 2`.
-  const tiny = toTinyPos(hero.pos);
-  const x = tiny.x - (WINDOW_COLS >> 1);
-  const y = tiny.y - (BUFFER_ROWS >> 1) + MAP_ROW_BIAS;
-  view.position.x = Math.max(0, Math.min(54 * 4 - WINDOW_COLS, x));
-  view.position.y = Math.max(
-    MAP_ROW_BIAS,
-    Math.min(34 * 4 - BUFFER_ROWS + MAP_ROW_BIAS, y),
-  );
+  const centred = centreOn(hero.pos);
+  view.position.x = centred.x;
+  view.position.y = centred.y;
   view.refresh();
 }
 
-/** Draw the hero as a marker until sprite plotting arrives in P3. */
-function plotHeroMarker(): void {
-  const iso = calcIsoPos(hero.pos);
-  // iso_pos is in half-pixels on x; the window shows a moving portion of it.
-  const tiny = toTinyPos(hero.pos);
-  const col = tiny.x - view.position.x;
-  const row = tiny.y - (view.position.y - MAP_ROW_BIAS);
-  if (col < 0 || col >= WINDOW_COLS || row < 0 || row >= BUFFER_ROWS) return;
+/** The prisoner sprite base: sprites[2] is bitmap_prisoner_facing_top_left_1. */
+const PRISONER_SPRITE_BASE = 2;
 
-  const screenCol = WINDOW_ORIGIN_COL + col;
-  const baseRow = WINDOW_ORIGIN_PIXEL_ROW + row * 8;
-  for (let r = 0; r < 8; r++) {
-    const addr = screenAddress(screenCol, baseRow + r);
-    screen.writeByte(addr, screen.readByte(addr) ^ 0xff);
-  }
-  // Mark the cell so it stands out against the terrain.
-  const charRow = (baseRow >> 3) & 0x1f;
-  if (screenCol < SCREEN_COLS && charRow < 24) {
-    screen.setAttribute(screenCol, charRow, 0x46); // bright yellow over black
-  }
-  void iso;
+/**
+ * Plot the hero through the real masked-sprite path.
+ *
+ * The foreground mask is all-permitting for now: render_mask_buffer is not
+ * implemented yet, so the hero draws in front of scenery rather than behind it.
+ * That is the remaining half of P3.
+ */
+const permissiveForeground = new Uint8Array(MASK_BUFFER_WIDTH * 64).fill(0xff);
+
+function plotHeroSprite(): void {
+  const anim = animations[hero.animation];
+  const frame = anim?.frames[hero.frame];
+  if (!frame) return;
+
+  const record = spritesData.sprites[PRISONER_SPRITE_BASE + frame.sprite];
+  if (!record) return;
+
+  const place = windowPlacement(hero.pos, view.position, record.widthBytes, record.height);
+  if (!place.visible) return;
+
+  plotMaskedSprite(
+    { pixels: buffers.pixels, foreground: permissiveForeground },
+    {
+      bitmap: decodeBase64(record.bitmap),
+      mask: decodeBase64(record.mask),
+      widthBytes: record.widthBytes,
+      height: record.height,
+    },
+    {
+      column: place.column,
+      row: place.pixelRow,
+      shift: place.shift,
+      skipRows: Math.max(0, -place.pixelRow),
+      rows: record.height,
+    },
+  );
 }
 
 function render(): void {
@@ -107,10 +118,15 @@ function render(): void {
 
   buffers.expandTiles(hero.room === 0 ? exteriorTiles() : interiorTiles());
 
+  // Order matters and matches the original: plot_sprites composites into
+  // window_buf, and only then does plot_game_window blit the buffer to the
+  // display. Drawing the sprite after the blit writes into a buffer nobody
+  // reads again this frame.
+  if (!wipeTiles && hero.room === 0) plotHeroSprite();
+
   screen.clear(0x00, 0x00);
   plotGameWindow(screen, buffers);
   setWindowAttributes(screen, attribute);
-  if (!wipeTiles) plotHeroMarker();
   presenter.present(screen);
 
   const tiny = toTinyPos(hero.pos);

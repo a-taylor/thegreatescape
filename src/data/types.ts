@@ -155,6 +155,10 @@ export interface SpriteRecord {
   readonly maskAddr: string;
   readonly bitmapLabels: readonly string[];
   readonly maskLabels: readonly string[];
+  /** base64 of widthBytes * height bitmap bytes. */
+  readonly bitmap: string;
+  /** base64 of the same-shaped mask. */
+  readonly mask: string;
 }
 
 export interface SpritesData extends Provenance {
