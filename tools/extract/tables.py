@@ -38,6 +38,9 @@ N_ROOMS = 52
 N_OBJECTS = 54
 N_MASKS = 30
 N_ITEMS = 16
+# $6A83: "Constant final byte is always 32" -- the pos.height that
+# interior_mask_data_source omits and setup_room supplies.
+INTERIOR_MASK_HEIGHT = 32
 N_CHARACTERS = 26
 
 
@@ -239,14 +242,26 @@ def extract_masks(sk: Skool) -> dict[str, Any]:
         })
 
     def mask_records(label: str, stride: int) -> list[dict[str, Any]]:
+        """{index, bounds x0/x1/y0/y1, pos x/y/height} -- eight bytes.
+
+        interior_mask_data_source is stored SEVEN bytes wide: "an array of 47
+        mask structs with the constant final height byte omitted" ($EA7C).
+        setup_room copies the seven and appends $20 itself ($6A83), so the
+        height is restored here -- without it every interior mask has height 0
+        and render_mask_buffer's "is the character in front of it?" test
+        ($B979) rejects the lot, leaving nothing to occlude anyone indoors.
+        """
         addr = sk.addr_of(label)
         out = []
         for a, rec in fixed_records(img, addr, _count(sk, label, stride), stride):
+            pos = list(rec[5:])
+            if stride == 7:
+                pos.append(INTERIOR_MASK_HEIGHT)
             out.append({
                 "addr": f"${a:04X}",
                 "index": rec[0],
                 "bounds": {"x0": rec[1], "x1": rec[2], "y0": rec[3], "y1": rec[4]},
-                "pos": list(rec[5:]),
+                "pos": pos,
             })
         return out
 

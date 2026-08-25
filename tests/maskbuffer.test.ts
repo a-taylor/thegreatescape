@@ -10,11 +10,15 @@ import {
   MASK_BUFFER_ROWBYTES,
   exteriorMaskData,
   interiorMaskData,
+  interiorMasksForRoom,
   maskApplies,
   maskShapes,
   renderMaskBuffer,
 } from '../src/render/maskbuffer.js';
 import { MASK_BUFFER_SIZE, MASK_BUFFER_WIDTH } from '../src/render/sprites.js';
+import { roomsData } from '../src/data/load.js';
+import { isoPlacement } from '../src/render/place.js';
+import { tinyposStash } from '../src/game/coords.js';
 
 const subject = (over: Partial<Parameters<typeof maskApplies>[1]> = {}) => ({
   isoX: 100,
@@ -50,8 +54,53 @@ describe('extracted mask tables', () => {
     expect(EXTERIOR_MASK_COUNT_AS_CODED).toBeGreaterThan(exteriorMaskData.length);
   });
 
-  it('has interior records too', () => {
-    expect(interiorMaskData.length).toBeGreaterThan(0);
+  it('has all 47 interior records', () => {
+    // "an array of 47 mask structs with the constant final height byte
+    // omitted" ($EA7C).
+    expect(interiorMaskData).toHaveLength(47);
+  });
+
+  it('restores the height byte the interior table omits', () => {
+    // setup_room copies seven bytes and appends $20 itself ($6A83, "Constant
+    // final byte is always 32"). Store only the seven and every interior mask
+    // has height 0, which makes the in-front test at $B979 reject all of them
+    // -- nothing occludes anyone indoors, and it looks like masking is simply
+    // not implemented.
+    for (const r of interiorMaskData) {
+      expect(r.pos, `interior mask ${r.addr}`).toHaveLength(3);
+      expect(r.pos[2], `interior mask ${r.addr}`).toBe(32);
+    }
+    // The exterior table stores its own height, so those vary.
+    expect(new Set(exteriorMaskData.map((r) => r.pos[2])).size).toBeGreaterThan(1);
+  });
+
+  it('actually occludes a character standing in a hut', () => {
+    // The end-to-end version of the above: a hero in room 1 must have at least
+    // one mask applied somewhere in the room. Asserting only that the table is
+    // non-empty passes even when every record is rejected.
+    const def = roomsData.roomdefs[roomsData.rooms[0]!.roomdefIndex]!;
+    const records = interiorMasksForRoom(def.masks);
+    expect(records.length).toBeGreaterThan(0);
+
+    let applied = 0;
+    for (let x = 25; x <= 75; x += 5) {
+      for (let y = 25; y <= 75; y += 5) {
+        // Interior positions are at tinypos scale: the movable_item records
+        // store (62, 35, 16) as plain words, not world coordinates.
+        const pos = { x, y, height: 24 };
+        const iso = isoPlacement(pos);
+        const tiny = tinyposStash(pos, false);
+        const subject = {
+          isoX: iso.column,
+          isoY: iso.pixelRow >> 3,
+          tinyX: tiny.x,
+          tinyY: tiny.y,
+          tinyHeight: tiny.height,
+        };
+        if (records.some((r) => maskApplies(r, subject))) applied++;
+      }
+    }
+    expect(applied).toBeGreaterThan(0);
   });
 
   it('never references a mask shape that does not exist', () => {
