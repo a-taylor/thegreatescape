@@ -7,14 +7,18 @@ import { describe, expect, it } from 'vitest';
 import {
   FIRST_MOVABLE_CHARACTER,
   createMovable,
+  installMovable,
   isMovableCharacter,
   movableByRoom,
   movableForRoom,
   movableItems,
   movableRange,
   pushMovable,
+  refreshMovableIso,
 } from '../src/game/movable.js';
 import { spritesData } from '../src/data/load.js';
+import { createVischars } from '../src/game/vischar.js';
+import { calcIsoPos } from '../src/game/coords.js';
 
 describe('movable item data', () => {
   it('is three items, one per room', () => {
@@ -183,5 +187,51 @@ describe('pushing the crate (X axis, centre 54)', () => {
     const s = fresh(61);
     pushMovable(s, 0); // toward the maximum, already there
     expect(s.pos.x).toBe(61);
+  });
+});
+
+describe('installing a movable into vischar 1', () => {
+  it('shares the position object rather than copying it', () => {
+    // This is a contract, not an incidental detail. setup_movable_item ($697D)
+    // copies the movable's data INTO the vischar, and from then on the vischar
+    // is the single source of truth. Modelling that as a shared reference means
+    // pushMovable's writes are visible through the slot with no sync step.
+    //
+    // The failure it guards against: a caller that re-creates the movable state
+    // after installing it leaves the slot pointing at the old object, so pushes
+    // mutate one position while the renderer draws the other and the stove
+    // looks immovable.
+    const state = createMovable(movableItems.stove1!);
+    const slot = createVischars()[1]!;
+    installMovable(slot, state, 2);
+
+    expect(slot.pos).toBe(state.pos);
+
+    pushMovable(state, 1);
+    expect(slot.pos.y).toBe(state.pos.y);
+  });
+
+  it('fills in everything purge and the renderer read', () => {
+    const state = createMovable(movableItems.crate!);
+    const slot = createVischars()[1]!;
+    installMovable(slot, state, 9);
+
+    expect(slot.character).toBe(movableItems.crate!.character);
+    expect(slot.room).toBe(9); // $6996
+    expect(slot.spriteIndex).toBe(movableItems.crate!.spriteIndex);
+    expect(slot.isoPos).toEqual(calcIsoPos(state.pos)); // $699C
+    expect(slot.flags).toBe(0);
+  });
+
+  it('keeps the projection current across a push', () => {
+    const state = createMovable(movableItems.stove1!);
+    const slot = createVischars()[1]!;
+    installMovable(slot, state, 2);
+
+    for (let i = 0; i < 5; i++) {
+      pushMovable(state, 1);
+      refreshMovableIso(slot);
+      expect(slot.isoPos).toEqual(calcIsoPos(state.pos));
+    }
   });
 });

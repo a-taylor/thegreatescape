@@ -516,11 +516,11 @@ function tick(): void {
     // the interior position in place on the way out and the exterior renderer
     // reads supertiles from (116, 234), far off a 216x136 map -- the window
     // fills with whatever that resolves to and never recovers.
+    // setViewForRoom also runs setup_movable_items for the new room. It must
+    // not be repeated here: a second createMovable would leave `movable` and
+    // vischar 1 holding different position objects, so pushes would mutate one
+    // while the renderer drew the other, and the stove would look immovable.
     setViewForRoom(outcome.enteredRoom, hero.pos);
-    // setup_movable_items ($6939) runs on entering a room: rooms 2, 4 and 9
-    // each place one, and it is reset to its starting position each time.
-    const item = movableForRoom(outcome.enteredRoom);
-    movable = item ? createMovable(item) : null;
   } else if (outcome.lockedDoor !== null) {
     lastEvent = 'THE DOOR IS LOCKED';
   } else if (outcome.blocked) {
