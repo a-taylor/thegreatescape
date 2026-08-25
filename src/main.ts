@@ -226,6 +226,39 @@ function render(): void {
     (lastEvent ? ` · <b>${lastEvent}</b>` : '');
 }
 
+/**
+ * The room state interior_bounds_check needs: which roomdef_dimensions entry
+ * applies, and the roomdef's own furniture boxes.
+ *
+ * Omitting this indoors makes boundsCheck throw, which kills the tick and the
+ * hero stops moving entirely -- silently, because the throw happens inside a
+ * setInterval callback.
+ */
+function interiorBounds(room: number) {
+  if (room === 0) return undefined;
+  const def = roomsData.roomdefs[roomsData.rooms[room - 1]!.roomdefIndex]!;
+  return { boundsIndex: def.dimensionsIndex, objectBounds: def.bounds };
+}
+
+/**
+ * A standing position inside a room: the first spot clear of both the room
+ * bounds and the furniture. Room extents differ per roomdef, so a fixed
+ * position is valid in some rooms and inside a wall in others.
+ */
+function spawnInRoom(room: number): { x: number; y: number; height: number } {
+  const def = roomsData.roomdefs[roomsData.rooms[room - 1]!.roomdefIndex]!;
+  const dims = roomsData.dimensions.entries[def.dimensionsIndex]!;
+  for (let y = dims.y0 + 1; y < dims.y1 - 4; y++) {
+    for (let x = dims.x0 + 5; x <= dims.x1; x++) {
+      const blocked = def.bounds.some(
+        (b) => x >= b.x0 && x < b.x1 && y >= b.y0 && y < b.y1,
+      );
+      if (!blocked) return { x, y, height: HERO_STANDING_HEIGHT };
+    }
+  }
+  return { x: dims.x0 + 5, y: dims.y0 + 1, height: HERO_STANDING_HEIGHT };
+}
+
 function tick(): void {
   const input = encodeInput(
     keys.has('ArrowUp'),
@@ -234,7 +267,7 @@ function tick(): void {
     keys.has('ArrowRight'),
   );
 
-  const outcome = step(hero, input);
+  const outcome = step(hero, input, interiorBounds(hero.room));
 
   // move_map runs once per logic step, after the hero has animated -- the same
   // place the original calls it from ($6939 / $9D7B).
@@ -319,7 +352,7 @@ roomSelect.addEventListener('change', () => {
     view.position.y = START_MAP.y;
   } else {
     // Interiors do not scroll; enter_room fixes the map position ($6900).
-    hero.pos = { x: 40, y: 40, height: HERO_STANDING_HEIGHT };
+    hero.pos = spawnInRoom(room);
     view.position.x = INTERIOR_MAP_POSITION.x;
     view.position.y = INTERIOR_MAP_POSITION.y;
   }

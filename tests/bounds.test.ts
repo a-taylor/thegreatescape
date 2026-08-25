@@ -171,3 +171,32 @@ describe('within_camp_bounds (c$A01A)', () => {
     expect(() => withinCampBounds(3, { x: 0, y: 0 })).toThrow();
   });
 });
+
+describe('interior bounds must be supplied indoors', () => {
+  it('throws rather than silently passing when state is missing', () => {
+    // This is a guard with teeth: the throw happens inside the game tick, so
+    // omitting the state stops the hero moving entirely and silently. Better to
+    // fail loudly at the call site.
+    expect(() => boundsCheck({ x: 40, y: 40, height: 24 }, 2)).toThrow();
+  });
+
+  it('contains a character within both the room extent and its furniture', () => {
+    // Room 2's roomdef: dimensions index 1 (x 22..62, y 26..58) with two
+    // furniture boxes. interior_bounds_check applies the room's +4/-4 margins
+    // to the extent and treats each box as solid.
+    const state = {
+      boundsIndex: 1,
+      objectBounds: [
+        { x0: 48, x1: 64, y0: 43, y1: 56 },
+        { x0: 24, x1: 38, y0: 26, y1: 40 },
+      ],
+    };
+    // Clear of both.
+    expect(interiorBoundsCheck({ x: 40, y: 41, height: 24 }, state).blocked).toBe(false);
+    // Beyond the room's right edge.
+    expect(interiorBoundsCheck({ x: 63, y: 41, height: 24 }, state).blocked).toBe(true);
+    // Inside each furniture box.
+    expect(interiorBoundsCheck({ x: 55, y: 45, height: 24 }, state).blocked).toBe(true);
+    expect(interiorBoundsCheck({ x: 30, y: 30, height: 24 }, state).blocked).toBe(true);
+  });
+});
