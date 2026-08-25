@@ -30,7 +30,6 @@ import {
   NO_OFFSET,
   VISIBLE_PIXEL_ROWS,
   WINDOW_COLS,
-  WINDOW_STRIDE,
   plotGameWindow,
   setWindowAttributes,
 } from './render/window.js';
@@ -123,13 +122,7 @@ function plotHeroSprite(): void {
   );
   if (!clip.visible) return;
 
-  const place = windowPlacement(
-    hero.pos,
-    view.position,
-    record.widthBytes,
-    record.height,
-    windowOffset.low / WINDOW_STRIDE,
-  );
+  const place = windowPlacement(hero.pos, view.position, record.widthBytes, record.height);
 
   // render_mask_buffer works in the units setup_vischar_plotting leaves behind:
   // state.iso_pos is vischar.iso_pos / 8, tinypos_stash is mi.pos / 8.
@@ -168,8 +161,7 @@ function plotHeroSprite(): void {
       column: place.column,
       // $DCA5: a sprite clipped at the top is drawn at buffer row 0, with the
       // skip applied to the sprite data rather than a negative row.
-      row: clippedBufferRow(clip.topSkip, iso0.pixelRow >> 3, view.position.y) +
-        (clip.topSkip ? 0 : windowOffset.low / WINDOW_STRIDE),
+      row: clippedBufferRow(clip.topSkip, iso0.pixelRow, view.position.y),
       shift: place.shift,
       skipRows: clip.topSkip,
       rows: clip.clippedHeight,

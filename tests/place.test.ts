@@ -14,31 +14,30 @@ import { isoPlacement, windowPlacement } from '../src/render/place.js';
 describe('windowPlacement', () => {
   const map = { x: 57, y: 74 };
 
-  it('places vertically in whole tile rows', () => {
-    // $DCA7..$DCBA: (iso_pos_y - map_position_y) * 192, where iso_pos_y is the
-    // /8 value and 192 bytes of a 24-wide buffer is 8 pixel rows. So every
-    // placement lands on a multiple of 8.
+  it('places CHARACTERS at pixel granularity, not whole tile rows', () => {
+    // setup_vischar_plotting ($E4EB) multiplies by 24 -- one row of a 24-wide
+    // buffer, i.e. a single pixel row. setup_ITEM_plotting ($DCA7) multiplies
+    // by 192 instead and so quantises items to tiles. Using the item rule for a
+    // character makes him move in 8-pixel steps, which the map scroll hides
+    // outdoors but which is plainly visible indoors.
+    const seen = new Set<number>();
     for (let y = 500; y < 700; y += 2) {
-      const p = windowPlacement({ x: 800, y, height: 24 }, map);
-      // Math.abs because -0 % 8 is -0, which Object.is distinguishes from 0.
-      expect(Math.abs(p.pixelRow % 8), `world y ${y}`).toBe(0);
+      seen.add(windowPlacement({ x: 800, y, height: 24 }, map).pixelRow % 8);
     }
+    expect(seen.size, 'placement should not be a multiple of 8').toBeGreaterThan(1);
   });
 
-  it('does not slide the sprite against its tile-granular mask', () => {
-    // Pixel-granular placement would look more precise but shifts the sprite up
-    // to 7 pixels relative to the foreground mask, which is built in tile rows.
-    // The result is a sprite shredded incoherently by its own occlusion mask.
+  it('is exactly iso_pos.y minus the window origin in pixels', () => {
     const pos = { x: 800, y: 564, height: 24 };
     const iso = isoPlacement(pos);
-    const place = windowPlacement(pos, map);
+    expect(windowPlacement(pos, map).pixelRow).toBe(iso.pixelRow - map.y * 8);
+  });
 
-    const tileGranular = ((iso.pixelRow >> 3) - map.y) * 8;
-    const pixelGranular = iso.pixelRow - map.y * 8;
-
-    expect(place.pixelRow).toBe(tileGranular);
-    // At this position the two genuinely differ, so the test is not vacuous.
-    expect(pixelGranular).not.toBe(tileGranular);
+  it('moves one pixel row per pixel of iso_pos.y', () => {
+    // The property that matters: no quantisation, so walking is smooth.
+    const a = windowPlacement({ x: 800, y: 564, height: 24 }, map);
+    const b = windowPlacement({ x: 800, y: 566, height: 24 }, map);
+    expect(Math.abs(a.pixelRow - b.pixelRow)).toBe(2);
   });
 
   it('places horizontally in bytes, with the shift carried separately', () => {

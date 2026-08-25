@@ -158,19 +158,19 @@ export function vischarVisible(
 }
 
 /**
- * Where a clipped sprite starts in window_buf.
+ * Where a clipped character starts in window_buf, in PIXEL rows.
  *
- * setup_item_plotting has a shortcut worth knowing about ($DC9F..$DCA5): when
- * there is a top skip the vertical position is left at ZERO, because "the
- * sprite always starts at top of the screen" in that case. So a sprite clipped
- * at the top is drawn at buffer row 0 with the skip applied to the sprite data,
- * rather than at a negative row.
+ * setup_vischar_plotting has a shortcut worth knowing about ($E4D2..$E4D8):
+ * when there is a top skip the vertical position is left at ZERO, because "the
+ * sprite always starts at the top of the screen" in that case. So a character
+ * clipped at the top is drawn at buffer row 0 with the skip applied to the
+ * sprite data, rather than at a negative row.
  */
 export function clippedBufferRow(
   topSkip: number,
-  isoYBytes: number,
+  isoYPixels: number,
   mapY: number,
 ): number {
-  if (topSkip !== 0) return 0; // $DCA5
-  return (isoYBytes - mapY) * 8; // $DCA7..$DCBA
+  if (topSkip !== 0) return 0; // $E4D8
+  return isoYPixels - mapY * 8; // $E4EB
 }

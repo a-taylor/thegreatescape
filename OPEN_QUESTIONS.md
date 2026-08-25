@@ -346,42 +346,36 @@ Reversing an animation exchanges up and down by XORing the direction with 2
 
 ---
 
-## 13. Sprites are compensated for game_window_offset; the original relies on phase
+## 13. Sprite placement uses the vischar rule, not the item rule — RESOLVED
 
-**Status:** Assumed, and a deliberate deviation.
+**Status:** Resolved. This entry previously described a "phase dependency"
+between the hero crossing a tile boundary and `move_map` firing its shunt, and a
+compensation added to work around it. Both were wrong, and both are gone.
 
-**What I was reading:** `setup_item_plotting` (`$DCA7..$DCBA`), `move_map`
-(`c$AAB2`), `plot_game_window` (`c$EED3`).
+**What I was reading:** `setup_vischar_plotting` (`$E4D2..$E4F4`) versus
+`setup_item_plotting` (`$DCA7..$DCBA`).
 
-Three facts that are all faithfully implemented:
+There are two placement routines and they differ on the vertical axis:
 
-1. A sprite's vertical position in `window_buf` is `(iso_pos_y - map_position_y)
-   * 192` — whole tile rows, since 192 bytes of a 24-wide buffer is 8 pixel
-   rows. There is no sub-tile term.
-2. `move_map` shunts the map one tile every four animation frames and fills the
-   gaps with `game_window_offset`, a sub-tile scroll of 0/2/4/6 rows.
-3. `plot_game_window` applies that offset to the WHOLE buffer when blitting —
-   sprites included, because sprites live in `window_buf`.
+| | multiplier | granularity |
+|---|---|---|
+| Items (`$DCA7`) | `× 192` | 8 pixel rows — whole tiles |
+| **Characters (`$E4ED`)** | **`× 24`** | **1 pixel row** |
 
-Together those mean a sprite sitting at a fixed tile-aligned buffer row is
-scrolled by the offset along with the terrain, so its screen position sawtooths
-by up to six pixels every four frames. The original avoids this through the
-*phase* between the hero crossing a tile boundary (which moves his buffer row by
-8) and `move_map` firing its shunt (which moves it back). When those alternate
-correctly the two cancel and the motion is smooth.
+24 bytes is one row of a 24-wide buffer. So characters are placed at PIXEL
+granularity, from the full 16-bit `vischar.iso_pos.y`; only items are quantised
+to tiles.
 
-That phase falls out of the game's own initialisation — `enter_room` sets
-`map_position` to a fixed (116, 234), and `move_map_y` starts at zero. This demo
-derives its map position by centring on the hero instead (see §11), so the phase
-is arbitrary and the cancellation does not happen.
+I had applied the item rule to the hero. That quantised him to 8-pixel vertical
+steps, which the map scroll hides outdoors — where he holds a fixed screen
+position — but which is plainly visible indoors, where nothing scrolls. Every
+symptom traced back to it: the bouncing outdoors, the compensation that
+appeared to fix it, and the bouncing indoors that the compensation could not
+reach.
 
-**Assumption I am proceeding with:** add the offset back into the sprite's
-buffer row, so its screen position is the tile-aligned one regardless of phase.
-Marked `// ASSUMPTION:` in `src/render/place.ts::windowPlacement`. This produces
-the motion the original produces, by a different route. The correct fix is to
-reproduce the game's own map-position initialisation and scroll trigger, at
-which point this compensation should be removed and the phase left to do its
-work.
+With the correct rule the sub-tile blit offset and the map shunt cancel exactly
+and no compensation is needed. Measured: outdoors the hero's screen row is
+constant while walking; indoors it moves a smooth two pixels per frame.
 
 ---
 

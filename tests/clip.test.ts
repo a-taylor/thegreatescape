@@ -129,8 +129,11 @@ describe('clipped sprites start at buffer row 0', () => {
     expect(clippedBufferRow(20, 5, 40)).toBe(0);
   });
 
-  it('computes the tile-aligned row when nothing is clipped', () => {
-    expect(clippedBufferRow(0, 45, 40)).toBe(40);
+  it('computes the pixel row when nothing is clipped', () => {
+    // $E4EB: iso_pos.y (pixels) minus map_position.y * 8. Not tile-aligned --
+    // that is setup_ITEM_plotting's rule, not the character one.
+    expect(clippedBufferRow(0, 360, 40)).toBe(40);
+    expect(clippedBufferRow(0, 362, 40)).toBe(42);
   });
 });
 

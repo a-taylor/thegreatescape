@@ -45,45 +45,34 @@ export interface WindowPlacement {
 }
 
 /**
- * Where a character sits inside the window.
+ * Where a CHARACTER sits inside the window.
  *
- * The two axes are NOT symmetrical, which is the part worth knowing:
+ * The two axes are not symmetrical:
  *
- *   horizontal  byte granularity plus a sub-byte shift. $DCBC computes
+ *   horizontal  byte granularity plus a sub-byte shift. $E4F5 computes
  *               `iso_pos_x - map_position_x` in bytes, and the plotter rolls
  *               the sprite by `iso_pos.x & 7` on top ($E2A2).
  *
- *   vertical    WHOLE TILE ROWS, no sub-tile component at all. $DCA7 computes
- *               `iso_pos_y - map_position_y` where iso_pos_y is the /8 value,
- *               then multiplies by 192 -- and 192 bytes of a 24-byte-wide
- *               buffer is exactly 8 pixel rows.
+ *   vertical    PIXEL rows. $E4EB computes `vischar.iso_pos.y -
+ *               map_position_y * 8` from the FULL 16-bit iso_pos.y, then
+ *               multiplies by 24 -- and 24 bytes is one row of a 24-wide
+ *               buffer, i.e. a single pixel row.
  *
- * Placing the sprite at pixel granularity vertically looks more precise but is
- * wrong, and it slides the sprite up to 7 pixels against the foreground mask,
- * which is built in tile rows. The result is a sprite shredded incoherently by
- * its own occlusion mask rather than banded by it.
+ * Note this is setup_VISCHAR_plotting. setup_ITEM_plotting ($DCA7) multiplies
+ * by 192 instead, placing items on whole tile rows. Applying the item rule to a
+ * character quantises him to 8-pixel steps, which is invisible outdoors --
+ * where the map scrolls with him -- but shows up as bouncing indoors, where
+ * nothing scrolls to hide it.
  */
 export function windowPlacement(
   pos: Pos,
   mapPosition: { x: number; y: number },
   widthBytes = 2,
   height = 1,
-  offsetRows = 0,
 ): WindowPlacement {
   const iso = isoPlacement(pos);
   const column = iso.column - mapPosition.x; // $DCBC
-  // $DCA7..$DCBA gives the tile-aligned row. `offsetRows` is added back because
-  // plot_game_window scrolls the WHOLE buffer -- sprite included -- by
-  // game_window_offset when it blits. Without compensating, the sprite inherits
-  // the terrain's sub-tile scroll on top of its own tile-aligned position and
-  // visibly bounces by up to six pixels every four frames.
-  //
-  // ASSUMPTION: the original does not compensate here. It relies on the phase
-  // between the hero crossing a tile boundary and move_map firing its shunt,
-  // which falls out of the game's own initialisation -- something this demo
-  // does not reproduce, since its map position is derived by centring.
-  // See OPEN_QUESTIONS.md §13.
-  const pixelRow = ((iso.pixelRow >> 3) - mapPosition.y) * 8 + offsetRows;
+  const pixelRow = iso.pixelRow - mapPosition.y * 8; // $E4EB
 
   const visible =
     column + widthBytes > 0 &&
