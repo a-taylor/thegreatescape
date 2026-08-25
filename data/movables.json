@@ -1,0 +1,61 @@
+{
+  "byRoom": {
+    "2": "stove1",
+    "4": "stove2",
+    "9": "crate"
+  },
+  "items": {
+    "crate": {
+      "_addr": "$69B7",
+      "_bytes": 9,
+      "_label": "movable_item_crate",
+      "animIndex": 0,
+      "axis": "x",
+      "centre": 54,
+      "character": 28,
+      "pos": {
+        "height": 14,
+        "x": 55,
+        "y": 54
+      },
+      "range": 7,
+      "spriteAddr": "$CE28",
+      "spriteIndex": 1
+    },
+    "stove1": {
+      "_addr": "$69AE",
+      "_bytes": 9,
+      "_label": "movable_item_stove1",
+      "animIndex": 0,
+      "axis": "y",
+      "centre": 35,
+      "character": 26,
+      "pos": {
+        "height": 16,
+        "x": 62,
+        "y": 35
+      },
+      "range": 7,
+      "spriteAddr": "$CE22",
+      "spriteIndex": 0
+    },
+    "stove2": {
+      "_addr": "$69C0",
+      "_bytes": 9,
+      "_label": "movable_item_stove2",
+      "animIndex": 0,
+      "axis": "y",
+      "centre": 35,
+      "character": 27,
+      "pos": {
+        "height": 16,
+        "x": 62,
+        "y": 35
+      },
+      "range": 7,
+      "spriteAddr": "$CE22",
+      "spriteIndex": 0
+    }
+  },
+  "note": "Movable items occupy vischar slot 1 ($8020). setup_movable_items ($693C..$6958) picks one by room: 2 -> stove1, 4 -> stove2, 9 -> crate."
+}

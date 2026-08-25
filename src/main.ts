@@ -18,6 +18,12 @@ import {
   encodeInput,
   step,
 } from './game/hero.js';
+import {
+  createMovable,
+  movableForRoom,
+  pushMovable,
+  type MovableState,
+} from './game/movable.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { ExteriorView } from './render/exterior.js';
 import { isoPlacement, windowPlacement } from './render/place.js';
@@ -77,6 +83,8 @@ let night = false;
 let torch = false;
 let lastEvent = '';
 let windowOffset = NO_OFFSET;
+/** The room's stove or crate, if it has one. Occupies vischar slot 1. */
+let movable: MovableState | null = null;
 
 /**
  * move_map ($AAB2): scroll in response to the hero's animation.
@@ -99,15 +107,21 @@ const PRISONER_SPRITE_BASE = 2;
 /** The per-frame foreground occlusion mask, rebuilt by render_mask_buffer. */
 const foreground = new Uint8Array(MASK_BUFFER_SIZE);
 
-function plotHeroSprite(): void {
-  const anim = animations[hero.animation];
-  const frame = anim?.frames[hero.frame];
-  if (!frame) return;
-
-  const record = spritesData.sprites[PRISONER_SPRITE_BASE + frame.sprite];
+/**
+ * Plot any sprite at a world position through the full masked path.
+ *
+ * Shared by the hero and by the movable items, which the game likewise treats
+ * as vischars -- they occupy the second visible character slot.
+ */
+function plotSpriteAt(
+  spriteIndex: number,
+  pos: { x: number; y: number; height: number },
+  flip: boolean,
+): void {
+  const record = spritesData.sprites[spriteIndex];
   if (!record) return;
 
-  const iso0 = isoPlacement(hero.pos);
+  const iso0 = isoPlacement(pos);
 
   // vischar_visible (c$BAF7). width_bytes is the sprite width PLUS ONE, since
   // the plotter emits an extra byte for the sub-byte shift.
@@ -122,13 +136,13 @@ function plotHeroSprite(): void {
   );
   if (!clip.visible) return;
 
-  const place = windowPlacement(hero.pos, view.position, record.widthBytes, record.height);
+  const place = windowPlacement(pos, view.position, record.widthBytes, record.height);
 
   // render_mask_buffer works in the units setup_vischar_plotting leaves behind:
   // state.iso_pos is vischar.iso_pos / 8, tinypos_stash is mi.pos / 8.
-  const iso = isoPlacement(hero.pos);
+  const iso = iso0;
   // tinypos_stash, not toTinyPos: only x rounds. See coords.tinyposStash.
-  const tiny = tinyposStash(hero.pos, hero.room === 0);
+  const tiny = tinyposStash(pos, hero.room === 0);
   // Indoors the applicable masks come from the room's own mask list; outdoors
   // it is the whole exterior table.
   const records =
@@ -169,9 +183,26 @@ function plotHeroSprite(): void {
       cols: clip.clippedWidth,
       // TL/TR and BR/BL are the same artwork mirrored; the frame's own flip
       // flag is the only thing distinguishing them.
-      flip: frame.flip,
+      flip,
     },
   );
+}
+
+/** The prisoner frame for the hero's current animation step. */
+function plotHeroSprite(): void {
+  const anim = animations[hero.animation];
+  const frame = anim?.frames[hero.frame];
+  if (!frame) return;
+  plotSpriteAt(PRISONER_SPRITE_BASE + frame.sprite, hero.pos, frame.flip);
+}
+
+/**
+ * The item's own sprite -- sprite_stove or sprite_crate, resolved from the
+ * pointer in its movable_item record ($69B4 / $69BD). Movables never flip.
+ */
+function plotMovable(): void {
+  if (!movable) return;
+  plotSpriteAt(movable.item.spriteIndex, movable.pos, false);
 }
 
 function render(): void {
@@ -194,7 +225,12 @@ function render(): void {
   // reads again this frame.
   // The hero is drawn in rooms as well as outdoors -- only an unlit tunnel
   // suppresses everything.
-  if (!wipeTiles) plotHeroSprite();
+  // Movable items are plotted before the hero so he draws over them when they
+  // overlap; plot_sprites orders by vischar slot.
+  if (!wipeTiles) {
+    plotMovable();
+    plotHeroSprite();
+  }
 
   screen.clear(0x00, 0x00);
   plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);
@@ -261,6 +297,18 @@ function tick(): void {
 
   const outcome = step(hero, input, interiorBounds(hero.room));
 
+  // ASSUMPTION: the original triggers this from `touch` (c$AF8F), part of the
+  // collision system that lands in P4. Until then the demo uses proximity: if
+  // the hero is close to the item on its movable axis, he pushes it.
+  if (movable && outcome.moved) {
+    const dx = Math.abs((hero.pos.x & 0xff) - movable.pos.x);
+    const dy = Math.abs((hero.pos.y & 0xff) - movable.pos.y);
+    if (dx <= 6 && dy <= 6) {
+      pushMovable(movable, hero.direction & 0x03);
+      lastEvent = `pushed the ${movable.item._label.replace('movable_item_', '')}`;
+    }
+  }
+
   // move_map runs once per logic step, after the hero has animated -- the same
   // place the original calls it from ($6939 / $9D7B).
   if (hero.room === 0 && outcome.moved) followHero();
@@ -271,6 +319,10 @@ function tick(): void {
       view.position.x = INTERIOR_MAP_POSITION.x;
       view.position.y = INTERIOR_MAP_POSITION.y;
     }
+    // setup_movable_items ($6939) runs on entering a room: rooms 2, 4 and 9
+    // each place one, and it is reset to its starting position each time.
+    const item = movableForRoom(outcome.enteredRoom);
+    movable = item ? createMovable(item) : null;
   } else if (outcome.lockedDoor !== null) {
     lastEvent = 'THE DOOR IS LOCKED';
   } else if (outcome.blocked) {
@@ -319,6 +371,7 @@ btnReset.addEventListener('click', () => {
   view.gameWindowOffset = NO_OFFSET;
   view.refresh();
   windowOffset = NO_OFFSET;
+  movable = null; // back outdoors, and no exterior position has one
   lastEvent = '';
   render();
 });
@@ -352,6 +405,9 @@ roomSelect.addEventListener('change', () => {
   view.gameWindowOffset = NO_OFFSET;
   view.refresh();
   windowOffset = NO_OFFSET;
+  // setup_movable_items ($6939): rooms 2, 4 and 9 each get one.
+  const item = movableForRoom(room);
+  movable = item ? createMovable(item) : null;
   lastEvent = '';
   render();
 });

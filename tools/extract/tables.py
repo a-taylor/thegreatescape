@@ -527,6 +527,64 @@ def extract_animations(sk: Skool) -> dict[str, Any]:
     }
 
 
+def extract_movables(sk: Skool) -> dict[str, Any]:
+    """The stove and crate: items the hero can push along a single axis.
+
+    "Unlike ordinary items such as keys and the radio the movable items can be
+    pushed around (on one axis) by the hero character walking into them.
+    Internally they use the second visible character slot." (setup_movable_items,
+    c$6939)
+
+    The push limits are not in a table -- they are immediates in the collision
+    code ($B07F for the stove, $B08B for the crate) -- so they are recorded here
+    with the addresses they came from rather than silently inlined in the engine.
+    """
+    img = sk.image
+
+    # "struct movable_item { word x_coord, y_coord, height; const sprite *;
+    # byte index; }" ($69AE) -- nine bytes, matching the LD BC,$0009 at $6980.
+    sprites_addr = sk.addr_of("sprites")
+
+    def movable(label: str, character: int, axis: str, centre: int) -> dict[str, Any]:
+        a = sk.addr_of(label)
+        sprite_ptr = word_at(img, a + 6)
+        return {
+            **provenance(sk, label),
+            "character": character,
+            "pos": {
+                "x": word_at(img, a),
+                "y": word_at(img, a + 2),
+                "height": word_at(img, a + 4),
+            },
+            "spriteAddr": f"${sprite_ptr:04X}",
+            # Index into the sprites array, so the engine never chases a Z80
+            # address. The records are 6 bytes; see extract_sprites.
+            "spriteIndex": (sprite_ptr - sprites_addr) // 6,
+            # The struct's ninth byte. NOT a table index -- it is the vischar's
+            # animation index field, and all three movables store 0.
+            "animIndex": img[a + 8],
+            "axis": axis,
+            "centre": centre,
+            # $B07F LD BC,$0723 -- B is the range either side of the centre.
+            "range": 7,
+        }
+
+    return {
+        "note": (
+            "Movable items occupy vischar slot 1 ($8020). setup_movable_items "
+            "($693C..$6958) picks one by room: 2 -> stove1, 4 -> stove2, "
+            "9 -> crate."
+        ),
+        "byRoom": {"2": "stove1", "4": "stove2", "9": "crate"},
+        # Stoves move on Y about 35 ($B07F); the crate moves on X about 54 ($B08B).
+        "items": {
+            "stove1": movable("movable_item_stove1", 26, "y", 35),
+            "stove2": movable("movable_item_stove2", 27, "y", 35),
+            "crate": movable("movable_item_crate", 28, "x", 54),
+        },
+    }
+
+
 def extract_routes(sk: Skool) -> dict[str, Any]:
     """The route table and the individual routes within it.
 
@@ -682,6 +740,7 @@ EXTRACTORS = {
     "characters": extract_characters,
     "geography": extract_geography,
     "animations": extract_animations,
+    "movables": extract_movables,
     "routes": extract_routes,
     "text": extract_text,
     "timing": extract_timing,

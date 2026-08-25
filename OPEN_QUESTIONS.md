@@ -379,6 +379,30 @@ constant while walking; indoors it moves a smooth two pixels per frame.
 
 ---
 
+## §14 — What triggers a push is in the collision system, which is P4
+
+**Read:** `setup_movable_items` (c$6939), the push logic at `$B071..$B0B8`, and its caller
+`touch` (c$AF8F).
+
+`$B071` is reached from `touch`, the routine that handles one vischar bumping into another. It
+receives the pusher's direction already resolved and only decides where the item ends up; the
+question of *whether* the hero is touching the stove at all is answered upstream, by the
+bounding-box collision code that lands in **P4**.
+
+The push logic itself is reproduced exactly (`src/game/movable.ts`, 18 tests). Only the trigger
+is provisional: the demo uses proximity on both axes (within 6 units) as a stand-in, marked
+`// ASSUMPTION:` at the call site in `src/main.ts`. It will be deleted when `touch` is
+implemented — this is scaffolding for the demo, not a claim about the game.
+
+One field worth flagging, because it reads as something it is not. The `movable_item` struct's
+ninth byte is commented `byte index` and sits directly after the sprite pointer, which invites
+reading it as a sprite selector. It is not — it is the vischar's **animation** index, and all
+three movables store `0`. The sprite is chosen by the pointer at offset 6 (`$CE22` stove,
+`$CE28` crate), which the extractor resolves to an index into the sprites array. Recorded as
+`animIndex` so the two cannot be confused again.
+
+---
+
 ## Not open, but worth recording
 
 Two things that looked like problems and are not:
