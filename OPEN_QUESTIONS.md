@@ -299,10 +299,10 @@ absence from the reference build is visible rather than silent.
 
 ---
 
-## 11. How map_position tracks the hero — partly resolved in P3
+## 11. How map_position tracks the hero — RESOLVED
 
-**Status:** the coordinate space is **Resolved**; the scroll trigger is still
-**Assumed**.
+**Status:** Resolved. All three parts — the coordinate space, the scroll rule
+and the initial value — now come from the disassembly.
 
 **What I was reading:** `get_supertiles` (c$A7C9), the `shunt_map_*` family
 (c$A9E4 onward), `hero_map_position` (`g$81B8`), and — the one that settled it —
@@ -328,6 +328,26 @@ frames of a walk cycle, filling the gaps with a sub-tile `game_window_offset`
 
 Centring on the hero instead is what produced the visible jitter: the terrain
 moved a whole tile while the hero moved two or four pixels.
+
+**Resolved: the initial value.** `reset_outdoor_position` (c$B2FC), which
+`transition` calls at `$68EF` whenever the hero ends up outdoors, sets it
+outright:
+
+    map_position.x = iso_pos.x / 8 - 11    ($B308..$B30D)
+    map_position.y = iso_pos.y / 8 - 6     ($B314..$B319)
+
+The constants differ because the units do: 11 is "the width of the game screen
+minus half of the hero's width" in **bytes**, 6 is "the height ... minus half of
+the hero's height" in **tile rows**. Halving the window on both axes — the
+obvious guess, and what the demo did — gives 12 and 8, which is close enough to
+look correct and wrong enough to misplace the hero. Both divisions are the
+no-rounding form (`$E555`) and neither result is clamped to the map, so near an
+edge the window genuinely runs off it.
+
+This was found because the demo corrupted its own display: stepping outside left
+`map_position` at the interior constant `(116, 234)`, and 234 is past the bottom
+of a 136-row map, so the exterior renderer walked supertiles from nowhere. The
+fix was not to clamp it but to call the routine the game calls.
 
 ---
 

@@ -118,23 +118,30 @@ export function itemPlacement(
 }
 
 /**
- * Map position that centres a world position in the window.
+ * reset_outdoor_position ($B2FC): centre the map on the hero, outdoors.
  *
- * ASSUMPTION: the original does not centre. It shunts by one tile when the hero
- * crosses a threshold, so the view lags and clamps differently, especially at
- * the map edges. This is the demo's stand-in until that trigger rule is traced
- * -- see OPEN_QUESTIONS.md §11. It is at least in the RIGHT SPACE now, which
- * the tinypos-derived version was not.
+ * Called from transition ($68EF) whenever the hero steps outside, and this is
+ * the game's own initialisation of map_position -- not an approximation of it.
+ * It resolves what OPEN_QUESTIONS.md §11 was open about:
+ *
+ *   map_position.x = iso_pos.x / 8 - 11    ($B308..$B30D)
+ *   map_position.y = iso_pos.y / 8 - 6     ($B314..$B319)
+ *
+ * The two constants are not the same because they are not the same units: 11
+ * is "the width of the game screen minus half of the hero's width" in BYTES,
+ * and 6 is "the height ... minus half of the hero's height" in TILE ROWS.
+ * Halving the window in each axis, which is the obvious thing to do, gives 12
+ * and 8 instead and puts the hero low and slightly right of where the game
+ * puts him.
+ *
+ * Both divisions are the no-rounding form ($E555), and both results are stored
+ * into single bytes ($81BB, $81BC) with no clamping to the map -- so near an
+ * edge the window really does run off it. That is reproduced.
  */
-export function centreOn(pos: Pos, mapWidthTiles = 216, mapHeightTiles = 136): {
-  x: number;
-  y: number;
-} {
-  const iso = isoPlacement(pos);
-  const x = iso.column - (WINDOW_COLS >> 1);
-  const y = (iso.pixelRow >> 3) - (BUFFER_ROWS >> 1);
+export function resetOutdoorPosition(pos: Pos): { x: number; y: number } {
+  const iso = calcIsoPos(pos);
   return {
-    x: Math.max(0, Math.min(mapWidthTiles - WINDOW_COLS, x)),
-    y: Math.max(0, Math.min(mapHeightTiles - BUFFER_ROWS, y)),
+    x: ((iso.x >> 3) - 11) & 0xff,
+    y: ((iso.y >> 3) - 6) & 0xff,
   };
 }

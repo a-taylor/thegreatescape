@@ -15,7 +15,10 @@ import {
   interiorDoorTarget,
   resolveDoor,
   tryInteriorDoor,
+  INTERIOR_MAP_POSITION,
 } from '../src/game/doors.js';
+import { calcIsoPos } from '../src/game/coords.js';
+import { resetOutdoorPosition } from '../src/render/place.js';
 
 describe('setup_interior_doors', () => {
   it('never overruns the four-slot array', () => {
@@ -140,5 +143,68 @@ describe('walking through an interior door', () => {
         r.result.room === ROOM_OUTDOORS ? dest.pos.x * 4 : dest.pos.x;
       expect(r.result.pos.x).toBe(expected);
     }
+  });
+});
+
+describe('reset_outdoor_position (c$B2FC)', () => {
+  it('subtracts 11 on x and 6 on y, not half the window on both', () => {
+    // $B30B SUB $0B is in BYTES ("width of the game screen minus half of the
+    // hero's width"); $B317 SUB $06 is in TILE ROWS. Halving the window in
+    // both axes gives 12 and 8, which is close enough to look right and wrong
+    // enough to misplace the hero.
+    const pos = { x: 100 * 8, y: 74 * 8, height: 24 };
+    const iso = calcIsoPos(pos);
+    const m = resetOutdoorPosition(pos);
+    expect(m.x).toBe(((iso.x >> 3) - 11) & 0xff);
+    expect(m.y).toBe(((iso.y >> 3) - 6) & 0xff);
+  });
+
+  it('puts every outdoor door arrival inside the map', () => {
+    // The corruption this covers: stepping outside left map_position at the
+    // interior's constant (116, 234), which is far outside a 216x136 map, so
+    // the exterior renderer walked supertiles from nowhere.
+    let checked = 0;
+    for (let room = 1; room <= 52; room++) {
+      // Room 6 is unused and its door pair carries a degenerate (0,0)
+      // position, which projects to map y 250. That is the unused data being
+      // unused, not a placement bug -- the room is unreachable in the finished
+      // game, so nothing ever calls this with it.
+      if (room === 6) continue;
+
+      for (const index of interiorDoorsForRoom(room)) {
+        const door = halfDoors[resolveDoor(index)]!;
+        const r = tryInteriorDoor({ ...door.pos }, door.direction, room);
+        if (!r || r.locked || r.result.room !== ROOM_OUTDOORS) continue;
+
+        checked++;
+        const m = resetOutdoorPosition(r.result.pos);
+        expect(m.x, `room ${room} -> outdoors, map x`).toBeLessThan(216);
+        expect(m.y, `room ${room} -> outdoors, map y`).toBeLessThan(136);
+      }
+    }
+    expect(checked).toBeGreaterThan(5);
+  });
+
+  it('projects the unused room 6 door off the map, as its data implies', () => {
+    // Pinned rather than glossed over: pair 15's outdoor half sits at (0,0),
+    // so iso_pos.y is $800 and the map position lands at 250. Recorded so the
+    // exclusion above is evidence, not a convenience.
+    // The door exists and does lead outdoors; it is the ARRIVAL position that
+    // is degenerate. Half-door 30 (pair 15, half 0) is all zeroes.
+    expect(halfDoors[30]!.pos).toEqual({ x: 0, y: 0, height: 0 });
+    expect(halfDoors[30]!.targetRoom).toBe(6);
+
+    const index = interiorDoorsForRoom(6)[0]!;
+    const dest = halfDoors[interiorDoorTarget(index)]!;
+    expect(dest.pos).toEqual({ x: 0, y: 0, height: 0 });
+    // $800 - 0 - 0 - 0, divided by 8, less 6.
+    expect(resetOutdoorPosition({ x: 0, y: 0, height: 0 }).y).toBe(250);
+  });
+
+  it('is nowhere near the interior constant', () => {
+    // INTERIOR_MAP_POSITION is (116, 234). y=234 alone is past the map height.
+    expect(INTERIOR_MAP_POSITION.y).toBeGreaterThan(136);
+    const m = resetOutdoorPosition({ x: 100 * 8, y: 74 * 8, height: 24 });
+    expect(m.y).toBeLessThan(136);
   });
 });

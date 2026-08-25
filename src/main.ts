@@ -9,10 +9,12 @@
  * hold an item lying on the floor. Depth order between all of them comes from
  * get_next_drawable, which sorts characters and items into one sequence.
  *
- * What is still stubbed, and marked ASSUMPTION where it is: the push trigger,
- * which really lives in `touch`'s collision handling (P4), and the initial
- * map_position, which the demo centres rather than taking from enter_room (see
- * OPEN_QUESTIONS.md §11).
+ * The view is positioned the way the game positions it: enter_room ($6900)
+ * pins interiors at a constant, reset_outdoor_position ($B2FC) recentres the
+ * exterior on the hero.
+ *
+ * One thing is still stubbed, and marked ASSUMPTION where it is: the push
+ * trigger, which really lives in `touch`'s collision handling (P4).
  */
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
@@ -35,7 +37,12 @@ import {
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { drawOrder, type Drawable } from './render/drawlist.js';
 import { ExteriorView } from './render/exterior.js';
-import { isoPlacement, itemPlacement, windowPlacement } from './render/place.js';
+import {
+  isoPlacement,
+  itemPlacement,
+  resetOutdoorPosition,
+  windowPlacement,
+} from './render/place.js';
 import { clippedBufferRow, vischarVisible } from './render/clip.js';
 import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
 import { interiorMasksForRoom, renderMaskBuffer } from './render/maskbuffer.js';
@@ -43,8 +50,6 @@ import { fillRoom } from './render/scene.js';
 import {
   GameWindowBuffers,
   NO_OFFSET,
-  VISIBLE_PIXEL_ROWS,
-  WINDOW_COLS,
   plotGameWindow,
   setWindowAttributes,
 } from './render/window.js';
@@ -72,18 +77,13 @@ const buffers = new GameWindowBuffers();
 const START = { x: 100 * 8, y: 74 * 8, height: HERO_STANDING_HEIGHT };
 
 /**
- * The map position that puts START near the middle of the window.
+ * The map position for START, from the game's own rule.
  *
- * Derived rather than hardcoded: guessing it put the hero below the visible
- * 128 rows, since only 128 of the buffer's 136 are ever blitted.
+ * reset_outdoor_position ($B2FC) is what the game calls whenever the hero ends
+ * up outdoors, so the demo uses it for the initial view too rather than
+ * centring by hand.
  */
-const START_MAP = (() => {
-  const iso = isoPlacement(START);
-  return {
-    x: iso.column - (WINDOW_COLS >> 1),
-    y: (iso.pixelRow - (VISIBLE_PIXEL_ROWS >> 1)) >> 3,
-  };
-})();
+const START_MAP = resetOutdoorPosition(START);
 
 const hero = createHero({ ...START }, 0, 0);
 const view = new ExteriorView(START_MAP.x, START_MAP.y);
@@ -94,6 +94,38 @@ let lastEvent = '';
 let windowOffset = NO_OFFSET;
 /** The room's stove or crate, if it has one. Occupies vischar slot 1. */
 let movable: MovableState | null = null;
+
+/**
+ * Put the view where the game puts it for a given room.
+ *
+ * Two different rules, and using the wrong one is what corrupted the exterior
+ * after stepping outside: enter_room ($6900) pins interiors at a constant
+ * (116, 234) and they never scroll, while reset_outdoor_position ($B2FC)
+ * recentres the exterior on the hero. Leave the interior value in place
+ * outdoors and the renderer walks supertiles from a position far outside the
+ * 216x136 map.
+ */
+function setViewForRoom(room: number, pos: { x: number; y: number; height: number }): void {
+  if (room === 0) {
+    const m = resetOutdoorPosition(pos);
+    view.position.x = m.x;
+    view.position.y = m.y;
+  } else {
+    view.position.x = INTERIOR_MAP_POSITION.x;
+    view.position.y = INTERIOR_MAP_POSITION.y;
+  }
+  // The scroll phase is per-view state; carrying it across a transition makes
+  // move_map's shunt and the hero's tile crossings fall out of step.
+  view.moveMapY = 0;
+  view.gameWindowOffset = NO_OFFSET;
+  view.refresh();
+  windowOffset = NO_OFFSET;
+  // setup_movable_items runs on both paths ($B326 outdoors, from enter_room
+  // indoors); only rooms 2, 4 and 9 have one.
+  const item = movableForRoom(room);
+  movable = item ? createMovable(item) : null;
+  roomSelect.value = String(room);
+}
 
 /**
  * move_map ($AAB2): scroll in response to the hero's animation.
@@ -418,10 +450,12 @@ function tick(): void {
 
   if (outcome.enteredRoom !== null) {
     lastEvent = outcome.enteredRoom === 0 ? 'stepped outside' : `entered room ${outcome.enteredRoom}`;
-    if (outcome.enteredRoom !== 0) {
-      view.position.x = INTERIOR_MAP_POSITION.x;
-      view.position.y = INTERIOR_MAP_POSITION.y;
-    }
+    // enter_room ($68F4) fixes the map position for interiors;
+    // reset_outdoor_position ($B2FC) recentres it on the hero outdoors. Leave
+    // the interior position in place on the way out and the exterior renderer
+    // reads supertiles from (116, 234), far off a 216x136 map -- the window
+    // fills with whatever that resolves to and never recovers.
+    setViewForRoom(outcome.enteredRoom, hero.pos);
     // setup_movable_items ($6939) runs on entering a room: rooms 2, 4 and 9
     // each place one, and it is reset to its starting position each time.
     const item = movableForRoom(outcome.enteredRoom);
@@ -465,16 +499,7 @@ btnReset.addEventListener('click', () => {
   hero.pos = { ...START };
   hero.room = 0;
   hero.direction = 0;
-  view.position.x = START_MAP.x;
-  view.position.y = START_MAP.y;
-  // Reset the scroll phase too. move_map's shunt and the hero's tile crossings
-  // both tick once every four frames; if their phase is left stale the two stop
-  // cancelling and the motion turns jumpy. See OPEN_QUESTIONS.md §13.
-  view.moveMapY = 0;
-  view.gameWindowOffset = NO_OFFSET;
-  view.refresh();
-  windowOffset = NO_OFFSET;
-  movable = null; // back outdoors, and no exterior position has one
+  setViewForRoom(0, hero.pos);
   lastEvent = '';
   render();
 });
@@ -494,23 +519,8 @@ for (const entry of roomsData.rooms) {
 roomSelect.addEventListener('change', () => {
   const room = Number(roomSelect.value);
   hero.room = room;
-  if (room === 0) {
-    hero.pos = { ...START };
-    view.position.x = START_MAP.x;
-    view.position.y = START_MAP.y;
-  } else {
-    // Interiors do not scroll; enter_room fixes the map position ($6900).
-    hero.pos = spawnInRoom(room);
-    view.position.x = INTERIOR_MAP_POSITION.x;
-    view.position.y = INTERIOR_MAP_POSITION.y;
-  }
-  view.moveMapY = 0;
-  view.gameWindowOffset = NO_OFFSET;
-  view.refresh();
-  windowOffset = NO_OFFSET;
-  // setup_movable_items ($6939): rooms 2, 4 and 9 each get one.
-  const item = movableForRoom(room);
-  movable = item ? createMovable(item) : null;
+  hero.pos = room === 0 ? { ...START } : spawnInRoom(room);
+  setViewForRoom(room, hero.pos);
   lastEvent = '';
   render();
 });
