@@ -30,6 +30,14 @@ import {
   npcSlots,
 } from '../src/game/vischar.js';
 import { calcIsoPos } from '../src/game/coords.js';
+import {
+  createMovable,
+  installMovable,
+  movableItems,
+  pushMovable,
+  refreshMovableIso,
+} from '../src/game/movable.js';
+import { INTERIOR_MAP_POSITION } from '../src/game/doors.js';
 
 describe('the vischar array', () => {
   it('is eight slots, all empty', () => {
@@ -314,5 +322,63 @@ describe('a full spawn and purge cycle', () => {
       spawnCharacters(vs, structs, map, 0);
     }
     expect(npcSlots(vs).map((v) => v.character)).toEqual(first);
+  });
+});
+
+describe('a room whose slot 1 holds a movable', () => {
+  /** Room 2: the stove in slot 1, and guard 13 to spawn alongside it. */
+  function room2() {
+    const structs = characterStructs();
+    const vs = createVischars();
+    installMovable(vs[1]!, createMovable(movableItems.stove1!), 2);
+    return { structs, vs };
+  }
+
+  it('survives a purge instead of being evicted immediately', () => {
+    // The bug this covers: marking slot 1 occupied but leaving its room at 0
+    // fails purge's very first test ($C4A3), so the stove was evicted on the
+    // next tick and the slot handed to a real character.
+    const { structs, vs } = room2();
+    expect(vs[1]!.room).toBe(2);
+    purgeInvisibleCharacters(vs, structs, INTERIOR_MAP_POSITION, 2);
+    expect(isEmpty(vs[1]!)).toBe(false);
+    expect(vs[1]!.character).toBe(movableItems.stove1!.character);
+  });
+
+  it('makes the room\'s guard take slot 2, not slot 1', () => {
+    // With slot 1 wrongly freed, the guard landed in it and the renderer --
+    // which special-cased index 1 as "the movable" -- drew a stove on top of a
+    // stove and no guard at all.
+    const { structs, vs } = room2();
+    purgeInvisibleCharacters(vs, structs, INTERIOR_MAP_POSITION, 2);
+    spawnCharacters(vs, structs, INTERIOR_MAP_POSITION, 2);
+
+    expect(vs[1]!.character).toBe(movableItems.stove1!.character);
+    expect(vs[2]!.character).toBe(13);
+  });
+
+  it('is stable over many ticks', () => {
+    const { structs, vs } = room2();
+    for (let i = 0; i < 20; i++) {
+      purgeInvisibleCharacters(vs, structs, INTERIOR_MAP_POSITION, 2);
+      spawnCharacters(vs, structs, INTERIOR_MAP_POSITION, 2);
+    }
+    expect(vs[1]!.character).toBe(movableItems.stove1!.character);
+    expect(vs[2]!.character).toBe(13);
+    expect(npcSlots(vs).filter((v) => !isEmpty(v))).toHaveLength(2);
+  });
+
+  it('keeps the projected position in step with a push', () => {
+    // purge reads iso_pos, not pos, so a stale projection would judge the
+    // stove from where it used to be.
+    const { vs } = room2();
+    const state = createMovable(movableItems.stove1!);
+    installMovable(vs[1]!, state, 2);
+    const before = { ...vs[1]!.isoPos };
+
+    pushMovable(state, 1);
+    refreshMovableIso(vs[1]!);
+    expect(vs[1]!.isoPos).not.toEqual(before);
+    expect(vs[1]!.isoPos).toEqual(calcIsoPos(state.pos));
   });
 });

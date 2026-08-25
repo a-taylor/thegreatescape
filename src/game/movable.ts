@@ -14,6 +14,9 @@
 
 import movablesJson from '../../data/movables.json';
 
+import { calcIsoPos } from './coords.js';
+import type { Vischar } from './vischar.js';
+
 export interface MovableItemData {
   readonly _label: string;
   readonly _addr: string;
@@ -117,4 +120,51 @@ export function pushMovable(state: MovableState, pusherDirection: number): void 
 /** The travel range of a movable item, for tests and debug display. */
 export function movableRange(item: MovableItemData): { min: number; max: number } {
   return { min: item.centre - item.range, max: item.centre + item.range };
+}
+
+/**
+ * setup_movable_item ($697D): install a movable into vischar slot 1.
+ *
+ * The movable is not a special case bolted onto the side of the character
+ * system -- it IS a vischar, and the routine fills the slot in properly:
+ * character index, the nine bytes of position and sprite, fourteen bytes of
+ * reset data, the room ($6996), and finally calc_vischar_iso_pos ($699C).
+ *
+ * Leaving any of that out has consequences that do not look related to
+ * movables at all. Marking the slot occupied but leaving its room at zero makes
+ * purge_invisible_characters evict it on the very next tick -- the room test at
+ * $C4A3 is the first thing it does -- after which spawn_character hands slot 1
+ * to a real character while the renderer still believes slot 1 is the stove.
+ * The visible symptom is a missing character, nowhere near the stove.
+ *
+ * @param slot vischar 1, which is where $697D writes
+ */
+export function installMovable(
+  slot: Vischar,
+  state: MovableState,
+  room: number,
+): void {
+  slot.character = state.item.character; // $697D
+  slot.flags = 0; // movable_item_reset_data byte 0
+  slot.route = { index: 0, step: 0 };
+  // Share the position object with the movable state, so pushMovable's writes
+  // are visible through the slot without a copy step to forget.
+  slot.pos = state.pos;
+  slot.spriteIndex = state.item.spriteIndex;
+  slot.sprite = state.item.spriteIndex;
+  slot.room = room; // $6996
+  slot.counterAndFlags = 0;
+  refreshMovableIso(slot);
+}
+
+/**
+ * Recompute the slot's projected position ($699C / $B71B).
+ *
+ * Needed after every push as well as at setup: purge_invisible_characters
+ * reads iso_pos, not pos, so a stale value would decide the stove's fate from
+ * where it used to be.
+ */
+export function refreshMovableIso(slot: Vischar): void {
+  const iso = calcIsoPos(slot.pos);
+  slot.isoPos = { x: iso.x, y: iso.y };
 }

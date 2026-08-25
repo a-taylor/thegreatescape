@@ -46,8 +46,10 @@ import {
 } from './game/hero.js';
 import {
   createMovable,
+  installMovable,
   movableForRoom,
   pushMovable,
+  refreshMovableIso,
   type MovableState,
 } from './game/movable.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
@@ -155,9 +157,9 @@ function setViewForRoom(room: number, pos: { x: number; y: number; height: numbe
   // indoors); only rooms 2, 4 and 9 have one.
   const item = movableForRoom(room);
   movable = item ? createMovable(item) : null;
-  // The movable occupies vischar slot 1 ($697D writes to $8020), so mark the
-  // slot taken and spawn_character will skip past it to slot 2.
-  if (movable) vischars[1]!.character = movable.item.character;
+  // The movable IS vischar 1 ($697D writes to $8020) -- a complete slot, room
+  // and projected position included, not just an occupancy marker.
+  if (movable) installMovable(vischars[1]!, movable, room);
   roomSelect.value = String(room);
 }
 
@@ -346,10 +348,8 @@ function plotVischars(): void {
   const slots: Drawable[] = [
     { kind: 'vischar', index: 0, pos: hero.pos, drawable: true },
   ];
-  if (movable) {
-    slots.push({ kind: 'vischar', index: 1, pos: movable.pos, drawable: true });
-  }
-  // Spawned characters compete in the same depth ordering as the hero.
+  // Every occupied slot competes in the same depth ordering as the hero --
+  // including slot 1 when it holds the room's stove or crate.
   for (const v of npcSlots(vischars)) {
     if (isEmpty(v)) continue;
     slots.push({ kind: 'vischar', index: v.slot, pos: v.pos, drawable: true });
@@ -378,17 +378,12 @@ function plotVischars(): void {
       if (frame) plotSpriteAt(PRISONER_SPRITE_BASE + frame.sprite, hero.pos, frame.flip);
       continue;
     }
-    if (d.index === 1 && movable) {
-      // sprite_stove or sprite_crate, from the pointer in the movable_item
-      // record ($69B4 / $69BD). Movable items never flip.
-      plotSpriteAt(movable.item.spriteIndex, movable.pos, false);
-      continue;
-    }
     const v = vischars[d.index];
     if (v && !isEmpty(v)) {
-      // The class's base sprite -- facing top-left, first frame. Which frame a
-      // character actually shows comes from its animation, which arrives with
-      // move_a_character in the next checkpoint.
+      // Characters get their class's base sprite -- facing top-left, first
+      // frame. Which frame one actually shows comes from its animation, which
+      // arrives with move_a_character in the next checkpoint. The stove and
+      // crate carry their own sprite and never flip ($DC54).
       plotSpriteAt(v.spriteIndex, v.pos, false);
     }
   }
@@ -504,6 +499,8 @@ function tick(): void {
     const dy = Math.abs((hero.pos.y & 0xff) - movable.pos.y);
     if (dx <= 6 && dy <= 6) {
       pushMovable(movable, hero.direction & 0x03);
+      // purge reads iso_pos, so it has to follow the push ($B71B).
+      refreshMovableIso(vischars[1]!);
       lastEvent = `pushed the ${movable.item._label.replace('movable_item_', '')}`;
     }
   }
