@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  MASK_BUFFER_SIZE,
   MASK_BUFFER_WIDTH,
   compositeByte,
   flipRow,
@@ -269,5 +270,72 @@ describe('flipping in plotMaskedSprite', () => {
   it('flipping twice is the identity', () => {
     const row = [0b1011_0010, 0b0100_1101];
     expect(flipRow(flipRow(row))).toEqual(row);
+  });
+});
+
+describe('the mask buffer is tile-aligned, the sprite is not', () => {
+  /** A 1-byte-wide, 8-row solid sprite with a fully opaque mask. */
+  const solid = {
+    bitmap: new Uint8Array(8).fill(0xff),
+    mask: new Uint8Array(8).fill(0x00),
+    widthBytes: 1,
+    height: 8,
+  };
+
+  /** A foreground buffer that occludes exactly one mask row. */
+  function occludingRow(row: number): Uint8Array {
+    const fg = new Uint8Array(MASK_BUFFER_SIZE).fill(0xff);
+    for (let c = 0; c < MASK_BUFFER_WIDTH; c++) fg[row * MASK_BUFFER_WIDTH + c] = 0x00;
+    return fg;
+  }
+
+  function drawnRows(maskRow: number, occludeAt: number): boolean[] {
+    const pixels = new Uint8Array(WINDOW_STRIDE * 40);
+    plotMaskedSprite(
+      { pixels, foreground: occludingRow(occludeAt) },
+      solid,
+      {
+        column: 0,
+        row: 0,
+        shift: 0,
+        skipRows: 0,
+        rows: 8,
+        maskRow,
+      },
+    );
+    return Array.from({ length: 8 }, (_, r) => pixels[r * WINDOW_STRIDE] !== 0);
+  }
+
+  it('reads the mask from foreground_mask_pointer, not from row 0', () => {
+    // $E50B..$E51E. With maskRow 3, the sprite's first row reads mask row 3,
+    // so occluding mask row 3 blanks the sprite's row 0.
+    const rows = drawnRows(3, 3);
+    expect(rows[0]).toBe(false);
+    expect(rows.slice(1).every(Boolean)).toBe(true);
+  });
+
+  it('shifts which sprite row is occluded as the offset changes', () => {
+    // The bug this pins: a character whose iso_pos.y is not a multiple of 8
+    // needs (iso_pos.y & 7) added ($E515). Ignore it and the occlusion band
+    // lands up to 7 pixels away from the scenery causing it -- visible as a
+    // bar across the sprite.
+    for (let offset = 0; offset < 8; offset++) {
+      const rows = drawnRows(offset, 4);
+      const blanked = rows.indexOf(false);
+      // mask row 4 is read by sprite row (4 - offset).
+      expect(blanked, `offset ${offset}`).toBe(offset <= 4 ? 4 - offset : -1);
+    }
+  });
+
+  it('defaults to skipRows, which is the item rule', () => {
+    // $DCD7 adds top_skip alone. Omitting maskRow must reproduce that.
+    const pixels = new Uint8Array(WINDOW_STRIDE * 40);
+    plotMaskedSprite(
+      { pixels, foreground: occludingRow(2) },
+      solid,
+      { column: 0, row: 0, shift: 0, skipRows: 2, rows: 6 },
+    );
+    // With skipRows 2 the first drawn row reads mask row 2, which is occluded.
+    expect(pixels[0]).toBe(0);
   });
 });

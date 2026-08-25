@@ -193,6 +193,9 @@ function plotSpriteAt(
       // TL/TR and BR/BL are the same artwork mirrored; the frame's own flip
       // flag is the only thing distinguishing them.
       flip,
+      // $E515: the mask buffer is tile-aligned, the sprite is not. Without the
+      // sub-tile remainder the occlusion band sits up to 7 pixels off.
+      maskRow: clip.topSkip + (iso0.pixelRow & 7),
     },
   );
 }
@@ -258,6 +261,9 @@ function plotItem(struct: ItemStruct): void {
       skipCols: clip.leftSkip,
       cols: clip.clippedWidth,
       flip: false, // $DC54
+      // $DCD7 adds top_skip alone -- no sub-tile term, because an itemstruct's
+      // iso_pos is stored in tile rows and the remainder is always zero.
+      maskRow: clip.topSkip,
     },
   );
 }

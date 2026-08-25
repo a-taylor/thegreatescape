@@ -123,6 +123,24 @@ export interface PlotPlacement {
    * this and the character faces the wrong way half the time.
    */
   readonly flip?: boolean;
+  /**
+   * First row of the mask buffer to read ($E50B..$E51E / $DCD2..$DCDC).
+   *
+   * The mask buffer is built TILE-aligned -- render_mask_buffer positions it by
+   * `iso_pos.y / 8` -- while the sprite is drawn at a PIXEL row. So a character
+   * whose iso_pos.y is not a multiple of 8 needs the mask read from further
+   * down the buffer, or the occlusion band lands up to 7 pixels away from the
+   * scenery causing it and reads as a bar across the sprite.
+   *
+   *   characters  top_skip + (vischar.iso_pos.y & 7)   ($E510, $E515)
+   *   items       top_skip                             ($DCD7 only)
+   *
+   * Items need no correction because an itemstruct's iso_pos is stored in tile
+   * rows already, so the remainder is always zero.
+   *
+   * Defaults to `skipRows`, which is the item rule.
+   */
+  readonly maskRow?: number;
 }
 
 /**
@@ -177,7 +195,10 @@ export function plotMaskedSprite(
       const dst = dstRow * WINDOW_STRIDE + col;
       if (dst < 0 || dst >= target.pixels.length) continue;
 
-      const fgIndex = r * MASK_BUFFER_WIDTH + c;
+      // $E50B: the mask buffer starts at foreground_mask_pointer, not at row 0.
+      const maskRow = (place.maskRow ?? place.skipRows) + r;
+      const fgIndex = maskRow * MASK_BUFFER_WIDTH + c;
+      // Past the end of the 40-row buffer nothing occludes ($FF).
       const fg = fgIndex < target.foreground.length ? target.foreground[fgIndex]! : 0xff;
 
       target.pixels[dst] = compositeByte(target.pixels[dst]!, bm[c]!, mk[c]!, fg);
