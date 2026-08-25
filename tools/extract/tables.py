@@ -315,6 +315,55 @@ def extract_sprites(sk: Skool) -> dict[str, Any]:
     }
 
 
+def _item_definitions(sk: Skool) -> list[dict[str, Any]]:
+    """item_definitions ($DD7D): a 6-byte spritedef per item.
+
+    {byte width, byte height, word bitmap, word mask}. The width is stored
+    plainly here, unlike the `sprites` table which stores width-plus-one --
+    verified below by checking width*height against the gap to the next
+    bitmap, which matches exactly for every item.
+    """
+    img = sk.image
+    base = sk.addr_of("item_definitions")
+
+    records = []
+    for i, (a, rec) in enumerate(fixed_records(img, base, N_ITEMS, 6)):
+        width = rec[0]
+        height = rec[1]
+        bitmap = rec[2] | (rec[3] << 8)
+        mask = rec[4] | (rec[5] << 8)
+        size = width * height
+        records.append({
+            "index": i,
+            "addr": f"${a:04X}",
+            "widthBytes": width,
+            "widthPixels": width * 8,
+            "height": height,
+            "bitmapAddr": f"${bitmap:04X}",
+            "maskAddr": f"${mask:04X}",
+            "bitmapLabels": sk.addr_to_labels.get(bitmap, []),
+            "maskLabels": sk.addr_to_labels.get(mask, []),
+            "bitmap": b64(img[bitmap:bitmap + size]),
+            "mask": b64(img[mask:mask + size]),
+        })
+
+    # The width-not-width-plus-one reading, asserted rather than assumed: every
+    # item's declared size must land exactly on the next block's start.
+    starts = sorted({r["bitmapAddr"] for r in records} | {r["maskAddr"] for r in records})
+    starts = [int(s[1:], 16) for s in starts]
+    for r in records:
+        for kind in ("bitmap", "mask"):
+            p = int(r[f"{kind}Addr"][1:], 16)
+            nxt = next((s for s in starts if s > p), None)
+            if nxt is not None:
+                need = r["widthBytes"] * r["height"]
+                assert need <= nxt - p, (
+                    f"item {r['index']} {kind} declares {need} bytes but only "
+                    f"{nxt - p} are available -- width is not a plain byte count"
+                )
+    return records
+
+
 def extract_items(sk: Skool) -> dict[str, Any]:
     # item_structs and item_attributes each own their whole block; their extents
     # are truncated by element labels (item_structs_food, item_attributes_food).
@@ -328,9 +377,15 @@ def extract_items(sk: Skool) -> dict[str, Any]:
         "count": N_ITEMS,
         "structStride": stride,
         "structs": [list(r) for _, r in fixed_records(img, structs, N_ITEMS, stride)],
+        # item_definitions ($DD7D): one 6-byte spritedef per item, indexed by
+        # item number ($DC55..$DC5D multiplies the index by 6). Note the width
+        # here is a PLAIN byte count, not the sprites table's width-plus-one --
+        # setup_item_plotting never adds the extra byte because item plotting
+        # "only ever uses the 16 pixel plotter".
         "definitions": {
             **provenance(sk, "item_definitions"),
-            "data": b64(sk.slice("item_definitions")),
+            "stride": 6,
+            "records": _item_definitions(sk),
         },
         "attributes": {
             **provenance(sk, "item_attributes"),

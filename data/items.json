@@ -89,7 +89,281 @@
     "_addr": "$DD7D",
     "_bytes": 96,
     "_label": "item_definitions",
-    "data": "Agt/3h3fAg3d3ZXeAhAR3q/eAg9h3v/eAgxz33/gAg2r3wXgAhCL3x/gAhAz37fgAhBT31/gAg333ZXeAg333ZXeAg333ZXeAhDl3z/gAhDF35fgAgxJ3ufeAgwx3s/e"
+    "records": [
+      {
+        "addr": "$DD7D",
+        "bitmap": "AAAAGAA2AGAD+w5uMODBgAYAGAAAAA==",
+        "bitmapAddr": "$DE7F",
+        "bitmapLabels": [
+          "bitmap_wiresnips"
+        ],
+        "height": 11,
+        "index": 0,
+        "mask": "/+f/wf+A/ADwAMAAAAEIHyB/wf/n/w==",
+        "maskAddr": "$DF1D",
+        "maskLabels": [
+          "mask_wiresnips"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DD83",
+        "bitmap": "AAAAAgAFAA4AMADAMwBsAOcA/AAAAAAAAAA=",
+        "bitmapAddr": "$DDDD",
+        "bitmapLabels": [
+          "bitmap_shovel"
+        ],
+        "height": 13,
+        "index": 1,
+        "mask": "//3/+P/g/4D/AcwBgAMADwA/AP8Af+B/+P8=",
+        "maskAddr": "$DE95",
+        "maskLabels": [
+          "mask_shovel_key"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DD89",
+        "bitmap": "AYAAwANwDGA4QOAAwAADGAzwMMAjBywIMDgA5gPEAwA=",
+        "bitmapAddr": "$DE11",
+        "bitmapLabels": [
+          "bitmap_lockpick"
+        ],
+        "height": 16,
+        "index": 2,
+        "mask": "/D/8D/AHwA8DHwe/HOcwA8AHgAiAMIDAgwHMAPgR+Ds=",
+        "maskAddr": "$DEAF",
+        "maskLabels": [
+          "mask_lockpick"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DD8F",
+        "bitmap": "AAAMAAcABsACsDNsbNRrNtrO1vM17A3cA9AAgAAA",
+        "bitmapAddr": "$DE61",
+        "bitmapLabels": [
+          "bitmap_papers"
+        ],
+        "height": 15,
+        "index": 3,
+        "mask": "8//g//A/8A/IA4ABAAEAAAAAAAAAAMAB8AP8L/9/",
+        "maskAddr": "$DEFF",
+        "maskLabels": [
+          "mask_papers"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DD95",
+        "bitmap": "AAAACAA8AvwNcB6gHoAWgBaAFgAMAAAA",
+        "bitmapAddr": "$DF73",
+        "bitmapLabels": [
+          "bitmap_torch"
+        ],
+        "height": 12,
+        "index": 4,
+        "mask": "//f/w/0B8AHgA8APwB/AP8A/wH/h//P/",
+        "maskAddr": "$E07F",
+        "maskLabels": [
+          "mask_torch"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DD9B",
+        "bitmap": "AAAAAAMAD8A/MEz88/I8zw88A/AAwAAAAAA=",
+        "bitmapAddr": "$DFAB",
+        "bitmapLabels": [
+          "bitmap_bribe"
+        ],
+        "height": 13,
+        "index": 5,
+        "mask": "/P/wP8APgAOAAAAAAAAAAMAA8AD8AP8D/88=",
+        "maskAddr": "$E005",
+        "maskLabels": [
+          "mask_bribe"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDA1",
+        "bitmap": "AeAH8A/4D/gf/A/z88w8MA/P8zw88A/P8zw88A/AAwA=",
+        "bitmapAddr": "$DF8B",
+        "bitmapLabels": [
+          "bitmap_uniform"
+        ],
+        "height": 16,
+        "index": 6,
+        "mask": "+A/wB+AD4APAAAAAAAAAAAAAAAAAAAAAAAAAA8AP8D8=",
+        "maskAddr": "$E01F",
+        "maskLabels": [
+          "mask_uniform"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDA7",
+        "bitmap": "ADAAAAAwADAOeB+4BzgYuB44GZgX4Bn4BmAHmAH4AGA=",
+        "bitmapAddr": "$DF33",
+        "bitmapLabels": [
+          "bitmap_food"
+        ],
+        "height": 16,
+        "index": 7,
+        "mask": "/4f/z/+H8YfgA8AD4APAA8ADwAPAB8AD4AfwA/gD/gc=",
+        "maskAddr": "$E0B7",
+        "maskLabels": [
+          "mask_food"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDAD",
+        "bitmap": "AAAAgACAAUABwACAAUAD4AYwBrAGMAbwBvAH8AXQA+A=",
+        "bitmapAddr": "$DF53",
+        "bitmapLabels": [
+          "bitmap_poison"
+        ],
+        "height": 16,
+        "index": 8,
+        "mask": "/3/+P/4//B/8H/4//B/4D/AH8AfwB/AH8AfwB/AH+A8=",
+        "maskAddr": "$E05F",
+        "maskLabels": [
+          "mask_poison"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDB3",
+        "bitmap": "AAAAAAAAABgAZAAcAHAZwCcAMgAZAAcAAAA=",
+        "bitmapAddr": "$DDF7",
+        "bitmapLabels": [
+          "bitmap_key"
+        ],
+        "height": 13,
+        "index": 9,
+        "mask": "//3/+P/g/4D/AcwBgAMADwA/AP8Af+B/+P8=",
+        "maskAddr": "$DE95",
+        "maskLabels": [
+          "mask_shovel_key"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDB9",
+        "bitmap": "AAAAAAAAABgAZAAcAHAZwCcAMgAZAAcAAAA=",
+        "bitmapAddr": "$DDF7",
+        "bitmapLabels": [
+          "bitmap_key"
+        ],
+        "height": 13,
+        "index": 10,
+        "mask": "//3/+P/g/4D/AcwBgAMADwA/AP8Af+B/+P8=",
+        "maskAddr": "$DE95",
+        "maskLabels": [
+          "mask_shovel_key"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDBF",
+        "bitmap": "AAAAAAAAABgAZAAcAHAZwCcAMgAZAAcAAAA=",
+        "bitmapAddr": "$DDF7",
+        "bitmapLabels": [
+          "bitmap_key"
+        ],
+        "height": 13,
+        "index": 11,
+        "mask": "//3/+P/g/4D/AcwBgAMADwA/AP8Af+B/+P8=",
+        "maskAddr": "$DE95",
+        "maskLabels": [
+          "mask_shovel_key"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDC5",
+        "bitmap": "AAADAA5AOfDn5B+fjnyx87jPuze7c7tnu3c7fAtwA0A=",
+        "bitmapAddr": "$DFE5",
+        "bitmapLabels": [
+          "bitmap_parcel"
+        ],
+        "height": 16,
+        "index": 12,
+        "mask": "/P/wP8APAAMAAAAAAAAAAAAAAAAAAAAAAAAAAMAD8A8=",
+        "maskAddr": "$E03F",
+        "maskLabels": [
+          "mask_parcel"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDCB",
+        "bitmap": "ABAAEDgQxhA3kMxQ81DM7rc4tsbPNj7WDzYD1gD2ADU=",
+        "bitmapAddr": "$DFC5",
+        "bitmapLabels": [
+          "bitmap_radio"
+        ],
+        "height": 16,
+        "index": 13,
+        "mask": "/8fHxwHHAEcABwAHAAEAAAABAAAAAAAAwADwAPwA/wE=",
+        "maskAddr": "$E097",
+        "maskLabels": [
+          "mask_radio"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDD1",
+        "bitmap": "AAABgAdAA4ABAAKABUANoAvgD+AHwAAA",
+        "bitmapAddr": "$DE49",
+        "bitmapLabels": [
+          "bitmap_purse"
+        ],
+        "height": 12,
+        "index": 14,
+        "mask": "/n/4P/Af+D/8P/g/8B/gD+AP4A/wH/g/",
+        "maskAddr": "$DEE7",
+        "maskLabels": [
+          "mask_purse"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      },
+      {
+        "addr": "$DDD7",
+        "bitmap": "AAAH4BgYJCRBAkECJKRYmifkGBgH4AAA",
+        "bitmapAddr": "$DE31",
+        "bitmapLabels": [
+          "bitmap_compass"
+        ],
+        "height": 12,
+        "index": 15,
+        "mask": "+B/gB8ADgAEAAAAAgAEAAIABwAPgB/gf",
+        "maskAddr": "$DECF",
+        "maskLabels": [
+          "mask_compass"
+        ],
+        "widthBytes": 2,
+        "widthPixels": 16
+      }
+    ],
+    "stride": 6
   },
   "redCrossParcelContents": {
     "_addr": "$A25F",

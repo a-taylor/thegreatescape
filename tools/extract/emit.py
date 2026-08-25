@@ -200,3 +200,38 @@ def write_sheets(sk: Skool, outdir: Path) -> list[str]:
         put(name, wht)
 
     return written
+
+
+def item_sheets(sk: Skool) -> dict[str, tuple[int, int, list[int]]]:
+    """The 16 item_definitions ($DD7D) as bitmaps and masks, one sheet each.
+
+    Keyed by the reference build's own filenames, which drop the underscores
+    from the label: mask_shovel_key -> item-mask-shovelkey. Several items share
+    artwork (the three keys are one bitmap), so the 16 definitions yield fewer
+    than 32 distinct sheets and the dict collapses the duplicates.
+    """
+    image = sk.image
+    base = sk.addr_of("item_definitions")
+
+    out: dict[str, tuple[int, int, list[int]]] = {}
+    for i in range(16):
+        a = base + i * 6
+        width, height = image[a], image[a + 1]
+        for kind, ptr in (
+            ("bitmap", image[a + 2] | (image[a + 3] << 8)),
+            ("mask", image[a + 4] | (image[a + 5] << 8)),
+        ):
+            labels = sk.addr_to_labels.get(ptr, [])
+            if not labels:
+                continue
+            stem = labels[0].replace("_", "").removeprefix("bitmap").removeprefix("mask")
+            name = f"item-{stem}" if kind == "bitmap" else f"item-mask-{stem}"
+
+            px = [0] * (width * 8 * height)
+            for y in range(height):
+                for bx in range(width):
+                    byte = image[ptr + y * width + bx]
+                    for bit in range(8):
+                        px[y * width * 8 + bx * 8 + bit] = (byte >> (7 - bit)) & 1
+            out[name] = (width * 8, height, px)
+    return out

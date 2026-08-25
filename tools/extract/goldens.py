@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import pngio
-from .emit import map_sheet, mask_sheets, object_sheets
+from .emit import item_sheets, map_sheet, mask_sheets, object_sheets
 from .schema import tile_bank
 from .skoolparse import Skool, parse
 
@@ -160,11 +160,31 @@ def test_masks(sk: Skool, r: Results) -> None:
         )
 
 
+def test_items(sk: Skool, r: Results) -> None:
+    """item_definitions ($DD7D) bitmaps and masks, at scale 4 in images/udgs.
+
+    This is what gates the reading that item_definitions stores a PLAIN width,
+    unlike the sprites table's width-plus-one: get that wrong and every item
+    renders at the wrong stride.
+    """
+    for name, (w, h, mine) in sorted(item_sheets(sk).items()):
+        p = UDGS / f"{name}.png"
+        if not p.exists():
+            r.skipped += 1
+            continue
+        rw, rh, ref = _bits(p, scale=4)
+        if (w, h) != (rw, rh):
+            r.check(name, False, f"{w}x{h} vs {rw}x{rh}")
+            continue
+        r.check(name, mine == ref, f"{_diff(mine, ref)} px differ")
+
+
 TIERS: list[tuple[str, str, Callable[[Skool, Results], None]]] = [
     ("TIER 1  (pixel-exact; these gate the build)", "exterior map", test_map),
     ("TIER 1  (pixel-exact; these gate the build)", "individual 8x8 tiles", test_tiles),
     ("TIER 1  (pixel-exact; these gate the build)", "supertiles", test_supertiles),
     ("TIER 1  (pixel-exact; these gate the build)", "interior objects (RLE)", test_objects),
+    ("TIER 1  (pixel-exact; these gate the build)", "item sprites", test_items),
     ("TIER 2  (exact within reference bbox)", "masks", test_masks),
 ]
 

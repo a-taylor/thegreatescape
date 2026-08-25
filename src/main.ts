@@ -5,8 +5,9 @@
  * frames -> position -> bounds check -> door handling -- and reaches the screen
  * through render_mask_buffer and plot_masked_sprite, so scenery occludes him
  * rather than the other way round. The map scrolls through move_map rather than
- * by chasing him. Rooms 2, 4 and 9 carry a pushable stove or crate, and depth
- * order between it and the hero comes from get_next_drawable.
+ * by chasing him. Rooms 2, 4 and 9 carry a pushable stove or crate; ten rooms
+ * hold an item lying on the floor. Depth order between all of them comes from
+ * get_next_drawable, which sorts characters and items into one sequence.
  *
  * What is still stubbed, and marked ASSUMPTION where it is: the push trigger,
  * which really lives in `touch`'s collision handling (P4), and the initial
@@ -17,6 +18,7 @@
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
 import { tinyposStash, toTinyPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
+import { itemDefinitions, itemStructs, type ItemStruct } from './game/items.js';
 import {
   HERO_STANDING_HEIGHT,
   animations,
@@ -33,7 +35,7 @@ import {
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { drawOrder, type Drawable } from './render/drawlist.js';
 import { ExteriorView } from './render/exterior.js';
-import { isoPlacement, windowPlacement } from './render/place.js';
+import { isoPlacement, itemPlacement, windowPlacement } from './render/place.js';
 import { clippedBufferRow, vischarVisible } from './render/clip.js';
 import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
 import { interiorMasksForRoom, renderMaskBuffer } from './render/maskbuffer.js';
@@ -196,6 +198,71 @@ function plotSpriteAt(
 }
 
 /**
+ * setup_item_plotting ($DC41) and the 16px plotter.
+ *
+ * Items take a different path from characters: their iso_pos is stored in the
+ * itemstruct in TILE rows, so placement lands on whole tiles ($DCAE multiplies
+ * by 192); their definitions store a plain width rather than width-plus-one;
+ * and they are never flipped, since $DC54 zeroes sprite_index outright.
+ */
+function plotItem(struct: ItemStruct): void {
+  const def = itemDefinitions[struct.item];
+  if (!def) return;
+
+  const place = itemPlacement(struct.isoPos.x, struct.isoPos.y, view.position);
+
+  // The same clip as characters, in the same units: iso column in bytes, iso
+  // row in pixels. Items get no width-plus-one, hence widthBytes as stored.
+  const clip = vischarVisible(
+    {
+      isoXBytes: struct.isoPos.x,
+      isoYPixels: struct.isoPos.y * 8,
+      widthBytesPlusOne: def.widthBytes,
+      height: def.height,
+    },
+    view.position,
+  );
+  if (!clip.visible) return;
+
+  // $DC94: the item's own mask is rendered into the buffer the same way.
+  renderMaskBuffer(
+    foreground,
+    {
+      isoX: struct.isoPos.x,
+      isoY: struct.isoPos.y,
+      tinyX: struct.pos.x,
+      tinyY: struct.pos.y,
+      tinyHeight: struct.pos.height,
+    },
+    hero.room === 0
+      ? undefined
+      : interiorMasksForRoom(
+          roomsData.roomdefs[roomsData.rooms[hero.room - 1]!.roomdefIndex]!.masks,
+        ),
+  );
+
+  plotMaskedSprite(
+    { pixels: buffers.pixels, foreground },
+    {
+      bitmap: decodeBase64(def.bitmap),
+      mask: decodeBase64(def.mask),
+      widthBytes: def.widthBytes,
+      height: def.height,
+    },
+    {
+      column: place.column,
+      row: clip.topSkip !== 0 ? 0 : place.pixelRow, // $DCA2/$DCA5
+      shift: 0, // items sit on byte boundaries; there is no sub-byte roll
+      skipRows: clip.topSkip,
+      rows: clip.clippedHeight,
+      skipCols: clip.leftSkip,
+      cols: clip.clippedWidth,
+      flip: false, // $DC54
+    },
+  );
+}
+
+/**
  * plot_sprites ($B866): everything drawable, rearmost first.
  *
  * The demo has two occupied slots -- the hero in 0, the room's movable item in
@@ -211,7 +278,21 @@ function plotVischars(): void {
     slots.push({ kind: 'vischar', index: 1, pos: movable.pos, drawable: true });
   }
 
-  for (const d of drawOrder(slots, [])) {
+  // Items in this room compete in the same ordering. get_next_drawable's item
+  // half works on tinypos * 8 ($B1C7), so they are scaled to meet the vischars.
+  const here = itemStructs().filter((s) => !s.nowhere && s.room === hero.room);
+  const items: Drawable[] = here.map((s) => ({
+    kind: 'item',
+    index: s.index,
+    pos: { x: s.pos.x * 8, y: s.pos.y * 8, height: s.pos.height * 8 },
+    drawable: true,
+  }));
+
+  for (const d of drawOrder(slots, items)) {
+    if (d.kind === 'item') {
+      plotItem(here.find((s) => s.index === d.index)!);
+      continue;
+    }
     if (d.index === 0) {
       const anim = animations[hero.animation];
       const frame = anim?.frames[hero.frame];

@@ -84,6 +84,40 @@ export function windowPlacement(
 }
 
 /**
+ * Where an ITEM sits inside the window (setup_item_plotting, c$DC41).
+ *
+ * "The counterpart of, and very similar to" setup_vischar_plotting -- but the
+ * vertical axis differs, and that difference is the whole reason both exist:
+ *
+ *   $DCA7  Y = item.iso_pos.y - map_position.y, multiplied by 192
+ *   $E4EB  Y = vischar.iso_pos.y - map_position.y * 8, multiplied by 24
+ *
+ * 192 is eight rows of a 24-byte-wide buffer, so items land on whole TILE rows;
+ * 24 is one row, so characters land on single PIXEL rows. The two are consistent
+ * because they read different fields: an itemstruct's iso_pos is stored in tile
+ * rows, a vischar's in pixel rows. Reading one routine and applying it to the
+ * other is what made the hero bounce through all of P3.
+ *
+ * Two further asymmetries, both faithful:
+ *   - items are never flipped ($DC54 zeroes sprite_index outright)
+ *   - item plotting "only ever uses the 16 pixel plotter", so there is no
+ *     24-wide path and item_definitions stores a plain width, not width+1
+ */
+export function itemPlacement(
+  isoColumn: number,
+  isoTileRow: number,
+  mapPosition: { x: number; y: number },
+): { column: number; pixelRow: number } {
+  return {
+    // $DCBC, sign-extended at $DCC6 -- so a negative column is meaningful and
+    // is left for the clipper to handle rather than being clamped here.
+    column: isoColumn - mapPosition.x,
+    // $DCA7..$DCBA: the *192 lands on a tile row, which is *8 pixel rows.
+    pixelRow: (isoTileRow - mapPosition.y) * 8,
+  };
+}
+
+/**
  * Map position that centres a world position in the window.
  *
  * ASSUMPTION: the original does not centre. It shunts by one tile when the hero
