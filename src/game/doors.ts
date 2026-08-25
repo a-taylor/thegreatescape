@@ -204,3 +204,165 @@ export function tryDoor(
  * giving (116, 234). Interiors do not scroll, so this is constant.
  */
 export const INTERIOR_MAP_POSITION = { x: 0x74, y: 0xea } as const;
+
+/* -------------------------------------------------------------------------
+ * Interiors
+ *
+ * Indoors, door_handling exits immediately to a separate routine ($B1F9) that
+ * works from a per-room list rather than scanning the whole table. The list is
+ * built by setup_interior_doors when the room is entered.
+ * ---------------------------------------------------------------------- */
+
+/** interior_doors ($81D6) is four bytes, so a room can hold at most 4 doors. */
+export const MAX_INTERIOR_DOORS = 4;
+
+/** door_NONE ($69DC), the terminator interior_doors is pre-filled with. */
+export const DOOR_NONE = 0xff;
+
+/**
+ * setup_interior_doors (c$69DC): the doors reachable from one room.
+ *
+ * Walks all 124 half-doors looking for ones whose ROOM field matches, where
+ * "room field" is bits 2..7 -- the comparison is `room_and_direction & $FC`
+ * against `room << 2` ($69FB), so it never shifts either side down.
+ *
+ * The stored index is deliberately the OTHER half of the pair: $6A00 writes
+ * `C XOR $80`, and C carries door_REVERSE set for half 1 and clear for half 0.
+ * Combined with get_door's rule below, a match on half 0 resolves to half 1 and
+ * vice versa. That inversion is the point of the whole arrangement -- see
+ * interiorDoorTarget.
+ */
+export function interiorDoorsForRoom(room: number): number[] {
+  const out: number[] = [];
+  // $69EE: the index starts at 0 and gains door_REVERSE on alternate steps.
+  let c = 0;
+
+  for (let i = 0; i < halfDoors.length; i++) {
+    const door = halfDoors[i];
+    if (!door) break;
+
+    // $69FB..$69FE: compare the room field in place, without shifting down.
+    if (((door.targetRoom << 2) & 0xfc) === ((room << 2) & 0xfc)) {
+      out.push(c ^ DOOR_REVERSE); // $6A00
+    }
+
+    // $6A05..$6A0C: toggle door_REVERSE; increment only when it clears.
+    const toggled = (c ^ DOOR_REVERSE) & 0xff;
+    c = toggled & 0x80 ? toggled : (toggled + 1) & 0xff;
+  }
+
+  return out;
+}
+
+/**
+ * get_door (c$6A12): a door index becomes a half-door.
+ *
+ * `ADD A,A` doubles the index and discards door_REVERSE off the top in the same
+ * instruction ($6A13); the flag is recovered from the saved copy afterwards and
+ * steps forward one half-door ($6A20).
+ */
+export function resolveDoor(index: number): number {
+  const pair = (index & DOOR_INDEX_MASK) * 2;
+  return index & DOOR_REVERSE ? pair + 1 : pair;
+}
+
+/**
+ * The half whose position the hero arrives at ($B371..$B37F).
+ *
+ * "If we're going through the door in the forward direction we fetch our
+ * destination position from the next element in the list. If we're reversed we
+ * fetch the previous element." Reverse subtracts 8 bytes from a pointer already
+ * advanced to the next door, which is two half-doors back.
+ */
+export function interiorDoorTarget(index: number): number {
+  const resolved = resolveDoor(index);
+  return index & DOOR_REVERSE ? resolved - 1 : resolved + 1;
+}
+
+/**
+ * The interior range test ($B34F..$B35D).
+ *
+ * Unlike the exterior version this does NOT scale the stored position -- indoor
+ * coordinates are already at the scale saved_pos uses -- and it runs the same
+ * two-instruction test on each axis in an 8-bit register:
+ *
+ *   A = pos - 3;  if A >= saved      skip
+ *   A = A + 6;    if A <  saved      skip
+ *
+ * so a door is in range when `pos - 3 < saved <= pos + 3`. Both arithmetic
+ * steps are 8-bit and wrap, which is reproduced rather than widened.
+ */
+export function interiorDoorInRange(pos: Pos, door: HalfDoor): boolean {
+  return (
+    interiorAxisInRange(pos.x & 0xff, door.pos.x) &&
+    interiorAxisInRange(pos.y & 0xff, door.pos.y)
+  );
+}
+
+function interiorAxisInRange(value: number, doorCoord: number): boolean {
+  const low = (doorCoord - 3) & 0xff; // $B350
+  if (low >= value) return false; // $B353 JR NC
+  const high = (low + 6) & 0xff; // $B355
+  if (high < value) return false; // $B358 JR C
+  return true;
+}
+
+/**
+ * door_handling_interior (c$B32D): find the door the hero is walking into.
+ *
+ * Iterates the room's own door list in order and takes the first that both
+ * faces the hero's way and is in range. Note the direction compared is the
+ * RESOLVED half's, not the matched one's -- everything after the lookup works
+ * from the resolved door.
+ */
+export function findInteriorDoor(
+  pos: Pos,
+  direction: number,
+  room: number,
+): DoorMatch | null {
+  for (const index of interiorDoorsForRoom(room)) {
+    if (index === DOOR_NONE) break; // $B331: the list is $FF-terminated
+
+    const door = halfDoors[resolveDoor(index)];
+    if (!door) continue;
+
+    if (door.direction !== (direction & 0x03)) continue; // $B345
+    if (!interiorDoorInRange(pos, door)) continue;
+
+    const destination = halfDoors[interiorDoorTarget(index)];
+    if (!destination) continue;
+
+    // $B335 stores the index itself as current_door, REVERSE bit and all;
+    // is_door_locked masks it off again ($B1D4).
+    return { pair: index & DOOR_INDEX_MASK, matched: door, destination };
+  }
+  return null;
+}
+
+/**
+ * The complete indoor door interaction, mirroring tryDoor.
+ *
+ * The destination room comes from the RESOLVED half's room field ($B369), which
+ * is why the index inversion in setup_interior_doors matters: standing in room
+ * R, the half we resolve to is the one describing where you end up.
+ */
+export function tryInteriorDoor(
+  pos: Pos,
+  direction: number,
+  room: number,
+): { locked: true; pair: number } | { locked: false; result: TransitionResult } | null {
+  const match = findInteriorDoor(pos, direction, room);
+  if (!match) return null;
+
+  if (isDoorLocked(match.pair)) return { locked: true, pair: match.pair };
+
+  const target = match.matched.targetRoom;
+  return {
+    locked: false,
+    result: {
+      room: target,
+      pos: transitionPosition(match.destination, target),
+      clearCrawl: target === ROOM_OUTDOORS,
+    },
+  };
+}

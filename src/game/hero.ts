@@ -20,7 +20,7 @@ import {
   type InteriorBoundsState,
 } from './bounds.js';
 import { DIRECTION_MASK, DIRECTION_CRAWL, type Pos } from './coords.js';
-import { tryDoor } from './doors.js';
+import { ROOM_OUTDOORS, tryDoor, tryInteriorDoor } from './doors.js';
 import { decodeBase64 } from '../data/load.js';
 
 export interface AnimFrame {
@@ -209,23 +209,27 @@ export function step(
     hero.direction = (hero.direction & DIRECTION_CRAWL) | (facing & DIRECTION_MASK);
   }
 
-  // Doors are only checked outdoors here; interiors use door_handling_interior.
-  if (hero.room === 0) {
-    const door = tryDoor(hero.pos, hero.direction & DIRECTION_MASK);
-    if (door && door.locked) {
-      return { moved: true, blocked: false, enteredRoom: null, lockedDoor: door.pair };
-    }
-    if (door && !door.locked) {
-      hero.room = door.result.room;
-      hero.pos = { ...door.result.pos };
-      if (door.result.clearCrawl) hero.direction &= DIRECTION_MASK;
-      return {
-        moved: true,
-        blocked: false,
-        enteredRoom: hero.room,
-        lockedDoor: null,
-      };
-    }
+  // door_handling ($B1F5) splits on the room index at its first instruction:
+  // outdoors it scans the first 16 door pairs, indoors it exits to
+  // door_handling_interior ($B32D) and walks the room's own four-slot list.
+  const door =
+    hero.room === ROOM_OUTDOORS
+      ? tryDoor(hero.pos, hero.direction & DIRECTION_MASK)
+      : tryInteriorDoor(hero.pos, hero.direction & DIRECTION_MASK, hero.room);
+
+  if (door && door.locked) {
+    return { moved: true, blocked: false, enteredRoom: null, lockedDoor: door.pair };
+  }
+  if (door && !door.locked) {
+    hero.room = door.result.room;
+    hero.pos = { ...door.result.pos };
+    if (door.result.clearCrawl) hero.direction &= DIRECTION_MASK;
+    return {
+      moved: true,
+      blocked: false,
+      enteredRoom: hero.room,
+      lockedDoor: null,
+    };
   }
 
   return { moved: true, blocked: false, enteredRoom: null, lockedDoor: null };
