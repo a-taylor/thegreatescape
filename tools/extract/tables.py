@@ -702,13 +702,40 @@ def extract_routes(sk: Skool) -> dict[str, Any]:
             "values": list(sk.image[addr:end]),
         })
 
+    # get_route ($CB79) reads routes[index] as a word and uses it as an address.
+    # Resolve the 46 pointers to offsets into the same blob so the engine can
+    # index bytes directly. This matters more than usual here: get_target has a
+    # route.step of $FF read the byte BEFORE the route ($C66F sets H to $FF),
+    # relying on "being able to fetch the previous route's terminator", so the
+    # whole region has to stay addressable as one array rather than 46 slices.
+    n_pointers = 46
+    pointers = []
+    for i in range(n_pointers):
+        a = lo + i * 2
+        target = word_at(sk.image, a)
+        pointers.append({
+            "index": i,
+            "addr": f"${target:04X}",
+            # Route 0 is a null pointer; see the note below.
+            "offset": (target - lo) if target else None,
+        })
+
     return {
         "_label": "routes",
         "_addr": f"${lo:04X}",
         "_bytes": hi - lo,
         "data": b64(sk.slice_block("routes")),
+        "pointerCount": n_pointers,
+        "pointers": pointers,
         "entries": entries,
         "note": "route index bit 7 (route_REVERSED) means follow in reverse order",
+        "nullRouteNote": (
+            "routes[0] is $0000. get_target ($C667) can be reached with "
+            "route.index 0 -- the disassembly describes the sequence: the hero "
+            "stands during breakfast, is pursued, then sits again and the "
+            "guards resume position. get_route then returns a zero pointer and "
+            "the read comes from $0001, which in the Spectrum ROM holds $AF."
+        ),
     }
 
 

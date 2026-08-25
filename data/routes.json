@@ -614,5 +614,239 @@
       ]
     }
   ],
-  "note": "route index bit 7 (route_REVERSED) means follow in reverse order"
+  "note": "route index bit 7 (route_REVERSED) means follow in reverse order",
+  "nullRouteNote": "routes[0] is $0000. get_target ($C667) can be reached with route.index 0 -- the disassembly describes the sequence: the hero stands during breakfast, is pursued, then sits again and the guards resume position. get_route then returns a zero pointer and the read comes from $0001, which in the Spectrum ROM holds $AF.",
+  "pointerCount": 46,
+  "pointers": [
+    {
+      "addr": "$0000",
+      "index": 0,
+      "offset": null
+    },
+    {
+      "addr": "$7795",
+      "index": 1,
+      "offset": 93
+    },
+    {
+      "addr": "$7799",
+      "index": 2,
+      "offset": 97
+    },
+    {
+      "addr": "$77A0",
+      "index": 3,
+      "offset": 104
+    },
+    {
+      "addr": "$77CD",
+      "index": 4,
+      "offset": 149
+    },
+    {
+      "addr": "$77D0",
+      "index": 5,
+      "offset": 152
+    },
+    {
+      "addr": "$77D4",
+      "index": 6,
+      "offset": 156
+    },
+    {
+      "addr": "$77D8",
+      "index": 7,
+      "offset": 160
+    },
+    {
+      "addr": "$77DA",
+      "index": 8,
+      "offset": 162
+    },
+    {
+      "addr": "$77DC",
+      "index": 9,
+      "offset": 164
+    },
+    {
+      "addr": "$77D8",
+      "index": 10,
+      "offset": 160
+    },
+    {
+      "addr": "$77DA",
+      "index": 11,
+      "offset": 162
+    },
+    {
+      "addr": "$77DC",
+      "index": 12,
+      "offset": 164
+    },
+    {
+      "addr": "$77DE",
+      "index": 13,
+      "offset": 166
+    },
+    {
+      "addr": "$77E1",
+      "index": 14,
+      "offset": 169
+    },
+    {
+      "addr": "$77E1",
+      "index": 15,
+      "offset": 169
+    },
+    {
+      "addr": "$77E7",
+      "index": 16,
+      "offset": 175
+    },
+    {
+      "addr": "$77EC",
+      "index": 17,
+      "offset": 180
+    },
+    {
+      "addr": "$77F1",
+      "index": 18,
+      "offset": 185
+    },
+    {
+      "addr": "$77F3",
+      "index": 19,
+      "offset": 187
+    },
+    {
+      "addr": "$77F5",
+      "index": 20,
+      "offset": 189
+    },
+    {
+      "addr": "$77F1",
+      "index": 21,
+      "offset": 185
+    },
+    {
+      "addr": "$77F3",
+      "index": 22,
+      "offset": 187
+    },
+    {
+      "addr": "$77F5",
+      "index": 23,
+      "offset": 189
+    },
+    {
+      "addr": "$77F7",
+      "index": 24,
+      "offset": 191
+    },
+    {
+      "addr": "$77F9",
+      "index": 25,
+      "offset": 193
+    },
+    {
+      "addr": "$77FB",
+      "index": 26,
+      "offset": 195
+    },
+    {
+      "addr": "$77FD",
+      "index": 27,
+      "offset": 197
+    },
+    {
+      "addr": "$7803",
+      "index": 28,
+      "offset": 203
+    },
+    {
+      "addr": "$7805",
+      "index": 29,
+      "offset": 205
+    },
+    {
+      "addr": "$7807",
+      "index": 30,
+      "offset": 207
+    },
+    {
+      "addr": "$77FF",
+      "index": 31,
+      "offset": 199
+    },
+    {
+      "addr": "$7801",
+      "index": 32,
+      "offset": 201
+    },
+    {
+      "addr": "$7809",
+      "index": 33,
+      "offset": 209
+    },
+    {
+      "addr": "$780B",
+      "index": 34,
+      "offset": 211
+    },
+    {
+      "addr": "$780D",
+      "index": 35,
+      "offset": 213
+    },
+    {
+      "addr": "$780F",
+      "index": 36,
+      "offset": 215
+    },
+    {
+      "addr": "$7815",
+      "index": 37,
+      "offset": 221
+    },
+    {
+      "addr": "$781A",
+      "index": 38,
+      "offset": 226
+    },
+    {
+      "addr": "$781F",
+      "index": 39,
+      "offset": 231
+    },
+    {
+      "addr": "$7825",
+      "index": 40,
+      "offset": 237
+    },
+    {
+      "addr": "$782B",
+      "index": 41,
+      "offset": 243
+    },
+    {
+      "addr": "$7831",
+      "index": 42,
+      "offset": 249
+    },
+    {
+      "addr": "$7833",
+      "index": 43,
+      "offset": 251
+    },
+    {
+      "addr": "$7835",
+      "index": 44,
+      "offset": 253
+    },
+    {
+      "addr": "$7838",
+      "index": 45,
+      "offset": 256
+    }
+  ]
 }

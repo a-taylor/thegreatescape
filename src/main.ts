@@ -14,9 +14,11 @@
  * exterior on the hero.
  *
  * Characters are spawned and purged around the window by spawn_characters and
- * purge_invisible_characters. They do not move yet -- that needs get_target and
- * move_a_character, the next checkpoint -- so each is drawn on its class's base
- * sprite. The status line shows which of the seven NPC slots are occupied.
+ * purge_invisible_characters, and the OFF-SCREEN cast walks its routes through
+ * move_a_character -- one character per tick, so the camp is never quite where
+ * you left it. On-screen characters are still frozen: while spawned, a vischar
+ * is driven by character_behaviour and animate rather than by move_a_character,
+ * and neither is implemented yet. The status line shows slot occupancy.
  *
  * Still stubbed, and marked ASSUMPTION where it is: the push trigger, which
  * really lives in `touch`'s collision handling.
@@ -37,6 +39,8 @@ import {
   spawnCharacters,
 } from './game/spawn.js';
 import { createVischars, isEmpty, npcSlots } from './game/vischar.js';
+import { moveCharacter, nextCharacterIndex } from './game/move.js';
+import { prng } from './game/prng.js';
 import {
   HERO_STANDING_HEIGHT,
   animations,
@@ -123,6 +127,14 @@ let movable: MovableState | null = null;
  */
 const vischars = createVischars();
 let structs: CharacterStruct[] = characterStructs();
+
+/**
+ * The rotating index move_a_character works through ($8217).
+ *
+ * One character per tick, wrapping at 26 -- so the whole cast advances once
+ * every 26 frames. That is why the camp is never quite where you left it.
+ */
+let moveIndex = 0;
 
 /**
  * Put the view where the game puts it for a given room.
@@ -486,8 +498,13 @@ function tick(): void {
 
   const outcome = step(hero, input, interiorBounds(hero.room));
 
-  // main_loop order ($9D93 then $9D96): purge first, then spawn. Doing it the
-  // other way round would let a character spawn and be purged in one frame.
+  // main_loop order: move_a_character ($9D8D), then purge ($9D93), then spawn
+  // ($9D96). Purging before spawning matters -- the other way round would let
+  // a character spawn and be purged in one frame.
+  moveIndex = nextCharacterIndex(moveIndex);
+  const mover = structs[moveIndex];
+  if (mover) moveCharacter(mover, { random: () => prng.next() });
+
   purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
   spawnCharacters(vischars, structs, view.position, hero.room);
 
