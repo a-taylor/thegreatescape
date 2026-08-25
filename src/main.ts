@@ -1,5 +1,5 @@
 /**
- * P3 demo: a walkable hero, drawn through the game's own rendering chain.
+ * P4 demo: the camp populated -- the hero plus spawned characters.
  *
  * The hero moves through the real path -- input -> animindices -> animation
  * frames -> position -> bounds check -> door handling -- and reaches the screen
@@ -13,14 +13,30 @@
  * pins interiors at a constant, reset_outdoor_position ($B2FC) recentres the
  * exterior on the hero.
  *
- * One thing is still stubbed, and marked ASSUMPTION where it is: the push
- * trigger, which really lives in `touch`'s collision handling (P4).
+ * Characters are spawned and purged around the window by spawn_characters and
+ * purge_invisible_characters. They do not move yet -- that needs get_target and
+ * move_a_character, the next checkpoint -- so each is drawn on its class's base
+ * sprite. The status line shows which of the seven NPC slots are occupied.
+ *
+ * Still stubbed, and marked ASSUMPTION where it is: the push trigger, which
+ * really lives in `touch`'s collision handling.
  */
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
 import { tinyposStash, toTinyPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
 import { itemDefinitions, itemStructs, type ItemStruct } from './game/items.js';
+import {
+  characterClass,
+  characterStructs,
+  type CharacterStruct,
+} from './game/characters.js';
+import {
+  purgeInvisibleCharacters,
+  resetVisibleCharacter,
+  spawnCharacters,
+} from './game/spawn.js';
+import { createVischars, isEmpty, npcSlots } from './game/vischar.js';
 import {
   HERO_STANDING_HEIGHT,
   animations,
@@ -96,6 +112,17 @@ let windowOffset = NO_OFFSET;
 let movable: MovableState | null = null;
 
 /**
+ * The eight visible-character slots and the 26 character structs behind them.
+ *
+ * The structs are live state, not a constant table: spawn_character copies a
+ * character out of one into a slot and flags it on-screen, and
+ * reset_visible_character copies it back. So they are rebuilt on reset rather
+ * than shared.
+ */
+const vischars = createVischars();
+let structs: CharacterStruct[] = characterStructs();
+
+/**
  * Put the view where the game puts it for a given room.
  *
  * Two different rules, and using the wrong one is what corrupted the exterior
@@ -120,10 +147,17 @@ function setViewForRoom(room: number, pos: { x: number; y: number; height: numbe
   view.gameWindowOffset = NO_OFFSET;
   view.refresh();
   windowOffset = NO_OFFSET;
+  // Changing room hands every slot back: reset_visible_character is called for
+  // all of them by reset_nonplayer_visible_characters ($69C9).
+  for (const v of npcSlots(vischars)) resetVisibleCharacter(v, structs);
+
   // setup_movable_items runs on both paths ($B326 outdoors, from enter_room
   // indoors); only rooms 2, 4 and 9 have one.
   const item = movableForRoom(room);
   movable = item ? createMovable(item) : null;
+  // The movable occupies vischar slot 1 ($697D writes to $8020), so mark the
+  // slot taken and spawn_character will skip past it to slot 2.
+  if (movable) vischars[1]!.character = movable.item.character;
   roomSelect.value = String(room);
 }
 
@@ -315,6 +349,11 @@ function plotVischars(): void {
   if (movable) {
     slots.push({ kind: 'vischar', index: 1, pos: movable.pos, drawable: true });
   }
+  // Spawned characters compete in the same depth ordering as the hero.
+  for (const v of npcSlots(vischars)) {
+    if (isEmpty(v)) continue;
+    slots.push({ kind: 'vischar', index: v.slot, pos: v.pos, drawable: true });
+  }
 
   // Items in this room compete in the same ordering. get_next_drawable's item
   // half works on tinypos * 8 ($B1C7), so they are scaled to meet the vischars.
@@ -337,10 +376,20 @@ function plotVischars(): void {
       // TL/TR and BR/BL are the same artwork mirrored; the frame's own flip
       // flag is the only thing distinguishing them.
       if (frame) plotSpriteAt(PRISONER_SPRITE_BASE + frame.sprite, hero.pos, frame.flip);
-    } else if (movable) {
+      continue;
+    }
+    if (d.index === 1 && movable) {
       // sprite_stove or sprite_crate, from the pointer in the movable_item
       // record ($69B4 / $69BD). Movable items never flip.
       plotSpriteAt(movable.item.spriteIndex, movable.pos, false);
+      continue;
+    }
+    const v = vischars[d.index];
+    if (v && !isEmpty(v)) {
+      // The class's base sprite -- facing top-left, first frame. Which frame a
+      // character actually shows comes from its animation, which arrives with
+      // move_a_character in the next checkpoint.
+      plotSpriteAt(v.spriteIndex, v.pos, false);
     }
   }
 }
@@ -381,11 +430,21 @@ function render(): void {
           roomsData.roomdefs[roomsData.rooms[hero.room - 1]!.roomdefIndex]!.addr
         }</span>`;
 
+  // Which slots are occupied, and by whom -- the whole point of this
+  // checkpoint is watching these fill and empty as the hero moves.
+  const occupied = npcSlots(vischars).filter((v) => !isEmpty(v));
+  const roster = occupied.length
+    ? occupied
+        .map((v) => `${v.slot}:${characterClass(v.character)[0]}${v.character}`)
+        .join(' ')
+    : '—';
+
   statusEl.innerHTML =
     `pos <b>(${hero.pos.x}, ${hero.pos.y})</b> · tiny (${tiny.x}, ${tiny.y}) · ` +
     `facing <b>${dirNames[hero.direction & 3]}</b>${hero.direction & 4 ? ' crawling' : ''} · ` +
     `${where} · gwo (${windowOffset.low},${windowOffset.high}) · ` +
-    `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span>` +
+    `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span><br>` +
+    `vischars <b>${occupied.length}/7</b> <span class="a">${roster}</span>` +
     (lastEvent ? ` · <b>${lastEvent}</b>` : '');
 }
 
@@ -431,6 +490,11 @@ function tick(): void {
   );
 
   const outcome = step(hero, input, interiorBounds(hero.room));
+
+  // main_loop order ($9D93 then $9D96): purge first, then spawn. Doing it the
+  // other way round would let a character spawn and be purged in one frame.
+  purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
+  spawnCharacters(vischars, structs, view.position, hero.room);
 
   // ASSUMPTION: the original triggers this from `touch` (c$AF8F), part of the
   // collision system that lands in P4. Until then the demo uses proximity: if
@@ -524,6 +588,20 @@ roomSelect.addEventListener('change', () => {
   lastEvent = '';
   render();
 });
+
+/**
+ * Start where the game starts: room 2, hut 2 left ($B78F).
+ *
+ * reset_game also puts the hero to bed -- hero_sleeps ($A489) zeroes his
+ * position, sets hero_in_bed and swaps roomdef 2's bed for
+ * interiorobject_OCCUPIED_BED, so he is inside the furniture and not drawn.
+ * That is deliberately NOT reproduced yet: getting him out again is
+ * event_wake_up, which arrives with the day schedule. He stands instead.
+ */
+const START_ROOM = 2;
+hero.room = START_ROOM;
+hero.pos = spawnInRoom(START_ROOM);
+setViewForRoom(START_ROOM, hero.pos);
 
 function fit(): void {
   presenter.resize(window.innerWidth - 48, window.innerHeight - 260);

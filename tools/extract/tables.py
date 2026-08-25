@@ -441,6 +441,29 @@ def extract_characters(sk: Skool) -> dict[str, Any]:
             **provenance(sk, "character_to_event_handler_index_map"),
             "values": list(sk.slice("character_to_event_handler_index_map")),
         },
+        # spawn_character picks one of four by character index ($C537..$C54B):
+        # commandant is 0, guards are 1..15, dogs 16..19, everyone else is a
+        # prisoner. Each is {word animbase, word sprite}; all four share the
+        # same animbase ($CDF2), so only the sprite actually varies.
+        "metaData": [
+            {
+                **provenance(sk, label),
+                "class": label.removeprefix("character_meta_data_"),
+                "animbaseAddr": f"${word_at(img, sk.addr_of(label)):04X}",
+                "spriteAddr": f"${word_at(img, sk.addr_of(label) + 2):04X}",
+                # Resolved to an index into the sprites array, so the engine
+                # never chases a Z80 address. Records are 6 bytes.
+                "spriteIndex": (
+                    word_at(img, sk.addr_of(label) + 2) - sk.addr_of("sprites")
+                ) // 6,
+            }
+            for label in (
+                "character_meta_data_commandant",
+                "character_meta_data_guard",
+                "character_meta_data_dog",
+                "character_meta_data_prisoner",
+            )
+        ],
     }
 
 

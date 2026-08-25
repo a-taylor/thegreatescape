@@ -58,6 +58,44 @@
       4
     ]
   },
+  "metaData": [
+    {
+      "_addr": "$CD9A",
+      "_bytes": 4,
+      "_label": "character_meta_data_commandant",
+      "animbaseAddr": "$CDF2",
+      "class": "commandant",
+      "spriteAddr": "$CED6",
+      "spriteIndex": 30
+    },
+    {
+      "_addr": "$CD9E",
+      "_bytes": 4,
+      "_label": "character_meta_data_guard",
+      "animbaseAddr": "$CDF2",
+      "class": "guard",
+      "spriteAddr": "$CEA6",
+      "spriteIndex": 22
+    },
+    {
+      "_addr": "$CDA2",
+      "_bytes": 4,
+      "_label": "character_meta_data_dog",
+      "animbaseAddr": "$CDF2",
+      "class": "dog",
+      "spriteAddr": "$CE76",
+      "spriteIndex": 14
+    },
+    {
+      "_addr": "$CDA6",
+      "_bytes": 4,
+      "_label": "character_meta_data_prisoner",
+      "animbaseAddr": "$CDF2",
+      "class": "prisoner",
+      "spriteAddr": "$CE2E",
+      "spriteIndex": 2
+    }
+  ],
   "resetData": {
     "_addr": "$B819",
     "_bytes": 30,
