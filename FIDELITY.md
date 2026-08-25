@@ -39,8 +39,29 @@ side.
 `LD B,$07` iterates seven times over a six-entry array, and the seventh iteration writes to
 `$1A42`, which is **ROM**. Named explicitly in §9 as not to be reproduced.
 
-**Not yet reached** — the beds are P5. Recorded now so it is not implemented from the raw byte
-count by accident.
+**Not yet reached** — the beds arrive with the day schedule in P4/P5. Recorded now so it is not
+implemented from the raw byte count by accident.
+
+---
+
+## The complete fix ledger
+
+The header names three bfixes and five rfixes. Since the `.skool` contains none of them as
+directives (see above), each is a decision made here. All eight, with their disposition:
+
+| Site | Described fix | Disposition |
+|---|---|---|
+| `$B935` | `exterior_mask_data` iteration count 59 → 58 | **Applied.** Out-of-bounds read; §9 excludes it. Both constants kept in source. |
+| `$A2C6` | `beds` iteration count 7 → 6 | **To apply** when the beds land. ROM write, named in §9. |
+| `$7CAF` | needless `RET Z` → `RET` | **No effect.** The condition is always met; a plain return is equivalent. |
+| `$B916` | missing `RET` at the end of `render_mask_buffer` | **No effect**, and the disassembly says so: without it "the routine will harmlessly fall through into `multiply`", which computes a value nobody reads and returns. Returning normally is equivalent. |
+| `$6B19` | redundant self-modifying code | **No effect.** Structural; nothing observable depends on it. |
+| `$7AFB` | redundant jump | **No effect.** |
+| `$A0B8` | redundant jump | **No effect.** |
+| `$CCED` | `is_item_discoverable` off-by-one | **Open.** P5. The header calls it a "potential bug fix" and `TheGreatEscapeBugs.ref` describes an off-by-one at `$CCCD` where `HL` is decremented but not restored. The corrected form must be derived from the code, not the prose — see `OPEN_QUESTIONS.md` §1. |
+
+So of the eight, one is applied, one is pending with a clear rule from §9, five are genuinely
+inert, and one needs work when P5 reaches it. None of them block P4.
 
 ---
 

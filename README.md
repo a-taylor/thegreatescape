@@ -113,8 +113,13 @@ than to the game.
   map rendering, window attribute selection
 - **P2 — hero movement** ✅ arithmetic primitives, the three coordinate systems, map window
   and `shunt_map_*`, bounds checking, doors and transitions, input and animation
-- **P3 — sprites and masking** 🚧 masked sprite compositor, hero plotting, the
-  foreground occlusion mask and the `vischar_visible` clip cases done;
-  `restore_tiles` and movable items outstanding
+- **P3 — sprites and masking** ✅ masked sprite compositor, the foreground occlusion mask,
+  the `vischar_visible` clip cases, item plotting, the pushable stove and crate, and
+  `get_next_drawable` depth ordering. Interior door handling too, which the phase needed
+  to be walkable.
+  `restore_tiles` is deliberately not implemented: it re-plots tiles under each vischar
+  before sprites are redrawn, but this renderer rebuilds the whole window buffer every
+  frame, so its output is identical.
 
-See `PLAN.md` §6 for the phase breakdown.
+See `PLAN.md` §6 for the phase breakdown, `FIDELITY.md` for what happens at each bug site,
+and `OPEN_QUESTIONS.md` for ambiguities and their resolutions.

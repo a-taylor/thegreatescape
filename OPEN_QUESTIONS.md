@@ -16,8 +16,10 @@ Status key: **Resolved** = the disassembly answers it definitively, the brief wa
 
 ## 1. The disassembly does *not* contain the bfix/rfix corrections — `BUILD_PROMPT.md` §1 is wrong
 
-**Status:** Resolved (brief is incorrect) — but this changes what "faithful" means, so it needs
-your eyes.
+**Status:** Resolved (brief is incorrect). The consequence — that each fix is now a deliberate
+decision rather than something inherited — is discharged: all eight are enumerated with their
+disposition in `FIDELITY.md`. One is applied, one is pending a clear §9 rule, five are inert,
+and one (`$CCED`) is open for P5. **None block P4.**
 
 **What I was reading:** `TheGreatEscape.skool` lines 13–32 (the `@ofix`/`@bfix`/`@rfix` header
 blocks), then the three bfix sites at `$7CAF`, `$A2C6`, `$B935`.
