@@ -106,10 +106,14 @@ export interface PlotPlacement {
   readonly row: number;
   /** Sub-byte horizontal shift, from iso_pos.x & 7. */
   readonly shift: number;
-  /** Rows to skip from the top of the sprite (clipped above). */
+  /** Rows to skip from the top of the sprite (vischar_visible case B). */
   readonly skipRows: number;
   /** Rows actually drawn. */
   readonly rows: number;
+  /** Bytes to skip from the left of the sprite (case B). */
+  readonly skipCols?: number;
+  /** Bytes actually drawn; defaults to the whole shifted row. */
+  readonly cols?: number;
   /**
    * Mirror the sprite horizontally, from bit 7 of the frame's sprite index.
    *
@@ -160,7 +164,13 @@ export function plotMaskedSprite(
     const bm = shiftRowRight(bmRow, place.shift, false);
     const mk = shiftRowRight(mkRow, place.shift, true);
 
-    for (let c = 0; c < outWidth; c++) {
+    // vischar_visible's horizontal clip: skip `skipCols` bytes into the shifted
+    // row and emit `cols` of them. Without this a sprite at a window edge is
+    // dropped whole instead of sliding off.
+    const skipCols = place.skipCols ?? 0;
+    const cols = place.cols ?? outWidth;
+
+    for (let c = skipCols; c < Math.min(outWidth, skipCols + cols); c++) {
       const col = place.column + c;
       if (col < 0 || col >= WINDOW_STRIDE) continue;
 

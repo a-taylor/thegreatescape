@@ -21,6 +21,7 @@ import {
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { ExteriorView } from './render/exterior.js';
 import { isoPlacement, windowPlacement } from './render/place.js';
+import { clippedBufferRow, vischarVisible } from './render/clip.js';
 import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
 import { renderMaskBuffer } from './render/maskbuffer.js';
 import { fillRoom } from './render/scene.js';
@@ -106,6 +107,21 @@ function plotHeroSprite(): void {
   const record = spritesData.sprites[PRISONER_SPRITE_BASE + frame.sprite];
   if (!record) return;
 
+  const iso0 = isoPlacement(hero.pos);
+
+  // vischar_visible (c$BAF7). width_bytes is the sprite width PLUS ONE, since
+  // the plotter emits an extra byte for the sub-byte shift.
+  const clip = vischarVisible(
+    {
+      isoXBytes: iso0.column,
+      isoYPixels: iso0.pixelRow,
+      widthBytesPlusOne: record.widthBytes + 1,
+      height: record.height,
+    },
+    view.position,
+  );
+  if (!clip.visible) return;
+
   const place = windowPlacement(
     hero.pos,
     view.position,
@@ -113,7 +129,6 @@ function plotHeroSprite(): void {
     record.height,
     windowOffset.low / WINDOW_STRIDE,
   );
-  if (!place.visible) return;
 
   // render_mask_buffer works in the units setup_vischar_plotting leaves behind:
   // state.iso_pos is vischar.iso_pos / 8, tinypos_stash is mi.pos / 8.
@@ -138,10 +153,15 @@ function plotHeroSprite(): void {
     },
     {
       column: place.column,
-      row: place.pixelRow,
+      // $DCA5: a sprite clipped at the top is drawn at buffer row 0, with the
+      // skip applied to the sprite data rather than a negative row.
+      row: clippedBufferRow(clip.topSkip, iso0.pixelRow >> 3, view.position.y) +
+        (clip.topSkip ? 0 : windowOffset.low / WINDOW_STRIDE),
       shift: place.shift,
-      skipRows: Math.max(0, -place.pixelRow),
-      rows: record.height,
+      skipRows: clip.topSkip,
+      rows: clip.clippedHeight,
+      skipCols: clip.leftSkip,
+      cols: clip.clippedWidth,
       // TL/TR and BR/BL are the same artwork mirrored; the frame's own flip
       // flag is the only thing distinguishing them.
       flip: frame.flip,
