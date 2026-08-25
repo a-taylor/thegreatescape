@@ -1,11 +1,17 @@
 /**
- * P3 demo: a walkable hero drawn with the real sprite plotter.
+ * P3 demo: a walkable hero, drawn through the game's own rendering chain.
  *
- * The hero moves through the real chain -- input -> animindices -> animation
- * frames -> position -> bounds check -> door handling -- and is composited by
- * plot_masked_sprite. The map scrolls through move_map rather than by chasing
- * him. The foreground mask is not built yet, so he draws in front of scenery
- * rather than behind it; that is the rest of P3.
+ * The hero moves through the real path -- input -> animindices -> animation
+ * frames -> position -> bounds check -> door handling -- and reaches the screen
+ * through render_mask_buffer and plot_masked_sprite, so scenery occludes him
+ * rather than the other way round. The map scrolls through move_map rather than
+ * by chasing him. Rooms 2, 4 and 9 carry a pushable stove or crate, and depth
+ * order between it and the hero comes from get_next_drawable.
+ *
+ * What is still stubbed, and marked ASSUMPTION where it is: the push trigger,
+ * which really lives in `touch`'s collision handling (P4), and the initial
+ * map_position, which the demo centres rather than taking from enter_room (see
+ * OPEN_QUESTIONS.md §11).
  */
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
@@ -25,6 +31,7 @@ import {
   type MovableState,
 } from './game/movable.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
+import { drawOrder, type Drawable } from './render/drawlist.js';
 import { ExteriorView } from './render/exterior.js';
 import { isoPlacement, windowPlacement } from './render/place.js';
 import { clippedBufferRow, vischarVisible } from './render/clip.js';
@@ -188,21 +195,35 @@ function plotSpriteAt(
   );
 }
 
-/** The prisoner frame for the hero's current animation step. */
-function plotHeroSprite(): void {
-  const anim = animations[hero.animation];
-  const frame = anim?.frames[hero.frame];
-  if (!frame) return;
-  plotSpriteAt(PRISONER_SPRITE_BASE + frame.sprite, hero.pos, frame.flip);
-}
-
 /**
- * The item's own sprite -- sprite_stove or sprite_crate, resolved from the
- * pointer in its movable_item record ($69B4 / $69BD). Movables never flip.
+ * plot_sprites ($B866): everything drawable, rearmost first.
+ *
+ * The demo has two occupied slots -- the hero in 0, the room's movable item in
+ * 1, which is where setup_movable_item puts it ($697D). Depth order between
+ * them comes from get_next_drawable rather than from a fixed sequence, so the
+ * hero passes behind the stove and in front of it as he walks around it.
  */
-function plotMovable(): void {
-  if (!movable) return;
-  plotSpriteAt(movable.item.spriteIndex, movable.pos, false);
+function plotVischars(): void {
+  const slots: Drawable[] = [
+    { kind: 'vischar', index: 0, pos: hero.pos, drawable: true },
+  ];
+  if (movable) {
+    slots.push({ kind: 'vischar', index: 1, pos: movable.pos, drawable: true });
+  }
+
+  for (const d of drawOrder(slots, [])) {
+    if (d.index === 0) {
+      const anim = animations[hero.animation];
+      const frame = anim?.frames[hero.frame];
+      // TL/TR and BR/BL are the same artwork mirrored; the frame's own flip
+      // flag is the only thing distinguishing them.
+      if (frame) plotSpriteAt(PRISONER_SPRITE_BASE + frame.sprite, hero.pos, frame.flip);
+    } else if (movable) {
+      // sprite_stove or sprite_crate, from the pointer in the movable_item
+      // record ($69B4 / $69BD). Movable items never flip.
+      plotSpriteAt(movable.item.spriteIndex, movable.pos, false);
+    }
+  }
 }
 
 function render(): void {
@@ -225,12 +246,7 @@ function render(): void {
   // reads again this frame.
   // The hero is drawn in rooms as well as outdoors -- only an unlit tunnel
   // suppresses everything.
-  // Movable items are plotted before the hero so he draws over them when they
-  // overlap; plot_sprites orders by vischar slot.
-  if (!wipeTiles) {
-    plotMovable();
-    plotHeroSprite();
-  }
+  if (!wipeTiles) plotVischars();
 
   screen.clear(0x00, 0x00);
   plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);

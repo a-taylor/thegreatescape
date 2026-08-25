@@ -289,11 +289,13 @@ def extract_sprites(sk: Skool) -> dict[str, Any]:
             "maskAddr": f"${mask_ptr:04X}",
             "bitmapLabels": sk.addr_to_labels.get(data_ptr, []),
             "maskLabels": sk.addr_to_labels.get(mask_ptr, []),
-            # The bytes themselves, read at the size the table declares. Some
-            # declared heights are wrong in the original data (the dog's third
-            # frame claims 15 rows when 13 exist), so this deliberately reads
-            # what the table says and inherits the documented glitch rather
-            # than silently correcting it.
+            # The bytes themselves, read at the size the table declares. Nine
+            # records declare more rows than fit before the next sprite's data:
+            # bitmap_dog_facing_bottom_right_3 ($CE9A) claims 15 rows where 13
+            # fit, and the eight prisoner walk frames ($CE2E..$CE58) each
+            # overrun by one row. This deliberately reads what the table says,
+            # inheriting the glitch rather than silently clamping. See
+            # FIDELITY.md.
             "bitmap": b64(img[data_ptr:data_ptr + size]),
             "mask": b64(img[mask_ptr:mask_ptr + size]),
         })
