@@ -29,6 +29,7 @@ import {
 } from './characters.js';
 import { divideBy8, divideBy8WithRounding } from './math.js';
 import { calcIsoPos } from './coords.js';
+import { getTargetAssignPos } from './behaviour.js';
 import {
   CHARACTER_NONE,
   FLAGS_EMPTY_SLOT,
@@ -168,16 +169,16 @@ export function shouldKeep(
  * unchanged. That is the same 8:1 relationship the hero has, and getting it
  * wrong puts indoor characters eight times too far from the origin.
  *
- * NOT yet implemented, and marked at the call site: the collision and bounds
- * checks at $C523, and the target acquisition from $C592 onward. Both need
- * get_target (c$C651), which is the next checkpoint. Until then a spawned
- * character stands still, which is what route index 0 (routeindex_0_HALT) does
- * anyway.
+ * $C592 onward acquires the character's first target, so it starts walking the
+ * moment it appears rather than standing until something else prompts it. The
+ * collision and bounds checks at $C523 are still absent -- they need `touch`,
+ * which lands with the rest of the collision system.
  */
 export function spawnCharacter(
   vischars: Vischar[],
   struct: CharacterStruct,
   currentRoom: number,
+  ctx?: { random: () => number; structs: CharacterStruct[] },
 ): Vischar | null {
   if (struct.onScreen) return null; // $C4E0
 
@@ -200,18 +201,32 @@ export function spawnCharacter(
 
   const meta = metaFor(struct.character);
   slot.animbase = 0; // all four metadata entries share animations[0]
-  slot.spriteIndex = meta.spriteIndex; // $C55B
-  slot.sprite = meta.spriteIndex;
+  slot.sprite = meta.spriteIndex; // $C55B, the set's base
+  slot.spriteIndex = 0; // the frame within it, advanced by animate
 
   slot.room = currentRoom; // $C578
   slot.route = { ...struct.route }; // $C58C
   slot.counterAndFlags = 0;
+  slot.anim = 0;
+  slot.animIndex = 0;
+  slot.input = 0;
+  slot.direction = 0;
   slot.target = { ...struct.pos };
 
   // calc_vischar_iso_pos_from_vischar ($B71B) runs as part of placing the
   // character; purging reads iso_pos, so it must be valid immediately.
   const iso = calcIsoPos(slot.pos);
   slot.isoPos = { x: iso.x, y: iso.y };
+
+  // $C592..$C5A1: a moving character gets its first target immediately, so it
+  // walks from the frame it appears. Halted ones ($C594) skip this.
+  if (ctx && slot.route.index !== 0) {
+    getTargetAssignPos(slot, {
+      random: ctx.random,
+      structs: ctx.structs,
+      room: currentRoom,
+    });
+  }
 
   return slot;
 }
@@ -268,13 +283,15 @@ export function spawnCharacters(
   structs: CharacterStruct[],
   mapPosition: { x: number; y: number },
   currentRoom: number,
+  ctx?: { random: () => number },
 ): number {
   let spawned = 0;
   for (let i = 0; i < CHARACTER_COUNT; i++) {
     const struct = structs[i];
     if (!struct) break;
     if (!shouldSpawn(struct, mapPosition, currentRoom)) continue;
-    if (spawnCharacter(vischars, struct, currentRoom)) spawned++;
+    const full = ctx ? { random: ctx.random, structs } : undefined;
+    if (spawnCharacter(vischars, struct, currentRoom, full)) spawned++;
   }
   return spawned;
 }

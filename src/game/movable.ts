@@ -150,8 +150,10 @@ export function installMovable(
   // Share the position object with the movable state, so pushMovable's writes
   // are visible through the slot without a copy step to forget.
   slot.pos = state.pos;
-  slot.spriteIndex = state.item.spriteIndex;
+  // The stove and crate do not animate, so the frame index stays at zero and
+  // the whole sprite is the set's base.
   slot.sprite = state.item.spriteIndex;
+  slot.spriteIndex = 0;
   slot.room = room; // $6996
   slot.counterAndFlags = 0;
   refreshMovableIso(slot);

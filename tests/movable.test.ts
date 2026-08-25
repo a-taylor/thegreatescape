@@ -218,7 +218,10 @@ describe('installing a movable into vischar 1', () => {
 
     expect(slot.character).toBe(movableItems.crate!.character);
     expect(slot.room).toBe(9); // $6996
-    expect(slot.spriteIndex).toBe(movableItems.crate!.spriteIndex);
+    // mi.sprite is the set base; mi.sprite_index is the frame within it. A
+    // movable does not animate, so the frame stays at zero.
+    expect(slot.sprite).toBe(movableItems.crate!.spriteIndex);
+    expect(slot.spriteIndex).toBe(0);
     expect(slot.isoPos).toEqual(calcIsoPos(state.pos)); // $699C
     expect(slot.flags).toBe(0);
   });

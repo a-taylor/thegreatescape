@@ -13,12 +13,13 @@
  * pins interiors at a constant, reset_outdoor_position ($B2FC) recentres the
  * exterior on the hero.
  *
- * Characters are spawned and purged around the window by spawn_characters and
- * purge_invisible_characters, and the OFF-SCREEN cast walks its routes through
- * move_a_character -- one character per tick, so the camp is never quite where
- * you left it. On-screen characters are still frozen: while spawned, a vischar
- * is driven by character_behaviour and animate rather than by move_a_character,
- * and neither is implemented yet. The status line shows slot occupancy.
+ * The camp is populated and moving. Characters are spawned and purged around
+ * the window; off-screen they walk their routes through move_a_character, one
+ * per tick, and on-screen through character_behaviour and animate. Those two
+ * are worth knowing about together: character_behaviour compares a vischar with
+ * its target and produces an INPUT, and animate feeds that through the same
+ * animindices/animation machinery the hero uses. A guard walking to a waypoint
+ * and the player walking there run the identical code.
  *
  * Still stubbed, and marked ASSUMPTION where it is: the push trigger, which
  * really lives in `touch`'s collision handling.
@@ -41,6 +42,8 @@ import {
 import { createVischars, isEmpty, npcSlots } from './game/vischar.js';
 import { moveCharacter, nextCharacterIndex } from './game/move.js';
 import { prng } from './game/prng.js';
+import { characterBehaviour } from './game/behaviour.js';
+import { animateVischar, currentFrame } from './game/animate.js';
 import {
   HERO_STANDING_HEIGHT,
   animations,
@@ -392,11 +395,10 @@ function plotVischars(): void {
     }
     const v = vischars[d.index];
     if (v && !isEmpty(v)) {
-      // Characters get their class's base sprite -- facing top-left, first
-      // frame. Which frame one actually shows comes from its animation, which
-      // arrives with move_a_character in the next checkpoint. The stove and
-      // crate carry their own sprite and never flip ($DC54).
-      plotSpriteAt(v.spriteIndex, v.pos, false);
+      // mi.sprite is the character class's set; mi.sprite_index is the frame
+      // animate left there. The stove and crate keep index 0 and never flip.
+      const frame = v.character < 26 ? currentFrame(v) : undefined;
+      plotSpriteAt(v.sprite + v.spriteIndex, v.pos, frame?.flip ?? false);
     }
   }
 }
@@ -501,12 +503,33 @@ function tick(): void {
   // main_loop order: move_a_character ($9D8D), then purge ($9D93), then spawn
   // ($9D96). Purging before spawning matters -- the other way round would let
   // a character spawn and be purged in one frame.
+  const random = () => prng.next();
+
+  // $9D8D: one off-screen character walks its route.
   moveIndex = nextCharacterIndex(moveIndex);
   const mover = structs[moveIndex];
-  if (mover) moveCharacter(mover, { random: () => prng.next() });
+  if (mover) moveCharacter(mover, { random });
+
+  // $9D90: follow_suspicious_character loops the seven NPC slots and runs
+  // character_behaviour on each, which synthesises an input.
+  const bounds = interiorBounds(hero.room);
+  for (const v of npcSlots(vischars)) {
+    if (isEmpty(v)) continue;
+    characterBehaviour(v, { random, structs, room: hero.room });
+  }
 
   purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
-  spawnCharacters(vischars, structs, view.position, hero.room);
+  spawnCharacters(vischars, structs, view.position, hero.room, { random });
+
+  // $9D9F: animate turns those inputs into movement, through the same
+  // animation machinery the hero uses. Slot 0 is skipped -- the demo drives
+  // the hero through step() from real keyboard input instead.
+  for (const v of npcSlots(vischars)) {
+    if (isEmpty(v)) continue;
+    // The stove and crate have no animation; animate would find no frames.
+    if (v.character >= 26) continue;
+    animateVischar(v, { interior: bounds });
+  }
 
   // ASSUMPTION: the original triggers this from `touch` (c$AF8F), part of the
   // collision system that lands in P4. Until then the demo uses proximity: if

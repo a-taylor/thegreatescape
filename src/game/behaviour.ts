@@ -1,0 +1,318 @@
+/**
+ * character_behaviour (c$C918): steering a visible character.
+ *
+ * The design worth understanding before the details: NPCs do not have their own
+ * movement code. This routine compares a vischar's position with its target and
+ * produces an INPUT BYTE -- the same input the player's joystick would produce
+ * -- which `animate` then feeds through the identical animindices/animation
+ * machinery the hero uses. So a guard walking to a waypoint and the player
+ * walking there run through exactly the same code.
+ *
+ * The two axes are tried one at a time, and which goes first alternates:
+ *
+ *   vischar_move_x ($CA11)  when x is within 2 of the target, it SETS
+ *                           Y_DOMINANT so the next call tries y first
+ *   vischar_move_y ($CA49)  when y is within 2, it CLEARS Y_DOMINANT
+ *
+ * "This is the code which makes characters alternate left/right when
+ * navigating." A character blocked on one axis flips to the other, which is
+ * what gets it around a corner without any pathfinding.
+ */
+
+import { characterStructFor, type CharacterStruct } from './characters.js';
+import {
+  ROUTE_HALT,
+  ROUTE_WANDER,
+  ROUTE_REVERSED,
+  getTarget,
+  type Target,
+} from './routes.js';
+import { BYTE7_Y_DOMINANT, type Vischar } from './vischar.js';
+
+/** vischar_FLAGS_MASK ($CA85). "$0F would be sufficient." */
+export const FLAGS_MASK = 0x3f;
+/** vischar_FLAGS_TARGET_IS_DOOR ($CB66). */
+export const FLAGS_TARGET_IS_DOOR = 1 << 6;
+/** vischar_FLAGS_NO_COLLIDE ($B5DD). */
+export const FLAGS_NO_COLLIDE = 0x80;
+
+/** The pursuit modes, from the header's vischar byte 1 commentary. */
+export const PURSUIT_PURSUE = 1;
+export const PURSUIT_HASSLE = 2;
+export const PURSUIT_DOG_FOOD = 3;
+export const PURSUIT_SAW_BRIBE = 4;
+
+/** input_KICK ($C9F9): restart the animation from its first frame. */
+export const INPUT_KICK = 0x80;
+
+/**
+ * The inputs the two movers return.
+ *
+ * These are positions in the 3x3 input grid (horizontal * 3 + vertical), not
+ * bit flags -- 8 is RIGHT(6) + DOWN(2), 4 is LEFT(3) + UP(1), and so on. Each
+ * moves the character along one ISOMETRIC axis, which is why a single axis of
+ * world movement needs a diagonal-looking input.
+ */
+export const INPUT_X_INCREASING = 8; // $CA2D
+export const INPUT_X_DECREASING = 4; // $CA3B
+export const INPUT_Y_INCREASING = 5; // $CA65
+export const INPUT_Y_DECREASING = 7; // $CA73
+
+/**
+ * How a target coordinate is scaled up to compare against mi.pos ($C9C3).
+ *
+ * Three cases, selected by room and by whether the target is a door:
+ *   indoors            multiply_by_1 ($CB75) -- both are already tinypos
+ *   outdoors, a door   multiply_by_4 ($B295) -- doors store quartered
+ *   outdoors, a place  multiply_by_8 ($B1C7) -- locations store tinypos
+ */
+export function targetScale(room: number, flags: number): 1 | 4 | 8 {
+  if (room !== 0) return 1; // $C9C9
+  return flags & FLAGS_TARGET_IS_DOOR ? 4 : 8; // $C9D2 / $C9D7
+}
+
+/**
+ * One axis of movement ($CA11 / $CA49).
+ *
+ * The dead zone is asymmetric and deliberate: a delta of 1 or 2 counts as
+ * "arrived" ($CA29 CP $03, $CA36 CP $FE), so a character never oscillates
+ * around its target trying to land exactly.
+ *
+ * @returns the input to use, or 0 when close enough
+ */
+function moveAxis(
+  current: number,
+  target: number,
+  increasing: number,
+  decreasing: number,
+): number {
+  // $CA1D: delta = current position - target position, 16-bit signed.
+  const delta = current - target;
+  if (delta === 0) return 0;
+  if (delta > 0) return delta >= 3 ? increasing : 0;
+  return delta <= -3 ? decreasing : 0;
+}
+
+export function vischarMoveX(v: Vischar, scale: number): number {
+  const input = moveAxis(
+    v.pos.x,
+    v.target.x * scale,
+    INPUT_X_INCREASING,
+    INPUT_X_DECREASING,
+  );
+  // $CA43: landing in the dead zone sets Y_DOMINANT, so next time y is tried
+  // first. This is half of the alternation.
+  if (input === 0) v.counterAndFlags |= BYTE7_Y_DOMINANT;
+  return input;
+}
+
+export function vischarMoveY(v: Vischar, scale: number): number {
+  const input = moveAxis(
+    v.pos.y,
+    v.target.y * scale,
+    INPUT_Y_INCREASING,
+    INPUT_Y_DECREASING,
+  );
+  // $CA7B: and the other half -- y clears what x sets.
+  if (input === 0) v.counterAndFlags &= ~BYTE7_Y_DOMINANT & 0xff;
+  return input;
+}
+
+export interface BehaviourContext {
+  readonly random: () => number;
+  readonly structs: CharacterStruct[];
+  /** The global current room index ($68A0). */
+  readonly room: number;
+}
+
+export interface BehaviourResult {
+  /** True when the vischar reached its target this call. */
+  readonly targetReached: boolean;
+  /** Set when the character should move to another room. */
+  readonly enterRoom: number | null;
+  /** Set when the route ran out. */
+  readonly routeEnded: boolean;
+}
+
+const IDLE: BehaviourResult = {
+  targetReached: false,
+  enterRoom: null,
+  routeEnded: false,
+};
+
+/**
+ * get_target_assign_pos (c$CB23): fetch the next waypoint into vischar.target.
+ *
+ * Also sets or leaves vischar_FLAGS_TARGET_IS_DOOR, which is what later decides
+ * the coordinate scaling and whether arriving means a room change.
+ */
+export function getTargetAssignPos(
+  v: Vischar,
+  ctx: BehaviourContext,
+): { routeEnded: boolean } {
+  const target = getTarget(v.route, ctx.random);
+  if (target.kind === 'ended') return { routeEnded: true }; // $CB29
+
+  if (target.kind === 'door') {
+    v.flags |= FLAGS_TARGET_IS_DOOR; // $CB66
+    v.target = { x: target.door.pos.x, y: target.door.pos.y, height: 0 };
+  } else {
+    // handle_target only ever SETS the flag ($CB66); nothing clears it here,
+    // so a character that once headed for a door keeps the flag until
+    // target_reached deals with it. Reproduced rather than tidied.
+    v.target = { x: target.pos.x, y: target.pos.y, height: 0 };
+  }
+  return { routeEnded: false };
+}
+
+/**
+ * route_ended (c$CB2D) for a non-hero vischar.
+ *
+ * Same split as move_a_character's: the commandant and guards 1..11 turn
+ * around, everyone else is handed to character_event. The event path is the
+ * next checkpoint, so those characters halt.
+ */
+function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
+  const character = v.character & 0x1f;
+  const reverses =
+    character === 0
+      ? (v.route.index & 0x7f) !== 36 // $CB3D, routeindex_36_GO_TO_SOLITARY
+      : character < 12; // $CB44 CP $0C
+
+  if (!reverses) return true;
+
+  // $CB50..$CB5B, the same "[-2]+1" pattern as elsewhere.
+  v.route.index ^= ROUTE_REVERSED;
+  if (v.route.index & ROUTE_REVERSED) v.route.step = (v.route.step - 2) & 0xff;
+  v.route.step = (v.route.step + 1) & 0xff;
+
+  getTargetAssignPos(v, ctx);
+  return false;
+}
+
+/**
+ * target_reached (c$CA81), restricted to the non-pursuit path.
+ *
+ * Pursuit modes lead into bribes, solitary and poisoned dogs -- P5 material.
+ * They are detected and left alone rather than silently falling through into
+ * the ordinary path, which would make a pursuing guard behave like a patrolling
+ * one.
+ */
+export function targetReached(
+  v: Vischar,
+  ctx: BehaviourContext,
+): BehaviourResult {
+  // $CA85: any pursuit mode set means this is not our case.
+  if ((v.flags & FLAGS_MASK) !== 0) {
+    return { ...IDLE, targetReached: true };
+  }
+
+  // $CAB6: arriving at a door means going through it.
+  if (v.flags & FLAGS_TARGET_IS_DOOR) {
+    const room = enterDoor(v, ctx);
+    return { targetReached: true, enterRoom: room, routeEnded: false };
+  }
+
+  // $CB13 tr_set_route: step the route on, then take the next target.
+  if (v.route.index !== ROUTE_WANDER) {
+    if (v.route.index & ROUTE_REVERSED) v.route.step = (v.route.step - 2) & 0xff;
+    v.route.step = (v.route.step + 1) & 0xff;
+  }
+
+  const { routeEnded: ended } = getTargetAssignPos(v, ctx);
+  if (!ended) return { ...IDLE, targetReached: true };
+
+  const halted = routeEnded(v, ctx);
+  return { targetReached: true, enterRoom: null, routeEnded: halted };
+}
+
+/**
+ * The door half of target_reached ($CABA..$CB12).
+ *
+ * Re-reads the route byte to recover the door index -- the vischar only stored
+ * the door's POSITION, not which door it was -- then steps the route and moves
+ * the character to the far side.
+ */
+function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
+  const target = getTarget(v.route, ctx.random);
+  if (target.kind !== 'door') {
+    v.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff;
+    return null;
+  }
+
+  // $CAD1..$CAD9: step the route before going through.
+  if (v.route.index & ROUTE_REVERSED) v.route.step = (v.route.step - 2) & 0xff;
+  v.route.step = (v.route.step + 1) & 0xff;
+
+  const room = target.door.targetRoom; // $CAE3
+  v.room = room;
+  v.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff;
+
+  // Keep the character struct in step, since the vischar may be purged before
+  // the room is next considered.
+  const struct = characterStructFor(ctx.structs, v.character);
+  if (struct) struct.room = room;
+
+  return room;
+}
+
+/**
+ * character_behaviour (c$C918).
+ *
+ * @returns what happened, for the caller to act on
+ */
+export function characterBehaviour(
+  v: Vischar,
+  ctx: BehaviourContext,
+): BehaviourResult {
+  // $C91C: the bottom nibble is a delay counter. "This stops characters
+  // navigating around obstacles too quickly."
+  if ((v.counterAndFlags & 0x0f) !== 0) {
+    v.counterAndFlags = (v.counterAndFlags - 1) & 0xff;
+    return IDLE;
+  }
+
+  // $C92A: a non-zero flags byte means a pursuit mode. Those need bribes,
+  // solitary and dog food, none of which exist yet, so they are left alone --
+  // NOT quietly treated as ordinary movement.
+  if ((v.flags & FLAGS_MASK) !== 0) return IDLE;
+
+  // $C9BA: routeindex_0_HALT means stand still, with input 0.
+  if (v.route.index === ROUTE_HALT) {
+    setInput(v, 0);
+    return IDLE;
+  }
+
+  const scale = targetScale(ctx.room, v.flags);
+
+  // $C9E1: Y_DOMINANT decides which axis is tried first.
+  const yFirst = (v.counterAndFlags & BYTE7_Y_DOMINANT) !== 0;
+  let input = yFirst ? vischarMoveY(v, scale) : vischarMoveX(v, scale);
+  if (input === 0) {
+    input = yFirst ? vischarMoveX(v, scale) : vischarMoveY(v, scale);
+  }
+
+  if (input === 0) {
+    // $C9F2 / $CA0E: neither axis could move, so we are there.
+    const result = targetReached(v, ctx);
+    setInput(v, 0);
+    return result;
+  }
+
+  setInput(v, input);
+  return IDLE;
+}
+
+/**
+ * cb_set_input ($C9F5): store a new input, with input_KICK.
+ *
+ * The kick bit is only set when the input CHANGES ($C9F8 returns early
+ * otherwise). animate reads it as "restart the animation from frame zero", so
+ * setting it every frame would freeze the character on its first frame.
+ */
+export function setInput(v: Vischar, input: number): void {
+  if (input === v.input) return; // $C9F8
+  v.input = (input | INPUT_KICK) & 0xff; // $C9F9
+}
+
+export type { Target };

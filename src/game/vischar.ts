@@ -73,8 +73,17 @@ export interface Vischar {
   /** $0F: the 16-bit position. Outdoors this is tinypos * 8; indoors it is
    *  tinypos widened, which is why spawn_character branches on the room. */
   pos: Pos;
-  /** $15/$17: which sprite, and the flip flag the plotter reads. */
+  /**
+   * $15: mi.sprite -- the BASE of this character's sprite set, from
+   * character_meta_data. In the original this is a pointer to a spritedef
+   * array; here it is the index of that array's first entry.
+   */
   sprite: number;
+  /**
+   * $17: mi.sprite_index -- the frame WITHIN that set, written by animate from
+   * the animation frame. The renderer draws sprite + spriteIndex; conflating
+   * the two makes every character show its first frame forever.
+   */
   spriteIndex: number;
   /** $18/$1A: the projected position, filled by calc_vischar_iso_pos. */
   isoPos: { x: number; y: number };
