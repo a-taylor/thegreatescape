@@ -204,3 +204,20 @@ export function renderMaskBuffer(
  */
 export const EXTERIOR_MASK_COUNT = 58;
 export const EXTERIOR_MASK_COUNT_AS_CODED = 59;
+
+/**
+ * The interior mask records that apply to one room.
+ *
+ * Indoors, render_mask_buffer iterates `interior_mask_data` (`g$81DA`) -- RAM
+ * state that setup_room fills from the roomdef's own mask list, which is a list
+ * of indices into interior_mask_data_source (`b$EA7C`). So the masks in play
+ * are per-room, not the whole table.
+ */
+export function interiorMasksForRoom(maskIndices: readonly number[]): MaskRecord[] {
+  const out: MaskRecord[] = [];
+  for (const i of maskIndices) {
+    const rec = interiorMaskData[i];
+    if (rec) out.push(rec);
+  }
+  return out;
+}

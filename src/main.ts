@@ -23,7 +23,7 @@ import { ExteriorView } from './render/exterior.js';
 import { isoPlacement, windowPlacement } from './render/place.js';
 import { clippedBufferRow, vischarVisible } from './render/clip.js';
 import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
-import { renderMaskBuffer } from './render/maskbuffer.js';
+import { interiorMasksForRoom, renderMaskBuffer } from './render/maskbuffer.js';
 import { fillRoom } from './render/scene.js';
 import {
   GameWindowBuffers,
@@ -42,6 +42,7 @@ const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
 const btnNight = document.querySelector<HTMLButtonElement>('#night')!;
 const btnTorch = document.querySelector<HTMLButtonElement>('#torch')!;
 const btnReset = document.querySelector<HTMLButtonElement>('#reset')!;
+const roomSelect = document.querySelector<HTMLSelectElement>('#room')!;
 
 const presenter = new CanvasPresenter(canvas);
 const screen = new SpectrumScreen();
@@ -135,13 +136,25 @@ function plotHeroSprite(): void {
   const iso = isoPlacement(hero.pos);
   // tinypos_stash, not toTinyPos: only x rounds. See coords.tinyposStash.
   const tiny = tinyposStash(hero.pos, hero.room === 0);
-  renderMaskBuffer(foreground, {
-    isoX: iso.column,
-    isoY: iso.pixelRow >> 3,
-    tinyX: tiny.x,
-    tinyY: tiny.y,
-    tinyHeight: tiny.height,
-  });
+  // Indoors the applicable masks come from the room's own mask list; outdoors
+  // it is the whole exterior table.
+  const records =
+    hero.room === 0
+      ? undefined
+      : interiorMasksForRoom(
+          roomsData.roomdefs[roomsData.rooms[hero.room - 1]!.roomdefIndex]!.masks,
+        );
+  renderMaskBuffer(
+    foreground,
+    {
+      isoX: iso.column,
+      isoY: iso.pixelRow >> 3,
+      tinyX: tiny.x,
+      tinyY: tiny.y,
+      tinyHeight: tiny.height,
+    },
+    records,
+  );
 
   plotMaskedSprite(
     { pixels: buffers.pixels, foreground },
@@ -187,7 +200,9 @@ function render(): void {
   // window_buf, and only then does plot_game_window blit the buffer to the
   // display. Drawing the sprite after the blit writes into a buffer nobody
   // reads again this frame.
-  if (!wipeTiles && hero.room === 0) plotHeroSprite();
+  // The hero is drawn in rooms as well as outdoors -- only an unlit tunnel
+  // suppresses everything.
+  if (!wipeTiles) plotHeroSprite();
 
   screen.clear(0x00, 0x00);
   plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);
@@ -272,6 +287,44 @@ btnReset.addEventListener('click', () => {
   hero.direction = 0;
   view.position.x = START_MAP.x;
   view.position.y = START_MAP.y;
+  // Reset the scroll phase too. move_map's shunt and the hero's tile crossings
+  // both tick once every four frames; if their phase is left stale the two stop
+  // cancelling and the motion turns jumpy. See OPEN_QUESTIONS.md §13.
+  view.moveMapY = 0;
+  view.gameWindowOffset = NO_OFFSET;
+  view.refresh();
+  windowOffset = NO_OFFSET;
+  lastEvent = '';
+  render();
+});
+
+// A way into rooms without hunting for a reachable door. Rooms 6, 26 and 27 are
+// listed but marked, since §9 wants unused things visibly unused.
+for (const entry of roomsData.rooms) {
+  const option = document.createElement('option');
+  option.value = String(entry.room);
+  const notes: string[] = [];
+  if (entry.unused) notes.push('unused');
+  if (entry.aliasOf) notes.push(`= room ${entry.aliasOf}`);
+  option.textContent = `Room ${entry.room}${notes.length ? ` (${notes.join(', ')})` : ''}`;
+  roomSelect.append(option);
+}
+
+roomSelect.addEventListener('change', () => {
+  const room = Number(roomSelect.value);
+  hero.room = room;
+  if (room === 0) {
+    hero.pos = { ...START };
+    view.position.x = START_MAP.x;
+    view.position.y = START_MAP.y;
+  } else {
+    // Interiors do not scroll; enter_room fixes the map position ($6900).
+    hero.pos = { x: 40, y: 40, height: HERO_STANDING_HEIGHT };
+    view.position.x = INTERIOR_MAP_POSITION.x;
+    view.position.y = INTERIOR_MAP_POSITION.y;
+  }
+  view.moveMapY = 0;
+  view.gameWindowOffset = NO_OFFSET;
   view.refresh();
   windowOffset = NO_OFFSET;
   lastEvent = '';
