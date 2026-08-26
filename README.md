@@ -121,5 +121,14 @@ than to the game.
   before sprites are redrawn, but this renderer rebuilds the whole window buffer every
   frame, so its output is identical.
 
+- **P4 — characters** ✅ the eight-slot vischar array, `spawn_characters` /
+  `purge_invisible_characters`, routes and `get_target`, `move_a_character` for the
+  off-screen cast, `character_behaviour` + `animate` for the on-screen one, the
+  `timed_events` day schedule, `character_event` handlers and `automatics`.
+  A full 8,960-frame day is covered by a test: all fifteen events fire in order and
+  the cast walks to roll call, both mess halls, the yard and back to bed.
+  Still to come with P5: the message queue, morale, red cross parcels, the roll call
+  check, and the room-object pokes behind the bed/breakfast handlers.
+
 See `PLAN.md` §6 for the phase breakdown, `FIDELITY.md` for what happens at each bug site,
 and `OPEN_QUESTIONS.md` for ambiguities and their resolutions.
