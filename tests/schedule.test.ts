@@ -17,6 +17,7 @@ import {
   setCastRoutesSplit,
   setCharacterRoute,
   setGuardsRoute,
+  setHeroRoute,
   timedEvents,
   type ScheduleContext,
 } from '../src/game/schedule.js';
@@ -28,6 +29,8 @@ import { moveCharacter, nextCharacterIndex } from '../src/game/move.js';
 import { purgeInvisibleCharacters, spawnCharacters } from '../src/game/spawn.js';
 import { isEmpty, npcSlots } from '../src/game/vischar.js';
 import { Prng } from '../src/game/prng.js';
+import { HERO_STANDING_HEIGHT, createHero, step } from '../src/game/hero.js';
+import { createAutomaticState, heroIsAutomatic, noteInput } from '../src/game/events.js';
 import { resetOutdoorPosition } from '../src/render/place.js';
 
 function ctx(): ScheduleContext & { structs: ReturnType<typeof characterStructs> } {
@@ -37,7 +40,7 @@ function ctx(): ScheduleContext & { structs: ReturnType<typeof characterStructs>
     vischars: createVischars(),
     random: () => (s = (s * 37 + 11) & 0xff),
     room: 0,
-    heroRoute: { index: 0, step: 0 },
+    hero: createVischars()[0]!,
     heroPos: { x: 0, y: 0, height: 24 },
   };
 }
@@ -268,7 +271,7 @@ describe('the acceptance criterion: a full in-game day', () => {
     const structs = characterStructs();
     const vischars = createVischars();
     const heroPos = { x: 100 * 8, y: 74 * 8, height: 24 };
-    const heroRoute = { index: 0, step: 0 };
+    const heroSlot = createVischars()[0]!;
     const s = createSchedule();
 
     let moveIndex = 0;
@@ -300,7 +303,7 @@ describe('the acceptance criterion: a full in-game day', () => {
           vischars,
           random,
           room: 0,
-          heroRoute,
+          hero: heroSlot,
           heroPos,
         });
         if (fired) events.push(fired.event);
@@ -324,5 +327,96 @@ describe('the acceptance criterion: a full in-game day', () => {
     // And the clock comes back round.
     expect(s.clock).toBe(0);
     expect(s.night).toBe(false);
+  });
+});
+
+describe('set_hero_route ($A344)', () => {
+  it('assigns a TARGET, not just a route', () => {
+    // The bug this covers: character_behaviour steers by vischar.target, not
+    // by the route. Setting the route alone leaves the hero walking toward
+    // whatever target was there before -- for a fresh slot that is (0,0),
+    // which is off the top-left corner of the map. He walks out of the world,
+    // vanishes from the window, and the map clamps to (x, 0).
+    const c = ctx();
+    expect(c.hero.target).toEqual({ x: 0, y: 0, height: 0 });
+
+    setHeroRoute(c, 14, 0); // routeindex_14_GO_TO_YARD
+    expect(c.hero.route).toEqual({ index: 14, step: 0 });
+    expect(c.hero.target).not.toEqual({ x: 0, y: 0, height: 0 });
+  });
+
+  it('clears TARGET_IS_DOOR first', () => {
+    // $A347. The flag decides the coordinate scaling, so a stale one makes the
+    // hero aim at the target multiplied by the wrong factor.
+    const c = ctx();
+    c.hero.flags = FLAGS_TARGET_IS_DOOR;
+    setHeroRoute(c, 14, 0);
+    expect(c.hero.flags & FLAGS_TARGET_IS_DOOR).toBeFalsy();
+  });
+
+  it('does nothing while the hero is in solitary', () => {
+    // $A343: the events still fire, they just do not move him.
+    const c = { ...ctx(), inSolitary: true };
+    setHeroRoute(c, 14, 0);
+    expect(c.hero.route).toEqual({ index: 0, step: 0 });
+  });
+
+  it('gives the hero a target at every event that reroutes him', () => {
+    // Walk a whole day and check he is never left aiming at the origin.
+    const s = createSchedule();
+    const c = ctx();
+    for (let i = 0; i < CLOCK_WRAP; i++) {
+      dispatchTimedEvent(s, c);
+      if (c.hero.route.index === 0) continue; // not yet rerouted
+      expect(c.hero.target, `clock ${s.clock}`).not.toEqual({ x: 0, y: 0, height: 0 });
+    }
+  });
+});
+
+describe('the automatic hero stays on the map', () => {
+  it('walks toward his target rather than off the world', () => {
+    const prng = new Prng();
+    const random = () => prng.next();
+    const structs = characterStructs();
+    const vischars = createVischars();
+    const heroSlot = vischars[0]!;
+    heroSlot.character = 0;
+    heroSlot.flags = 0;
+    const hero = createHero(
+      { x: 100 * 8, y: 74 * 8, height: HERO_STANDING_HEIGHT },
+      0,
+      0,
+    );
+    const auto = createAutomaticState();
+    const c: ScheduleContext = {
+      structs,
+      vischars,
+      random,
+      room: 0,
+      hero: heroSlot,
+      heroPos: hero.pos,
+    };
+    setHeroRoute(c, 14, 0);
+
+    for (let i = 0; i < 3000; i++) {
+      noteInput(auto, 0);
+      let input = 0;
+      if (heroIsAutomatic(auto)) {
+        heroSlot.pos = { ...hero.pos };
+        heroSlot.room = hero.room;
+        characterBehaviour(heroSlot, { random, structs, room: 0 });
+        input = heroSlot.input & 0x0f;
+      }
+      // ONE step per tick. Stepping again for the automatic input would double
+      // his speed while move_map scrolled once, walking him out of the window.
+      step(hero, input, undefined);
+
+      const tinyX = hero.pos.x >> 3;
+      const tinyY = hero.pos.y >> 3;
+      expect(tinyX, `tick ${i}`).toBeGreaterThanOrEqual(0);
+      expect(tinyX).toBeLessThanOrEqual(255);
+      expect(tinyY).toBeGreaterThanOrEqual(0);
+      expect(tinyY).toBeLessThanOrEqual(255);
+    }
   });
 });

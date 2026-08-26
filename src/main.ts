@@ -191,14 +191,6 @@ let moveIndex = 0;
  * separate timer.
  */
 const schedule = createSchedule();
-/**
- * The hero's route ($8002).
- *
- * The day events reassign it -- to bed, to roll call, to the mess hall. The
- * demo does not follow it (the player steers), but it is kept so the events
- * have somewhere real to write and the status line can show it.
- */
-const heroRoute = { index: 0, step: 0 };
 
 /**
  * automatics ($C8FE): the game drives the hero when the player does not.
@@ -209,6 +201,17 @@ const heroRoute = { index: 0, step: 0 };
  * him to roll call.
  */
 const automatic = createAutomaticState();
+
+/**
+ * The hero's own vischar, slot 0.
+ *
+ * It holds his route, target and flags -- the fields character_behaviour needs
+ * and the day schedule writes. His POSITION stays in `hero`, because step()
+ * rebinds it and a shared reference would break the way the stove's did.
+ */
+const heroSlot = vischars[0]!;
+heroSlot.character = 0;
+heroSlot.flags = 0;
 let frameCounter = 0;
 /** Debug only: how many logic ticks to run per interval. Not in the game. */
 let speed = 1;
@@ -601,25 +604,24 @@ function tick(): void {
   // $9E22..$9E35: input resets the automatic counter, idleness counts it down.
   noteInput(automatic, input);
 
-  const outcome = step(hero, input, interiorBounds(hero.room));
-
-  // $C910: when the counter reaches zero the hero is steered like any other
-  // character, from his own route. He keeps the player's input path for
-  // movement -- character_behaviour only supplies the input.
+  // $C910: when the counter reaches zero character_behaviour supplies the
+  // input instead of the keyboard. It SUPPLIES one -- it does not make a
+  // second move. Stepping twice in a frame doubles the hero's speed while
+  // move_map still scrolls once, so he walks straight out of the window and
+  // the scroll phase desynchronises, which is the whole class of bug P3 spent
+  // its time on.
+  let effectiveInput = input;
   if (heroIsAutomatic(automatic)) {
-    const heroSlot = vischars[0]!;
-    heroSlot.character = 0;
-    heroSlot.flags = 0;
-    heroSlot.pos = hero.pos;
+    // character_behaviour reads mi.pos and room, and writes input, target and
+    // flags. A one-way copy in is safe; a shared reference would not be, since
+    // step() rebinds hero.pos.
+    heroSlot.pos = { ...hero.pos };
     heroSlot.room = hero.room;
-    heroSlot.route = heroRoute;
     characterBehaviour(heroSlot, { random, structs, room: hero.room });
-    if (heroSlot.input & 0x0f) {
-      // Feed the synthesised input back through the same step() the keyboard
-      // uses, so automatic and manual movement cannot diverge.
-      step(hero, heroSlot.input & 0x0f, interiorBounds(hero.room));
-    }
+    effectiveInput = heroSlot.input & 0x0f;
   }
+
+  const outcome = step(hero, effectiveInput, interiorBounds(hero.room));
 
   // main_loop order: move_a_character ($9D8D), then purge ($9D93), then spawn
   // ($9D96). Purging before spawning matters -- the other way round would let
@@ -707,7 +709,7 @@ function tick(): void {
       vischars,
       random,
       room: hero.room,
-      heroRoute: heroRoute,
+      hero: heroSlot,
       heroPos: hero.pos,
     });
     if (fired) {
@@ -800,7 +802,7 @@ eventSelect.addEventListener('change', () => {
       vischars,
       random: () => prng.next(),
       room: hero.room,
-      heroRoute,
+      hero: heroSlot,
       heroPos: hero.pos,
     });
   }

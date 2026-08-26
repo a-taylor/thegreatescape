@@ -95,10 +95,48 @@ export interface ScheduleContext {
   readonly random: () => number;
   /** The global current room index ($68A0). */
   readonly room: number;
-  /** The hero's route, which several events reassign. */
-  readonly heroRoute: { index: number; step: number };
+  /**
+   * The hero's vischar (slot 0), which several events reassign.
+   *
+   * The route lives here rather than in a parallel object because
+   * set_hero_route ($A344) does three things at once -- clear
+   * TARGET_IS_DOOR, store the route, and take a target -- and the target is
+   * what character_behaviour steers by. Setting the route alone leaves the
+   * hero walking toward whatever target was there before, which for a fresh
+   * slot is (0,0): off the top-left corner of the map.
+   */
+  readonly hero: Vischar;
   /** The hero's position, for the events that reposition him. */
   readonly heroPos: { x: number; y: number; height: number };
+  /** in_solitary ($A13A): set_hero_route does nothing while it is set. */
+  readonly inSolitary?: boolean;
+}
+
+/**
+ * set_hero_route ($A33F / $A344).
+ *
+ * Three steps, and skipping the last is the interesting failure: the target is
+ * what character_behaviour actually steers by, so a route without one sends
+ * the hero to wherever the stale target points.
+ *
+ * $A343 also makes the whole thing a no-op while the hero is in solitary --
+ * the events still fire, they just do not move him.
+ */
+export function setHeroRoute(
+  ctx: ScheduleContext,
+  index: number,
+  step: number,
+): void {
+  if (ctx.inSolitary) return; // $A343
+
+  ctx.hero.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff; // $A347
+  ctx.hero.route = { index, step }; // $A34A
+  getTargetAssignPos(ctx.hero, {
+    // $A34D -> set_route -> get_target
+    random: ctx.random,
+    structs: ctx.structs,
+    room: ctx.room,
+  });
 }
 
 /**
@@ -239,8 +277,7 @@ const handlers: Record<
       ctx.heroPos.y = 46;
     }
     s.heroInBed = false;
-    ctx.heroRoute.index = 42; // routeindex_42_HUT2_LEFT_TO_RIGHT
-    ctx.heroRoute.step = 0;
+    setHeroRoute(ctx, 42, 0); // routeindex_42_HUT2_LEFT_TO_RIGHT
 
     // $A2A3: prisoners 20..22 to hut 2 right, 23..25 to hut 3 right.
     placePrisoners(ctx, 20, 3, 3);
@@ -258,8 +295,7 @@ const handlers: Record<
   // $A1F0 -> go_to_roll_call ($A4FD).
   $A1F0: (_s, ctx) => {
     setCastRoutesIndividual(26, 0, ctx); // routeindex_26_GUARD_12_ROLL_CALL
-    ctx.heroRoute.index = 45; // routeindex_45_HERO_ROLL_CALL
-    ctx.heroRoute.step = 0;
+    setHeroRoute(ctx, 45, 0); // routeindex_45_HERO_ROLL_CALL
     return { event: 'roll call' };
   },
 
@@ -269,8 +305,7 @@ const handlers: Record<
 
   // $A1F9 -> set_route_go_to_breakfast ($A4C5).
   $A1F9: (_s, ctx) => {
-    ctx.heroRoute.index = 16; // routeindex_16_BREAKFAST_25
-    ctx.heroRoute.step = 0;
+    setHeroRoute(ctx, 16, 0); // routeindex_16_BREAKFAST_25
     setCastRoutesSplit(16, 0, ctx);
     return { event: 'breakfast time' };
   },
@@ -282,8 +317,7 @@ const handlers: Record<
       ctx.heroPos.y = 62;
     }
     s.heroInBreakfast = false;
-    ctx.heroRoute.index = 0x90; // REVERSED routeindex_16
-    ctx.heroRoute.step = 3;
+    setHeroRoute(ctx, 0x90, 3); // REVERSED routeindex_16
 
     placePrisoners(ctx, 20, 3, 25); // room_25_MESS_HALL
     placePrisoners(ctx, 23, 3, 23); // room_23_MESS_HALL
@@ -294,16 +328,14 @@ const handlers: Record<
   // $A206 -> set_route_go_to_yard ($A4A9), having unlocked the gates.
   $A206: (s, ctx) => {
     s.gatesLocked = false; // $A20C
-    ctx.heroRoute.index = 14; // routeindex_14_GO_TO_YARD
-    ctx.heroRoute.step = 0;
+    setHeroRoute(ctx, 14, 0); // routeindex_14_GO_TO_YARD
     setCastRoutesSplit(14, 0, ctx);
     return { event: 'exercise time' };
   },
 
   // $A215 -> set_route_go_to_yard_reversed ($A4B7).
   $A215: (_s, ctx) => {
-    ctx.heroRoute.index = 0x8e; // REVERSED routeindex_14
-    ctx.heroRoute.step = 4;
+    setHeroRoute(ctx, 0x8e, 4); // REVERSED routeindex_14
     setCastRoutesSplit(0x8e, 4, ctx);
     return { event: 'end of exercise' };
   },
@@ -311,8 +343,7 @@ const handlers: Record<
   // $A219 -> go_to_time_for_bed ($A351), having locked the gates.
   $A219: (s, ctx) => {
     s.gatesLocked = true; // $A21A
-    ctx.heroRoute.index = 0x85; // REVERSED routeindex_5_EXIT_HUT2
-    ctx.heroRoute.step = 2;
+    setHeroRoute(ctx, 0x85, 2); // REVERSED routeindex_5_EXIT_HUT2
     setCastRoutesSplit(0x85, 2, ctx);
     return { event: 'time for bed' };
   },
@@ -326,8 +357,7 @@ const handlers: Record<
   // $A1C3 -> event_night_time.
   $A1C3: (s, ctx) => {
     if (!s.heroInBed) {
-      ctx.heroRoute.index = 44; // routeindex_44_HUT2_RIGHT_TO_LEFT
-      ctx.heroRoute.step = 1;
+      setHeroRoute(ctx, 44, 1); // routeindex_44_HUT2_RIGHT_TO_LEFT
     }
     s.night = true;
     return { event: 'night time' };
