@@ -15,7 +15,7 @@
 import movablesJson from '../../data/movables.json';
 
 import { calcIsoPos } from './coords.js';
-import type { Vischar } from './vischar.js';
+import { VISCHAR_INITIAL_ANIM, type Vischar } from './vischar.js';
 
 export interface MovableItemData {
   readonly _label: string;
@@ -156,6 +156,14 @@ export function installMovable(
   slot.spriteIndex = 0;
   slot.room = room; // $6996
   slot.counterAndFlags = 0;
+  // movable_item_reset_data ($69A9) gives it anim_wait_tl, the same animation
+  // vischar_initial uses. So `animate` processes the stove like any other
+  // vischar -- one frame, zero deltas -- which is how it gets its DRAWABLE
+  // flag set by touch. Leave it out of that loop and the stove never draws.
+  slot.anim = VISCHAR_INITIAL_ANIM;
+  slot.animIndex = 0;
+  slot.input = 0;
+  slot.direction = 0;
   refreshMovableIso(slot);
 }
 

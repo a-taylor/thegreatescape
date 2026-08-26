@@ -23,6 +23,7 @@ import { ANIMINDEX_REVERSE, animateVischar } from '../src/game/animate.js';
 import { characterStructs } from '../src/game/characters.js';
 import {
   BYTE7_Y_DOMINANT,
+  VISCHAR_DRAWABLE,
   VISCHAR_INITIAL_ANIM,
   createVischars,
   isEmpty,
@@ -341,5 +342,44 @@ describe('a halted character does not drift', () => {
       structs,
     })!;
     expect(v.pos.height).toBe(13 * 8);
+  });
+});
+
+describe('what the game decides to draw', () => {
+  it('sets DRAWABLE when a character is animated', () => {
+    // $AF97: touch sets it before anything else, and get_next_drawable ($B8AE)
+    // tests it to decide whether a vischar is plotted at all. Drawing every
+    // occupied slot regardless shows characters the game would not.
+    const { v } = walker();
+    v.counterAndFlags &= ~VISCHAR_DRAWABLE & 0xff;
+    animateVischar(v);
+    expect(v.counterAndFlags & VISCHAR_DRAWABLE).toBeTruthy();
+  });
+
+  it('sets it even when the move is refused', () => {
+    // touch sets DRAWABLE at $AF97, before the bounds check at $AFB5, so a
+    // character stopped by a wall is still drawn where it stands.
+    const { v } = walker();
+    v.pos = { x: 0, y: 0, height: 0 };
+    v.counterAndFlags &= ~VISCHAR_DRAWABLE & 0xff;
+    animateVischar(v);
+    expect(v.counterAndFlags & VISCHAR_DRAWABLE).toBeTruthy();
+  });
+
+  it('applies a frame on the pass that restarts the animation', () => {
+    // $B6F9 jumps into animate_forwards and $B718 into animate_backwards, so
+    // re-initialising does not cost a frame. Returning early instead loses one
+    // step of travel per cycle -- three per four-frame walk instead of four,
+    // which makes every character walk about a quarter slow.
+    const { v } = walker();
+    setInput(v, INPUT_X_INCREASING);
+    animateVischar(v); // consumes the kick
+
+    let movedFrames = 0;
+    for (let i = 0; i < 16; i++) {
+      if (animateVischar(v).moved) movedFrames++;
+    }
+    // Every frame of a walk cycle moves; none is spent purely re-initialising.
+    expect(movedFrames).toBe(16);
   });
 });

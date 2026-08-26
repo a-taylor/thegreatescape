@@ -18,7 +18,7 @@ import { boundsCheck, toggleYDominant, type InteriorBoundsState } from './bounds
 import { calcIsoPos, DIRECTION_MASK, DIRECTION_CRAWL, type Pos } from './coords.js';
 import { animations, lookupAnimation } from './hero.js';
 import { INPUT_KICK } from './behaviour.js';
-import { CHARACTER_NONE, type Vischar } from './vischar.js';
+import { CHARACTER_NONE, VISCHAR_DRAWABLE, type Vischar } from './vischar.js';
 
 /** vischar_ANIMINDEX_REVERSE ($B5F1 / $B6FE). */
 export const ANIMINDEX_REVERSE = 0x80;
@@ -91,19 +91,29 @@ export function animateVischar(v: Vischar, ctx: AnimateContext = {}): AnimateRes
     restarted = true;
   }
 
-  const anim = animations[v.anim];
+  let anim = animations[v.anim];
   if (!anim || anim.frames.length === 0) return { ...STILL, restarted };
 
-  const reverse = (v.animIndex & ANIMINDEX_REVERSE) !== 0;
-  const counter = v.animIndex & 0x7f;
+  let reverse = (v.animIndex & ANIMINDEX_REVERSE) !== 0;
+  let counter = v.animIndex & 0x7f;
 
   // The end-of-animation tests differ by direction, and the disassembly flags
   // the reverse one as a bug: "$B5F7 -- this ought to check for $7F, not
   // zero." Reproduced as written; the effect is that a reversed animation
   // restarts one frame early.
+  //
+  // Re-initialising does NOT end the frame. $B6F9 jumps into animate_forwards
+  // and $B718 into animate_backwards, so a frame is applied on the same pass.
+  // Returning here instead costs one movement frame per animation cycle --
+  // three steps of travel per four-frame walk rather than four, which reads as
+  // a slight stutter and makes every character walk about a quarter slow.
   if (reverse ? counter === 0 : counter === anim.frames.length) {
     initAnimation(v);
-    return { ...STILL, restarted: true };
+    restarted = true;
+    anim = animations[v.anim];
+    if (!anim || anim.frames.length === 0) return { ...STILL, restarted };
+    reverse = (v.animIndex & ANIMINDEX_REVERSE) !== 0;
+    counter = v.animIndex & 0x7f;
   }
 
   const frameIndex = reverse ? counter - 1 : counter;
@@ -121,6 +131,11 @@ export function animateVischar(v: Vischar, ctx: AnimateContext = {}): AnimateRes
   // $B644 / $B699 call `touch`, which also handles doors and character-to-
   // character collision. Only the bounds half exists so far; the door half is
   // reached through target_reached for NPCs, and the collision half is P5.
+  // $AF93/$AF97: touch sets DONT_MOVE_MAP and DRAWABLE before it does anything
+  // else, so a vischar that reaches this point is drawn this frame whether or
+  // not the move is then refused.
+  v.counterAndFlags |= VISCHAR_DRAWABLE;
+
   const { blocked } = boundsCheck(candidate, v.room, ctx.interior);
   if (blocked) {
     // $B1AF: a refused move flips Y_DOMINANT, which is what makes a blocked
