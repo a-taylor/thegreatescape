@@ -91,6 +91,8 @@ const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
 const btnNight = document.querySelector<HTMLButtonElement>('#night')!;
 const btnTorch = document.querySelector<HTMLButtonElement>('#torch')!;
 const btnReset = document.querySelector<HTMLButtonElement>('#reset')!;
+const btnPause = document.querySelector<HTMLButtonElement>('#pause')!;
+const btnStep = document.querySelector<HTMLButtonElement>('#stepframe')!;
 const roomSelect = document.querySelector<HTMLSelectElement>('#room')!;
 
 const presenter = new CanvasPresenter(canvas);
@@ -122,6 +124,17 @@ let night = false;
 let torch = false;
 let lastEvent = '';
 let windowOffset = NO_OFFSET;
+
+/**
+ * Freeze the game loop.
+ *
+ * Debug scaffolding, not part of the game: the original has no pause. It stops
+ * the tick rather than the renderer, so the frame stays exactly as it was --
+ * useful for catching a rendering fault mid-motion. `stepOnce` lets a single
+ * tick through so a fault can be walked up to one frame at a time.
+ */
+let paused = false;
+let stepOnce = false;
 /** The room's stove or crate, if it has one. Occupies vischar slot 1. */
 let movable: MovableState | null = null;
 
@@ -469,6 +482,7 @@ function render(): void {
     `${where} · gwo (${windowOffset.low},${windowOffset.high}) · ` +
     `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span><br>` +
     `vischars <b>${occupied.length}/7</b> <span class="a">${roster}</span>` +
+    (paused ? ' · <b>PAUSED</b>' : '') +
     (lastEvent ? ` · <b>${lastEvent}</b>` : '');
 }
 
@@ -506,6 +520,9 @@ function spawnInRoom(room: number): { x: number; y: number; height: number } {
 }
 
 function tick(): void {
+  if (paused && !stepOnce) return;
+  stepOnce = false;
+
   const input = encodeInput(
     keys.has('ArrowUp'),
     keys.has('ArrowDown'),
@@ -594,6 +611,21 @@ const TICK_MS = 1000 / 25;
 setInterval(tick, TICK_MS);
 
 window.addEventListener('keydown', (e) => {
+  // Debug keys. Deliberately not arrow keys or anything the game reads, so
+  // they cannot be confused with player input.
+  if (e.key === 'p' || e.key === 'P') {
+    setPaused(!paused);
+    e.preventDefault();
+    return;
+  }
+  if (e.key === '.') {
+    if (paused) {
+      stepOnce = true;
+      tick();
+    }
+    e.preventDefault();
+    return;
+  }
   if (e.key.startsWith('Arrow')) {
     keys.add(e.key);
     e.preventDefault();
@@ -612,6 +644,21 @@ btnTorch.addEventListener('click', () => {
   btnTorch.setAttribute('aria-pressed', String(torch));
   render();
 });
+function setPaused(next: boolean): void {
+  paused = next;
+  btnPause.setAttribute('aria-pressed', String(paused));
+  btnPause.textContent = paused ? 'Resume' : 'Pause';
+  btnStep.disabled = !paused;
+  render();
+}
+
+btnPause.addEventListener('click', () => setPaused(!paused));
+btnStep.addEventListener('click', () => {
+  if (!paused) return;
+  stepOnce = true;
+  tick();
+});
+
 btnReset.addEventListener('click', () => {
   hero.pos = { ...START };
   hero.room = 0;

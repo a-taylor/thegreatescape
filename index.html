@@ -74,6 +74,8 @@
     <canvas id="screen" width="256" height="192"></canvas>
 
     <div class="bar">
+      <button id="pause" aria-pressed="false" title="Freeze the game loop (P)">Pause</button>
+      <button id="stepframe" title="Advance one tick while paused (.)" disabled>Step</button>
       <button id="night" aria-pressed="false">Night</button>
       <button id="torch" aria-pressed="false">Torch</button>
       <button id="reset">Reset position</button>
@@ -88,6 +90,11 @@
       screen directions map onto the four world diagonals, so pressing a direction you are
       not already facing turns the hero rather than moving him &mdash; exactly as the
       <code>animindices</code> table dictates. Walk into a door to change room.
+    </p>
+    <p class="sub">
+      <kbd>P</kbd> pauses and <kbd>.</kbd> advances a single tick while paused &mdash; debug
+      scaffolding for catching a rendering fault mid-motion, not part of the original game.
+      The status line records the paused state so a screenshot carries it.
     </p>
 
     <script type="module" src="/src/main.ts"></script>
