@@ -19,6 +19,8 @@ import {
 import { spritesData } from '../src/data/load.js';
 import { createVischars } from '../src/game/vischar.js';
 import { calcIsoPos } from '../src/game/coords.js';
+import { animateVischar } from '../src/game/animate.js';
+import { roomsData } from '../src/data/load.js';
 
 describe('movable item data', () => {
   it('is three items, one per room', () => {
@@ -236,5 +238,59 @@ describe('installing a movable into vischar 1', () => {
       refreshMovableIso(slot);
       expect(slot.isoPos).toEqual(calcIsoPos(state.pos));
     }
+  });
+});
+
+describe('the stove survives being animated', () => {
+  const def = roomsData.roomdefs[roomsData.rooms[1]!.roomdefIndex]!;
+  const interior = { boundsIndex: def.dimensionsIndex, objectBounds: def.bounds };
+
+  it('keeps sharing its position object through animate', () => {
+    // The stove goes through `animate` like any other vischar. touch copies
+    // saved_pos INTO mi.pos with an LDIR ($AFC8) -- it writes the fields
+    // rather than rebinding -- and that matters here because MovableState
+    // shares this object so pushMovable and the renderer cannot drift apart.
+    // Assigning a fresh object instead leaves the renderer drawing a stale
+    // position, and the stove stops responding to pushes.
+    const state = createMovable(movableItems.stove1!);
+    const slot = createVischars()[1]!;
+    installMovable(slot, state, 2);
+
+    for (let i = 0; i < 20; i++) animateVischar(slot, { interior });
+    expect(slot.pos).toBe(state.pos);
+
+    const before = state.pos.y;
+    pushMovable(state, 1);
+    expect(state.pos.y).not.toBe(before);
+    expect(slot.pos.y).toBe(state.pos.y);
+  });
+
+  it('does not wander off on its own', () => {
+    // anim_wait_tl is a single zero-delta frame, so animating the stove must
+    // not move it.
+    const state = createMovable(movableItems.stove1!);
+    const slot = createVischars()[1]!;
+    installMovable(slot, state, 2);
+    const start = { ...state.pos };
+
+    for (let i = 0; i < 200; i++) animateVischar(slot, { interior });
+    expect(state.pos).toEqual(start);
+  });
+
+  it('still answers a push after many frames', () => {
+    const state = createMovable(movableItems.stove1!);
+    const slot = createVischars()[1]!;
+    installMovable(slot, state, 2);
+
+    for (let i = 0; i < 50; i++) animateVischar(slot, { interior });
+    // Direction 1 steps toward the maximum, five times.
+    const start = state.pos.y;
+    for (let i = 0; i < 5; i++) {
+      pushMovable(state, 1);
+      refreshMovableIso(slot);
+      animateVischar(slot, { interior });
+    }
+    expect(state.pos.y).toBe(start + 5);
+    expect(slot.pos.y).toBe(state.pos.y);
   });
 });

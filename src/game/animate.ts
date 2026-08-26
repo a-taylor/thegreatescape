@@ -144,7 +144,14 @@ export function animateVischar(v: Vischar, ctx: AnimateContext = {}): AnimateRes
     return { moved: false, blocked: true, restarted };
   }
 
-  v.pos = candidate;
+  // $AFC8: touch copies saved_pos INTO vischar.mi.pos with an LDIR -- it
+  // writes the fields, it does not rebind a pointer. Assigning a fresh object
+  // here would be equivalent for an ordinary character but breaks the stove
+  // and crate, whose MovableState shares this very object so that pushMovable
+  // and the renderer cannot drift apart. See installMovable.
+  v.pos.x = candidate.x;
+  v.pos.y = candidate.y;
+  v.pos.height = candidate.height;
   v.spriteIndex = frame.sprite;
   v.animIndex = reverse
     ? (v.animIndex - 1) & 0xff // $B64A

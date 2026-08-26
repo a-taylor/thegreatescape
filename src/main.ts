@@ -548,7 +548,6 @@ function tick(): void {
 
   // $9D90: follow_suspicious_character loops the seven NPC slots and runs
   // character_behaviour on each, which synthesises an input.
-  const bounds = interiorBounds(hero.room);
   for (const v of npcSlots(vischars)) {
     if (isEmpty(v)) continue;
     characterBehaviour(v, { random, structs, room: hero.room });
@@ -570,9 +569,15 @@ function tick(): void {
   // The stove and crate go through this too: movable_item_reset_data gives
   // them anim_wait_tl, a single zero-delta frame, which is how touch comes to
   // set their DRAWABLE flag.
+  //
+  // The bounds are the SLOT's room, not the hero's. Purge should already have
+  // emptied any slot whose room differs, so the two agree in practice -- but
+  // bounds_check throws when asked for an interior room without its state, and
+  // a throw inside setInterval kills the loop silently. Deriving it per slot
+  // removes the dependency on that ordering.
   for (const v of npcSlots(vischars)) {
     if (isEmpty(v)) continue;
-    animateVischar(v, { interior: bounds });
+    animateVischar(v, { interior: interiorBounds(v.room) });
   }
 
   // ASSUMPTION: the original triggers this from `touch` (c$AF8F), part of the
