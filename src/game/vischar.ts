@@ -26,6 +26,10 @@
  * recorded as constants where behaviour depends on them.
  */
 
+import animationsJson from '../../data/animations.json';
+import charactersJson from '../../data/characters.json';
+
+import { decodeBase64 } from '../data/load.js';
 import type { Pos } from './coords.js';
 
 /** vischars_LENGTH: eight slots ($B8A8 sets B for 8 iterations). */
@@ -48,6 +52,37 @@ export const VISCHAR_DRAWABLE = 0x80;
 
 /** counter_and_flags bit 5 ($B1AF), which makes characters slide along walls. */
 export const BYTE7_Y_DOMINANT = 0x20;
+
+/**
+ * The animation a fresh vischar starts on, read from vischar_initial ($F1D3).
+ *
+ * This matters more than a default usually would. spawn_character never writes
+ * vischar.anim -- it copies animbase and the sprite ($C553, $C55B) but not the
+ * animation itself -- and for a HALTED character character_behaviour then sets
+ * an input of zero, which equals the existing input, so cb_set_input returns
+ * without setting input_KICK ($C9F8) and animate never re-initialises. The
+ * starting animation is therefore the one the character actually plays.
+ *
+ * vischar_initial points at $CF76, which is anim_wait_tl: one frame, no
+ * deltas. Default it to animation 0 instead -- anim_walk_tl -- and every
+ * halted character takes four walk frames before the animation runs out and
+ * corrects itself, drifting 8 world units. The watchtower guards, who are
+ * halted at height 13, end up beside their platforms instead of on them.
+ */
+export const VISCHAR_INITIAL_ANIM = (() => {
+  const initial = decodeBase64(
+    (charactersJson as unknown as { vischarInitial: { data: string } }).vischarInitial.data,
+  );
+  // Offsets 10..11: the anim pointer, little-endian.
+  const addr = (initial[10] ?? 0) | ((initial[11] ?? 0) << 8);
+  const animations = (animationsJson as unknown as {
+    animations: { addr: string }[];
+  }).animations;
+  const index = animations.findIndex(
+    (a) => parseInt(a.addr.slice(1), 16) === addr,
+  );
+  return index < 0 ? 0 : index;
+})();
 
 export interface Vischar {
   /** Slot index 0..7. Not a stored field; the code derives it from the pointer. */
@@ -104,7 +139,7 @@ export function emptyVischar(slot: number): Vischar {
     target: { x: 0, y: 0, height: 0 },
     counterAndFlags: 0,
     animbase: 0,
-    anim: 0,
+    anim: VISCHAR_INITIAL_ANIM,
     animIndex: 0,
     input: 0,
     direction: 0,

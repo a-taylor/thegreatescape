@@ -23,12 +23,14 @@ import { ANIMINDEX_REVERSE, animateVischar } from '../src/game/animate.js';
 import { characterStructs } from '../src/game/characters.js';
 import {
   BYTE7_Y_DOMINANT,
+  VISCHAR_INITIAL_ANIM,
   createVischars,
   isEmpty,
   npcSlots,
 } from '../src/game/vischar.js';
-import { spawnCharacters, spawnProjection } from '../src/game/spawn.js';
+import { spawnCharacter, spawnCharacters, spawnProjection } from '../src/game/spawn.js';
 import { calcIsoPos } from '../src/game/coords.js';
+import { animations } from '../src/game/hero.js';
 
 function seeded(start = 1): () => number {
   let s = start;
@@ -284,5 +286,60 @@ describe('a spawned character actually walks its route', () => {
     }
     // It should reach at least one waypoint and take up another.
     expect(targets.size).toBeGreaterThan(1);
+  });
+});
+
+describe('a halted character does not drift', () => {
+  /** Characters 5..8 are the watchtower guards: route 0, height 13. */
+  const TOWER_GUARDS = [5, 6, 7, 8];
+
+  it('starts on anim_wait_tl, not anim_walk_tl', () => {
+    // vischar_initial ($F1D3) points at $CF76. spawn_character never writes
+    // vischar.anim, and a halted character's input of zero matches the input
+    // already there, so cb_set_input returns without input_KICK ($C9F8) and
+    // animate never re-initialises. Whatever anim starts as is what plays.
+    expect(VISCHAR_INITIAL_ANIM).toBe(8);
+    expect(animations[VISCHAR_INITIAL_ANIM]!.labels).toContain('anim_wait_tl');
+    expect(animations[VISCHAR_INITIAL_ANIM]!.frames).toHaveLength(1);
+    // ...and animation 0, the tempting default, is a walk.
+    expect(animations[0]!.labels).toContain('anim_walk_tl');
+  });
+
+  it('leaves the watchtower guards exactly where they were placed', () => {
+    // The visible bug: defaulting anim to 0 made every halted character take
+    // four walk frames before the animation ran out, drifting 8 world units.
+    // For the tower guards that is enough to leave them beside their
+    // platforms rather than on them -- they appear to hang in mid-air.
+    const random = seeded();
+    for (const idx of TOWER_GUARDS) {
+      const structs = characterStructs();
+      const s = structs[idx]!;
+      expect(s.route.index, `char ${idx} is halted`).toBe(0);
+
+      const vs = createVischars();
+      const v = spawnCharacter(vs, s, 0, { random, structs })!;
+      const start = { ...v.pos };
+
+      for (let i = 0; i < 200; i++) {
+        characterBehaviour(v, { random, structs, room: 0 });
+        animateVischar(v);
+      }
+      expect(v.pos, `char ${idx} drifted`).toEqual(start);
+    }
+  });
+
+  it('keeps the elevated height the struct gives them', () => {
+    // Height 13 is what puts them up the tower; iso_pos.y subtracts it, so
+    // losing it would drop them to ground level.
+    const structs = characterStructs();
+    for (const idx of TOWER_GUARDS) {
+      expect(structs[idx]!.pos.height).toBe(13);
+    }
+    const vs = createVischars();
+    const v = spawnCharacter(vs, structs[5]!, 0, {
+      random: seeded(),
+      structs,
+    })!;
+    expect(v.pos.height).toBe(13 * 8);
   });
 });

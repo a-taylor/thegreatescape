@@ -33,6 +33,7 @@ import { getTargetAssignPos } from './behaviour.js';
 import {
   CHARACTER_NONE,
   FLAGS_EMPTY_SLOT,
+  VISCHAR_INITIAL_ANIM,
   isEmpty,
   npcSlots,
   type Vischar,
@@ -207,7 +208,9 @@ export function spawnCharacter(
   slot.room = currentRoom; // $C578
   slot.route = { ...struct.route }; // $C58C
   slot.counterAndFlags = 0;
-  slot.anim = 0;
+  // NOT zero: animation 0 is anim_walk_tl, and a halted character never gets
+  // an input_KICK to correct it. See VISCHAR_INITIAL_ANIM.
+  slot.anim = VISCHAR_INITIAL_ANIM;
   slot.animIndex = 0;
   slot.input = 0;
   slot.direction = 0;
