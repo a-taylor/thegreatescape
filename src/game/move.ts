@@ -19,6 +19,7 @@ import {
   type CharacterStruct,
 } from './characters.js';
 import { halfDoors, resolveDoor } from './doors.js';
+import { applyCharacterEvent, characterEvent } from './events.js';
 import {
   ROUTE_HALT,
   advanceRoute,
@@ -206,8 +207,9 @@ function passThroughDoor(
  *   characters 1..11 turn around
  *   characters 12+   trigger a character_event instead
  *
- * The event path is P4's third checkpoint; until then those characters simply
- * stop, which is what reporting routeEnded without touching the route does.
+ * The event path is where the day schedule's cast ends up: having walked to
+ * the yard or the mess hall, character_event is what gives them something to
+ * do when they arrive.
  */
 export const ROUTE_GO_TO_SOLITARY = 36;
 
@@ -218,7 +220,14 @@ function endRoute(struct: CharacterStruct): { changedRoom: number | null } {
       ? (struct.route.index & 0x7f) !== ROUTE_GO_TO_SOLITARY // $C6F5
       : c < 12; // $C6E0 CP $0C
 
-  if (reverses) reverseRoute(struct.route);
+  if (reverses) {
+    reverseRoute(struct.route);
+    return { changedRoom: null };
+  }
+
+  // $C6FA: everyone else exits via character_event.
+  const event = characterEvent(struct.route.index);
+  applyCharacterEvent(event, struct.route);
   return { changedRoom: null };
 }
 

@@ -316,14 +316,25 @@ describe('move_a_character', () => {
     expect(reversed).toBe(true);
   });
 
-  it('leaves characters 12 and up for the event handler', () => {
-    // $C6E2 jumps to character_event instead of reversing. Until that lands
-    // they stop, which must not corrupt the route.
+  it('hands characters 12 and up to character_event', () => {
+    // $C6E2 jumps to character_event instead of reversing. Route 1 is not in
+    // character_to_event_handler_index_map and is outside both the sleeping
+    // and sitting ranges, so $C7E7 halts the character -- the map's default,
+    // not an error path.
     const s = characterStructs()[13]!;
     s.route = { index: 1, step: 3 }; // sitting on route 1's terminator
     const r = moveCharacter(s, ctx);
     expect(r.routeEnded).toBe(true);
-    expect(s.route).toEqual({ index: 1, step: 3 });
+    expect(s.route).toEqual({ index: 0, step: 0 });
+  });
+
+  it('sends a mapped route to its handler instead of halting', () => {
+    // Route $05 (exit hut 2) maps to handler 0, "wander from locations 8..15".
+    const s = characterStructs()[13]!;
+    s.route = { index: 0x05, step: 40 }; // past the end of that route
+    moveCharacter(s, ctx);
+    expect(s.route.index).toBe(ROUTE_WANDER);
+    expect(s.route.step).toBe(0x08);
   });
 
   it('never leaves a character on a position that is not a byte', () => {

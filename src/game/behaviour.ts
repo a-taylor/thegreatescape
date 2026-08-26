@@ -22,6 +22,7 @@
 import { characterStructFor, type CharacterStruct } from './characters.js';
 import { calcIsoPos } from './coords.js';
 import { halfDoors, resolveDoor, transitionPosition } from './doors.js';
+import { applyCharacterEvent, characterEvent } from './events.js';
 import {
   ROUTE_HALT,
   ROUTE_WANDER,
@@ -171,8 +172,7 @@ export function getTargetAssignPos(
  * route_ended (c$CB2D) for a non-hero vischar.
  *
  * Same split as move_a_character's: the commandant and guards 1..11 turn
- * around, everyone else is handed to character_event. The event path is the
- * next checkpoint, so those characters halt.
+ * around, everyone else is handed to character_event ($CB47).
  */
 function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
   const character = v.character & 0x1f;
@@ -181,7 +181,18 @@ function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
       ? (v.route.index & 0x7f) !== 36 // $CB3D, routeindex_36_GO_TO_SOLITARY
       : character < 12; // $CB44 CP $0C
 
-  if (!reverses) return true;
+  if (!reverses) {
+    // $CB47: character_event decides what an arrived character does next.
+    const event = characterEvent(v.route.index);
+    const changed = applyCharacterEvent(event, v.route);
+    if (changed && v.route.index !== 0) {
+      // $CB4E: a non-halt result re-enters get_target_assign_pos so the
+      // character starts on its new route immediately.
+      getTargetAssignPos(v, ctx);
+      return false;
+    }
+    return true;
+  }
 
   // $CB50..$CB5B, the same "[-2]+1" pattern as elsewhere.
   v.route.index ^= ROUTE_REVERSED;

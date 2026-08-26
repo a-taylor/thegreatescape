@@ -32,6 +32,10 @@
  * value just BEFORE the event wanted, because dispatch matches on equality and
  * would otherwise step straight over it.
  *
+ * Stop steering for 31 ticks and automatics takes over: the hero is driven by
+ * character_behaviour from whatever route the schedule last gave him, through
+ * the same step() the keyboard uses.
+ *
  * Still stubbed, and marked ASSUMPTION where it is: the push trigger, which
  * really lives in `touch`'s collision handling.
  */
@@ -59,6 +63,11 @@ import {
 import { moveCharacter, nextCharacterIndex } from './game/move.js';
 import { prng } from './game/prng.js';
 import { characterBehaviour } from './game/behaviour.js';
+import {
+  createAutomaticState,
+  heroIsAutomatic,
+  noteInput,
+} from './game/events.js';
 import {
   CLOCK_WRAP,
   TICKS_PER_CLOCK,
@@ -190,6 +199,16 @@ const schedule = createSchedule();
  * have somewhere real to write and the status line can show it.
  */
 const heroRoute = { index: 0, step: 0 };
+
+/**
+ * automatics ($C8FE): the game drives the hero when the player does not.
+ *
+ * Any input postpones it for 31 turns ($9E34); idling counts that down, and at
+ * zero character_behaviour takes the wheel using whatever route the day
+ * schedule last gave him. So leaving the keyboard alone during roll call walks
+ * him to roll call.
+ */
+const automatic = createAutomaticState();
 let frameCounter = 0;
 /** Debug only: how many logic ticks to run per interval. Not in the game. */
 let speed = 1;
@@ -577,13 +596,34 @@ function tick(): void {
     keys.has('ArrowRight'),
   );
 
+  const random = () => prng.next();
+
+  // $9E22..$9E35: input resets the automatic counter, idleness counts it down.
+  noteInput(automatic, input);
+
   const outcome = step(hero, input, interiorBounds(hero.room));
+
+  // $C910: when the counter reaches zero the hero is steered like any other
+  // character, from his own route. He keeps the player's input path for
+  // movement -- character_behaviour only supplies the input.
+  if (heroIsAutomatic(automatic)) {
+    const heroSlot = vischars[0]!;
+    heroSlot.character = 0;
+    heroSlot.flags = 0;
+    heroSlot.pos = hero.pos;
+    heroSlot.room = hero.room;
+    heroSlot.route = heroRoute;
+    characterBehaviour(heroSlot, { random, structs, room: hero.room });
+    if (heroSlot.input & 0x0f) {
+      // Feed the synthesised input back through the same step() the keyboard
+      // uses, so automatic and manual movement cannot diverge.
+      step(hero, heroSlot.input & 0x0f, interiorBounds(hero.room));
+    }
+  }
 
   // main_loop order: move_a_character ($9D8D), then purge ($9D93), then spawn
   // ($9D96). Purging before spawning matters -- the other way round would let
   // a character spawn and be purged in one frame.
-  const random = () => prng.next();
-
   // $9D8D: one off-screen character walks its route.
   moveIndex = nextCharacterIndex(moveIndex);
   const mover = structs[moveIndex];
