@@ -20,6 +20,8 @@
  */
 
 import { characterStructFor, type CharacterStruct } from './characters.js';
+import { calcIsoPos } from './coords.js';
+import { halfDoors, resolveDoor, transitionPosition } from './doors.js';
 import {
   ROUTE_HALT,
   ROUTE_WANDER,
@@ -247,6 +249,22 @@ function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
   const room = target.door.targetRoom; // $CAE3
   v.room = room;
   v.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff;
+
+  // $CAF8..$CB09: step to the far half of the pair, then transition. The half
+  // is chosen by the door's direction -- next for top-left/top-right,
+  // previous otherwise ($C745) -- and indexed from the RESOLVED half, not from
+  // the route's door byte, which carries the reverse flag in bit 7.
+  const half = resolveDoor(target.index);
+  const other = target.door.direction < 2 ? half + 1 : half - 1;
+  const dest = halfDoors[other];
+  if (dest) {
+    // transition ($68B6) multiplies by 4 for a vischar, where
+    // move_a_character halves for a character struct. Both land on the same
+    // spot: a vischar holds world coordinates and a struct holds tinypos.
+    v.pos = transitionPosition(dest, room);
+    const iso = calcIsoPos(v.pos);
+    v.isoPos = { x: iso.x, y: iso.y };
+  }
 
   // Keep the character struct in step, since the vischar may be purged before
   // the room is next considered.

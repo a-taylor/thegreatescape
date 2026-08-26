@@ -27,6 +27,7 @@ import {
   nextCharacterIndex,
 } from '../src/game/move.js';
 import { characterStructs } from '../src/game/characters.js';
+import { ROOM_OUTDOORS } from '../src/game/doors.js';
 import { PRNG_BASE, Prng } from '../src/game/prng.js';
 
 /** A deterministic stand-in for random_nibble ($CB85). */
@@ -398,5 +399,54 @@ describe('random_nibble (c$CB85)', () => {
     const p = new Prng();
     const seen = new Set(Array.from({ length: 256 }, () => p.next()));
     expect(seen.size).toBeGreaterThan(4);
+  });
+});
+
+describe('walking through a door lands on the far side', () => {
+  it('never leaves a character outdoors at an indoor height', () => {
+    // The bug this covers: passThroughDoor indexed halfDoors with the route's
+    // DOOR BYTE -- a pair index carrying the reverse flag in bit 7 -- rather
+    // than the resolved half-door index. That lands on an unrelated door, and
+    // when the lookup misses entirely the character keeps its old position.
+    // An indoor height of 24 carried outdoors is 192 world units, which draws
+    // the character 168 pixels up: on top of the hut roofs.
+    const random = seeded();
+    const structs = characterStructs();
+    let transitions = 0;
+    for (const s of structs) {
+      for (let i = 0; i < 3000; i++) {
+        const r = moveCharacter(s, { random });
+        if (r.changedRoom === null) continue;
+        transitions++;
+        if (s.room === ROOM_OUTDOORS) {
+          // Outdoor character structs sit at tinypos heights of a few units;
+          // 24 is an indoor value and would put the character in the air.
+          expect(s.pos.height, `char ${s.character} stepped outdoors`)
+            .toBeLessThanOrEqual(8);
+        }
+      }
+    }
+    expect(transitions).toBeGreaterThan(100);
+  });
+
+  it('actually moves the character when it changes room', () => {
+    // A missed lookup left the position untouched, so a character "walked
+    // through" a door without going anywhere.
+    const random = seeded();
+    const structs = characterStructs();
+    const s = structs[3]!; // starts in room 16, walks a route through doors
+    let moved = 0;
+    let changes = 0;
+    for (let i = 0; i < 3000; i++) {
+      const before = { ...s.pos };
+      const r = moveCharacter(s, { random });
+      if (r.changedRoom === null) continue;
+      changes++;
+      if (before.x !== s.pos.x || before.y !== s.pos.y || before.height !== s.pos.height) {
+        moved++;
+      }
+    }
+    expect(changes).toBeGreaterThan(5);
+    expect(moved).toBe(changes);
   });
 });

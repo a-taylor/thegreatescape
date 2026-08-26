@@ -18,7 +18,7 @@ import {
   FLAG_ON_SCREEN,
   type CharacterStruct,
 } from './characters.js';
-import { halfDoors } from './doors.js';
+import { halfDoors, resolveDoor } from './doors.js';
 import {
   ROUTE_HALT,
   advanceRoute,
@@ -176,7 +176,14 @@ function passThroughDoor(
 
   // The far half of the pair. $C749 adds five bytes for directions 0..1,
   // $C750 subtracts three for 2..3 -- both landing on the other half's pos.
-  const other = door.direction < 2 ? target.index + 1 : target.index - 1;
+  //
+  // target.index is the route's DOOR BYTE -- a pair index with the reverse
+  // flag in bit 7 -- not an index into halfDoors. Stepping from the byte lands
+  // on an unrelated door, and when that lookup misses entirely the character
+  // keeps its old position: an indoor height of 24 carried outdoors is 192
+  // world units, which draws it 168 pixels up and onto the hut roofs.
+  const half = resolveDoor(target.index);
+  const other = door.direction < 2 ? half + 1 : half - 1;
   const dest = halfDoors[other]?.pos;
   if (dest) {
     struct.pos =
