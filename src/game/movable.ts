@@ -54,18 +54,27 @@ export function movableForRoom(room: number): MovableItemData | undefined {
   return key ? movableItems[key] : undefined;
 }
 
-export interface MovableState {
-  readonly item: MovableItemData;
-  /** Live position; only the item's own axis ever changes. */
-  pos: { x: number; y: number; height: number };
-}
-
-export function createMovable(item: MovableItemData): MovableState {
-  return { item, pos: { ...item.pos } };
+/**
+ * The item data for a movable character index, or undefined for anyone else.
+ *
+ * There is no separate "movable state" to look up: once installed, the vischar
+ * IS the stove. This resolves the static half -- the axis, centre and range --
+ * from the character index the slot already carries.
+ */
+export function movableItemFor(character: number): MovableItemData | undefined {
+  return Object.values(movableItems).find((i) => i.character === character);
 }
 
 /**
  * Push a movable item, given the direction the pusher faces ($B071..$B0B8).
+ *
+ * Takes the VISCHAR, because that is what a movable item is. The game keeps no
+ * parallel copy: movable_items[] holds the starting data and receives the
+ * position back only when the slot is released ($C5FC). Modelling it with a
+ * second live object cost two rounds of "the stove will not move" -- once when
+ * a caller re-created the state after installing it, and again when animate
+ * rebound the position field -- because nothing at either site announced that
+ * an invisible shared reference was load-bearing.
  *
  * The four directions do genuinely different things, and only one of them is
  * the obvious "shove it away":
@@ -85,8 +94,9 @@ export function createMovable(item: MovableItemData): MovableState {
  * Positions are single bytes here: the routine operates on the low byte of
  * vischar.mi.pos directly.
  */
-export function pushMovable(state: MovableState, pusherDirection: number): void {
-  const { item } = state;
+export function pushMovable(slot: Vischar, pusherDirection: number): void {
+  const item = movableItemFor(slot.character);
+  if (!item) return; // not a stove or crate; nothing to push
 
   // $B082/$B08D: the crate swaps 0<->1 and 2<->3 before the direction test.
   let dir = pusherDirection & 0x03;
@@ -95,7 +105,7 @@ export function pushMovable(state: MovableState, pusherDirection: number): void 
   const axis = item.axis;
   const min = item.centre - item.range;
   const max = item.centre + item.range;
-  const value = state.pos[axis] & 0xff;
+  const value = slot.pos[axis] & 0xff;
 
   let next = value;
   switch (dir) {
@@ -114,7 +124,10 @@ export function pushMovable(state: MovableState, pusherDirection: number): void 
       break;
   }
 
-  state.pos[axis] = next;
+  // In place, never rebound: the slot's position object is the only one.
+  slot.pos[axis] = next;
+  // The projection has to follow, since purge reads iso_pos rather than pos.
+  refreshMovableIso(slot);
 }
 
 /** The travel range of a movable item, for tests and debug display. */
@@ -141,18 +154,18 @@ export function movableRange(item: MovableItemData): { min: number; max: number 
  */
 export function installMovable(
   slot: Vischar,
-  state: MovableState,
+  item: MovableItemData,
   room: number,
 ): void {
-  slot.character = state.item.character; // $697D
+  slot.character = item.character; // $697D
   slot.flags = 0; // movable_item_reset_data byte 0
   slot.route = { index: 0, step: 0 };
-  // Share the position object with the movable state, so pushMovable's writes
-  // are visible through the slot without a copy step to forget.
-  slot.pos = state.pos;
+  // A fresh copy of the authored starting position. The slot owns it from here
+  // on; nothing else holds a reference, so there is no sharing to break.
+  slot.pos = { ...item.pos };
   // The stove and crate do not animate, so the frame index stays at zero and
   // the whole sprite is the set's base.
-  slot.sprite = state.item.spriteIndex;
+  slot.sprite = item.spriteIndex;
   slot.spriteIndex = 0;
   slot.room = room; // $6996
   slot.counterAndFlags = 0;
@@ -170,11 +183,13 @@ export function installMovable(
 /**
  * Recompute the slot's projected position ($699C / $B71B).
  *
- * Needed after every push as well as at setup: purge_invisible_characters
- * reads iso_pos, not pos, so a stale value would decide the stove's fate from
- * where it used to be.
+ * Deliberately not exported. purge_invisible_characters reads iso_pos rather
+ * than pos, so a stale projection would judge the stove from where it used to
+ * be -- and the only two places that move it, installMovable and pushMovable,
+ * both call this themselves. Leaving it public was one more step a caller
+ * could forget.
  */
-export function refreshMovableIso(slot: Vischar): void {
+function refreshMovableIso(slot: Vischar): void {
   const iso = calcIsoPos(slot.pos);
   slot.isoPos = { x: iso.x, y: iso.y };
 }

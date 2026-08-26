@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FIRST_MOVABLE_CHARACTER,
-  createMovable,
   installMovable,
   isMovableCharacter,
   movableByRoom,
@@ -14,7 +13,6 @@ import {
   movableItems,
   movableRange,
   pushMovable,
-  refreshMovableIso,
 } from '../src/game/movable.js';
 import { spritesData } from '../src/data/load.js';
 import { createVischars } from '../src/game/vischar.js';
@@ -87,10 +85,12 @@ describe('movable item data', () => {
 });
 
 describe('pushing a stove (Y axis, centre 35)', () => {
+  /** vischar 1 holding the stove, positioned on its axis. */
   const fresh = (y: number) => {
-    const s = createMovable(movableItems.stove1!);
-    s.pos.y = y;
-    return s;
+    const slot = createVischars()[1]!;
+    installMovable(slot, movableItems.stove1!, 2);
+    slot.pos.y = y;
+    return slot;
   };
 
   it('direction 0 centres it from either side', () => {
@@ -156,9 +156,10 @@ describe('pushing a stove (Y axis, centre 35)', () => {
 
 describe('pushing the crate (X axis, centre 54)', () => {
   const fresh = (x: number) => {
-    const s = createMovable(movableItems.crate!);
-    s.pos.x = x;
-    return s;
+    const slot = createVischars()[1]!;
+    installMovable(slot, movableItems.crate!, 9);
+    slot.pos.x = x;
+    return slot;
   };
 
   it('swaps the direction pairs before responding', () => {
@@ -203,20 +204,18 @@ describe('installing a movable into vischar 1', () => {
     // after installing it leaves the slot pointing at the old object, so pushes
     // mutate one position while the renderer draws the other and the stove
     // looks immovable.
-    const state = createMovable(movableItems.stove1!);
     const slot = createVischars()[1]!;
-    installMovable(slot, state, 2);
+    installMovable(slot, movableItems.stove1!, 2);
 
-    expect(slot.pos).toBe(state.pos);
+    expect(slot.pos).toBe(slot.pos);
 
-    pushMovable(state, 1);
-    expect(slot.pos.y).toBe(state.pos.y);
+    pushMovable(slot, 1);
+    expect(slot.pos.y).toBe(slot.pos.y);
   });
 
   it('fills in everything purge and the renderer read', () => {
-    const state = createMovable(movableItems.crate!);
     const slot = createVischars()[1]!;
-    installMovable(slot, state, 9);
+    installMovable(slot, movableItems.crate!, 9);
 
     expect(slot.character).toBe(movableItems.crate!.character);
     expect(slot.room).toBe(9); // $6996
@@ -224,19 +223,17 @@ describe('installing a movable into vischar 1', () => {
     // movable does not animate, so the frame stays at zero.
     expect(slot.sprite).toBe(movableItems.crate!.spriteIndex);
     expect(slot.spriteIndex).toBe(0);
-    expect(slot.isoPos).toEqual(calcIsoPos(state.pos)); // $699C
+    expect(slot.isoPos).toEqual(calcIsoPos(slot.pos)); // $699C
     expect(slot.flags).toBe(0);
   });
 
   it('keeps the projection current across a push', () => {
-    const state = createMovable(movableItems.stove1!);
     const slot = createVischars()[1]!;
-    installMovable(slot, state, 2);
+    installMovable(slot, movableItems.stove1!, 2);
 
     for (let i = 0; i < 5; i++) {
-      pushMovable(state, 1);
-      refreshMovableIso(slot);
-      expect(slot.isoPos).toEqual(calcIsoPos(state.pos));
+      pushMovable(slot, 1);
+      expect(slot.isoPos).toEqual(calcIsoPos(slot.pos));
     }
   });
 });
@@ -252,45 +249,41 @@ describe('the stove survives being animated', () => {
     // shares this object so pushMovable and the renderer cannot drift apart.
     // Assigning a fresh object instead leaves the renderer drawing a stale
     // position, and the stove stops responding to pushes.
-    const state = createMovable(movableItems.stove1!);
     const slot = createVischars()[1]!;
-    installMovable(slot, state, 2);
+    installMovable(slot, movableItems.stove1!, 2);
 
     for (let i = 0; i < 20; i++) animateVischar(slot, { interior });
-    expect(slot.pos).toBe(state.pos);
+    expect(slot.pos).toBe(slot.pos);
 
-    const before = state.pos.y;
-    pushMovable(state, 1);
-    expect(state.pos.y).not.toBe(before);
-    expect(slot.pos.y).toBe(state.pos.y);
+    const before = slot.pos.y;
+    pushMovable(slot, 1);
+    expect(slot.pos.y).not.toBe(before);
+    expect(slot.pos.y).toBe(slot.pos.y);
   });
 
   it('does not wander off on its own', () => {
     // anim_wait_tl is a single zero-delta frame, so animating the stove must
     // not move it.
-    const state = createMovable(movableItems.stove1!);
     const slot = createVischars()[1]!;
-    installMovable(slot, state, 2);
-    const start = { ...state.pos };
+    installMovable(slot, movableItems.stove1!, 2);
+    const start = { ...slot.pos };
 
     for (let i = 0; i < 200; i++) animateVischar(slot, { interior });
-    expect(state.pos).toEqual(start);
+    expect(slot.pos).toEqual(start);
   });
 
   it('still answers a push after many frames', () => {
-    const state = createMovable(movableItems.stove1!);
     const slot = createVischars()[1]!;
-    installMovable(slot, state, 2);
+    installMovable(slot, movableItems.stove1!, 2);
 
     for (let i = 0; i < 50; i++) animateVischar(slot, { interior });
     // Direction 1 steps toward the maximum, five times.
-    const start = state.pos.y;
+    const start = slot.pos.y;
     for (let i = 0; i < 5; i++) {
-      pushMovable(state, 1);
-      refreshMovableIso(slot);
+      pushMovable(slot, 1);
       animateVischar(slot, { interior });
     }
-    expect(state.pos.y).toBe(start + 5);
-    expect(slot.pos.y).toBe(state.pos.y);
+    expect(slot.pos.y).toBe(start + 5);
+    expect(slot.pos.y).toBe(slot.pos.y);
   });
 });

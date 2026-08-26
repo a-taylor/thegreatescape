@@ -31,11 +31,9 @@ import {
 } from '../src/game/vischar.js';
 import { calcIsoPos } from '../src/game/coords.js';
 import {
-  createMovable,
   installMovable,
   movableItems,
   pushMovable,
-  refreshMovableIso,
 } from '../src/game/movable.js';
 import { INTERIOR_MAP_POSITION } from '../src/game/doors.js';
 
@@ -330,7 +328,7 @@ describe('a room whose slot 1 holds a movable', () => {
   function room2() {
     const structs = characterStructs();
     const vs = createVischars();
-    installMovable(vs[1]!, createMovable(movableItems.stove1!), 2);
+    installMovable(vs[1]!, movableItems.stove1!, 2);
     return { structs, vs };
   }
 
@@ -372,13 +370,12 @@ describe('a room whose slot 1 holds a movable', () => {
     // purge reads iso_pos, not pos, so a stale projection would judge the
     // stove from where it used to be.
     const { vs } = room2();
-    const state = createMovable(movableItems.stove1!);
-    installMovable(vs[1]!, state, 2);
-    const before = { ...vs[1]!.isoPos };
+    const slot = vs[1]!;
+    const before = { ...slot.isoPos };
 
-    pushMovable(state, 1);
-    refreshMovableIso(vs[1]!);
-    expect(vs[1]!.isoPos).not.toEqual(before);
-    expect(vs[1]!.isoPos).toEqual(calcIsoPos(state.pos));
+    // pushMovable refreshes the projection itself, so a caller cannot forget.
+    pushMovable(slot, 1);
+    expect(slot.isoPos).not.toEqual(before);
+    expect(slot.isoPos).toEqual(calcIsoPos(slot.pos));
   });
 });

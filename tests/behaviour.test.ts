@@ -31,7 +31,7 @@ import {
 } from '../src/game/vischar.js';
 import { spawnCharacter, spawnCharacters, spawnProjection } from '../src/game/spawn.js';
 import { calcIsoPos } from '../src/game/coords.js';
-import { createMovable, installMovable, movableItems } from '../src/game/movable.js';
+import { installMovable, movableItems } from '../src/game/movable.js';
 import { animations } from '../src/game/hero.js';
 
 function seeded(start = 1): () => number {
@@ -443,7 +443,7 @@ describe('every animated slot ends the tick drawable', () => {
     const random = seeded();
     const structs = characterStructs();
     const vs = createVischars();
-    installMovable(vs[1]!, createMovable(movableItems.stove1!), 0);
+    installMovable(vs[1]!, movableItems.stove1!, 0);
     tickPass(vs, structs, random);
     expect(vs[1]!.counterAndFlags & VISCHAR_DRAWABLE).toBeTruthy();
   });

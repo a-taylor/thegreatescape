@@ -57,12 +57,10 @@ import {
   step,
 } from './game/hero.js';
 import {
-  createMovable,
   installMovable,
   movableForRoom,
+  movableItemFor,
   pushMovable,
-  refreshMovableIso,
-  type MovableState,
 } from './game/movable.js';
 import { chooseGameWindowAttributes } from './render/attributes.js';
 import { drawOrder, type Drawable } from './render/drawlist.js';
@@ -135,8 +133,6 @@ let windowOffset = NO_OFFSET;
  */
 let paused = false;
 let stepOnce = false;
-/** The room's stove or crate, if it has one. Occupies vischar slot 1. */
-let movable: MovableState | null = null;
 
 /**
  * The eight visible-character slots and the 26 character structs behind them.
@@ -187,12 +183,10 @@ function setViewForRoom(room: number, pos: { x: number; y: number; height: numbe
   for (const v of npcSlots(vischars)) resetVisibleCharacter(v, structs);
 
   // setup_movable_items runs on both paths ($B326 outdoors, from enter_room
-  // indoors); only rooms 2, 4 and 9 have one.
+  // indoors); only rooms 2, 4 and 9 have one. The movable IS vischar 1 ($697D
+  // writes to $8020) -- there is no parallel object, so nothing can drift.
   const item = movableForRoom(room);
-  movable = item ? createMovable(item) : null;
-  // The movable IS vischar 1 ($697D writes to $8020) -- a complete slot, room
-  // and projected position included, not just an occupancy marker.
-  if (movable) installMovable(vischars[1]!, movable, room);
+  if (item) installMovable(vischars[1]!, item, room);
   roomSelect.value = String(room);
 }
 
@@ -583,14 +577,14 @@ function tick(): void {
   // ASSUMPTION: the original triggers this from `touch` (c$AF8F), part of the
   // collision system that lands in P4. Until then the demo uses proximity: if
   // the hero is close to the item on its movable axis, he pushes it.
-  if (movable && outcome.moved) {
-    const dx = Math.abs((hero.pos.x & 0xff) - movable.pos.x);
-    const dy = Math.abs((hero.pos.y & 0xff) - movable.pos.y);
+  const stove = vischars[1]!;
+  const stoveItem = movableItemFor(stove.character);
+  if (stoveItem && outcome.moved) {
+    const dx = Math.abs((hero.pos.x & 0xff) - stove.pos.x);
+    const dy = Math.abs((hero.pos.y & 0xff) - stove.pos.y);
     if (dx <= 6 && dy <= 6) {
-      pushMovable(movable, hero.direction & 0x03);
-      // purge reads iso_pos, so it has to follow the push ($B71B).
-      refreshMovableIso(vischars[1]!);
-      lastEvent = `pushed the ${movable.item._label.replace('movable_item_', '')}`;
+      pushMovable(stove, hero.direction & 0x03);
+      lastEvent = `pushed the ${stoveItem._label.replace('movable_item_', '')}`;
     }
   }
 
@@ -605,10 +599,7 @@ function tick(): void {
     // the interior position in place on the way out and the exterior renderer
     // reads supertiles from (116, 234), far off a 216x136 map -- the window
     // fills with whatever that resolves to and never recovers.
-    // setViewForRoom also runs setup_movable_items for the new room. It must
-    // not be repeated here: a second createMovable would leave `movable` and
-    // vischar 1 holding different position objects, so pushes would mutate one
-    // while the renderer drew the other, and the stove would look immovable.
+    // setViewForRoom also runs setup_movable_items for the new room.
     setViewForRoom(outcome.enteredRoom, hero.pos);
   } else if (outcome.lockedDoor !== null) {
     lastEvent = 'THE DOOR IS LOCKED';
