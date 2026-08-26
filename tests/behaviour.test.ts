@@ -31,6 +31,7 @@ import {
 } from '../src/game/vischar.js';
 import { spawnCharacter, spawnCharacters, spawnProjection } from '../src/game/spawn.js';
 import { calcIsoPos } from '../src/game/coords.js';
+import { createMovable, installMovable, movableItems } from '../src/game/movable.js';
 import { animations } from '../src/game/hero.js';
 
 function seeded(start = 1): () => number {
@@ -381,5 +382,69 @@ describe('what the game decides to draw', () => {
     }
     // Every frame of a walk cycle moves; none is spent purely re-initialising.
     expect(movedFrames).toBe(16);
+  });
+});
+
+describe('every animated slot ends the tick drawable', () => {
+  /** The tick's clear-then-animate pass, without the DOM. */
+  function tickPass(vs: ReturnType<typeof createVischars>, structs: ReturnType<typeof characterStructs>, random: () => number) {
+    for (const v of npcSlots(vs)) v.counterAndFlags &= ~VISCHAR_DRAWABLE & 0xff;
+    for (const v of npcSlots(vs)) {
+      if (isEmpty(v)) continue;
+      characterBehaviour(v, { random, structs, room: 0 });
+      animateVischar(v);
+    }
+  }
+
+  it('leaves the flag set for the whole frame, however often it is read', () => {
+    // get_next_drawable clears the flag as it plots ($B90A), which is safe
+    // because the original draws exactly once per main-loop iteration. This
+    // demo re-renders the same frame on pause, resize and toggles, so the
+    // clear belongs at the top of the tick instead. Clearing it during
+    // rendering blanks every character on the second read -- which is exactly
+    // what pausing did.
+    const random = seeded();
+    const structs = characterStructs();
+    const vs = createVischars();
+    const p = spawnProjection(structs[1]!.pos);
+    spawnCharacters(vs, structs, { x: (p.x - 4) & 0xff, y: (p.y - 4) & 0xff }, 0, {
+      random,
+    });
+    tickPass(vs, structs, random);
+
+    const occupied = npcSlots(vs).filter((v) => !isEmpty(v));
+    expect(occupied.length).toBeGreaterThan(0);
+
+    // Reading it repeatedly must not change the answer.
+    for (let read = 0; read < 3; read++) {
+      const drawable = occupied.filter((v) => v.counterAndFlags & VISCHAR_DRAWABLE);
+      expect(drawable, `read ${read}`).toHaveLength(occupied.length);
+    }
+  });
+
+  it('keeps every occupied slot drawable tick after tick', () => {
+    const random = seeded();
+    const structs = characterStructs();
+    const vs = createVischars();
+    const p = spawnProjection(structs[1]!.pos);
+    spawnCharacters(vs, structs, { x: (p.x - 4) & 0xff, y: (p.y - 4) & 0xff }, 0, {
+      random,
+    });
+
+    for (let i = 0; i < 30; i++) {
+      tickPass(vs, structs, random);
+      const occupied = npcSlots(vs).filter((v) => !isEmpty(v));
+      const drawable = occupied.filter((v) => v.counterAndFlags & VISCHAR_DRAWABLE);
+      expect(drawable.length, `tick ${i}`).toBe(occupied.length);
+    }
+  });
+
+  it('includes a movable, which animates on anim_wait_tl', () => {
+    const random = seeded();
+    const structs = characterStructs();
+    const vs = createVischars();
+    installMovable(vs[1]!, createMovable(movableItems.stove1!), 0);
+    tickPass(vs, structs, random);
+    expect(vs[1]!.counterAndFlags & VISCHAR_DRAWABLE).toBeTruthy();
   });
 });

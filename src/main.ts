@@ -385,10 +385,16 @@ function plotVischars(): void {
   // including slot 1 when it holds the room's stove or crate.
   //
   // A slot is only drawn when its DRAWABLE flag is set. touch sets it ($AF97)
-  // as part of animating the character, and get_next_drawable clears it again
-  // after plotting ($B90A), so the flag means "this vischar was animated since
-  // it was last drawn". Drawing every occupied slot regardless would show
+  // as part of animating the character, so the flag means "this vischar was
+  // animated this tick". Drawing every occupied slot regardless would show
   // characters the game does not.
+  //
+  // get_next_drawable clears the flag as it plots ($B90A), which works because
+  // the original draws exactly once per main-loop iteration. This demo can
+  // render the same frame several times -- on pause, on resize, on a toggle --
+  // so clearing here would blank every character on the second pass. The flags
+  // are cleared at the top of the tick instead, which gives the same result
+  // once per frame and leaves render idempotent.
   for (const v of npcSlots(vischars)) {
     if (isEmpty(v)) continue;
     if ((v.counterAndFlags & VISCHAR_DRAWABLE) === 0) continue;
@@ -420,8 +426,6 @@ function plotVischars(): void {
     }
     const v = vischars[d.index];
     if (v && !isEmpty(v)) {
-      // $B90A: the flag is consumed by drawing.
-      v.counterAndFlags &= ~VISCHAR_DRAWABLE & 0xff;
       // mi.sprite is the character class's set; mi.sprite_index is the frame
       // animate left there. A movable's animation is a single zero-delta frame
       // with sprite 0 and no flip, so this works for it unchanged.
@@ -556,6 +560,13 @@ function tick(): void {
   // $9D9F: animate turns those inputs into movement, through the same
   // animation machinery the hero uses. Slot 0 is skipped -- the demo drives
   // the hero through step() from real keyboard input instead.
+  // Clear DRAWABLE before animating, standing in for get_next_drawable's
+  // clear-as-it-plots ($B90A). See plotVischars for why it does not happen
+  // during rendering.
+  for (const v of npcSlots(vischars)) {
+    v.counterAndFlags &= ~VISCHAR_DRAWABLE & 0xff;
+  }
+
   // The stove and crate go through this too: movable_item_reset_data gives
   // them anim_wait_tl, a single zero-delta frame, which is how touch comes to
   // set their DRAWABLE flag.
