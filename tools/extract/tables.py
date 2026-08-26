@@ -437,6 +437,12 @@ def extract_characters(sk: Skool) -> dict[str, Any]:
             **provenance(sk, "character_reset_data"),
             "data": b64(sk.slice("character_reset_data")),
         },
+        # prisoners_and_guards ($A27F): the ten non-player characters the day
+        # schedule moves around together -- four guards and six prisoners.
+        "prisonersAndGuards": {
+            **provenance(sk, "prisoners_and_guards"),
+            "values": list(sk.slice("prisoners_and_guards")),
+        },
         "eventHandlerIndexMap": {
             **provenance(sk, "character_to_event_handler_index_map"),
             "values": list(sk.slice("character_to_event_handler_index_map")),
@@ -768,6 +774,10 @@ def extract_text(sk: Skool) -> dict[str, Any]:
     }
 
 
+def _triples(vals: list[int]) -> list[list[int]]:
+    return [vals[i:i + 3] for i in range(0, len(vals), 3)]
+
+
 def extract_timing(sk: Skool) -> dict[str, Any]:
     img = sk.image
     gw = sk.addr_of("game_window_start_addresses")
@@ -775,9 +785,22 @@ def extract_timing(sk: Skool) -> dict[str, Any]:
     assert n == 128, f"expected 128 window row pointers, got {n}"
 
     return {
+        # timed_events ($A173): fifteen {clock, handler} triples. The clock
+        # advances once every 64 main-loop iterations and wraps at 140
+        # ($A1A5), so a full day is 8,960 frames.
         "timedEvents": {
             **provenance(sk, "timed_events"),
             "values": list(sk.slice("timed_events")),
+            "clockWrap": 0x8C,
+            "ticksPerClock": 64,
+            "entries": [
+                {
+                    "clock": v[0],
+                    "handler": f"${v[2] << 8 | v[1]:04X}",
+                    "labels": sk.addr_to_labels.get(v[2] << 8 | v[1], []),
+                }
+                for v in _triples(list(sk.slice("timed_events")))
+            ],
         },
         "searchlightMovements": {
             **provenance(sk, "searchlight_movements"),

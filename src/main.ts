@@ -1,5 +1,5 @@
 /**
- * P4 demo: the camp populated -- the hero plus spawned characters.
+ * P4 demo: the camp, populated and on a schedule.
  *
  * The hero moves through the real path -- input -> animindices -> animation
  * frames -> position -> bounds check -> door handling -- and reaches the screen
@@ -20,6 +20,17 @@
  * its target and produces an INPUT, and animate feeds that through the same
  * animindices/animation machinery the hero uses. A guard walking to a waypoint
  * and the player walking there run the identical code.
+ *
+ * The day runs on the game's own clock: one step every 64 ticks, wrapping at
+ * 140, so 8,960 frames make a day. Each timed event reassigns routes to the
+ * ten characters in prisoners_and_guards, walking them to roll call, the mess
+ * halls, the exercise yard and back to bed.
+ *
+ * The speed multiplier and the jump-to-event control are debug scaffolding --
+ * the game has neither. Speed runs the logic tick several times per interval
+ * rather than changing anything inside it, and the jump winds the clock to the
+ * value just BEFORE the event wanted, because dispatch matches on equality and
+ * would otherwise step straight over it.
  *
  * Still stubbed, and marked ASSUMPTION where it is: the push trigger, which
  * really lives in `touch`'s collision handling.
@@ -48,6 +59,13 @@ import {
 import { moveCharacter, nextCharacterIndex } from './game/move.js';
 import { prng } from './game/prng.js';
 import { characterBehaviour } from './game/behaviour.js';
+import {
+  CLOCK_WRAP,
+  TICKS_PER_CLOCK,
+  createSchedule,
+  dispatchTimedEvent,
+  timedEvents,
+} from './game/schedule.js';
 import { animateVischar, currentFrame } from './game/animate.js';
 import {
   HERO_STANDING_HEIGHT,
@@ -90,6 +108,9 @@ const btnNight = document.querySelector<HTMLButtonElement>('#night')!;
 const btnTorch = document.querySelector<HTMLButtonElement>('#torch')!;
 const btnReset = document.querySelector<HTMLButtonElement>('#reset')!;
 const btnPause = document.querySelector<HTMLButtonElement>('#pause')!;
+const speedSelect = document.querySelector<HTMLSelectElement>('#speed')!;
+const eventSelect = document.querySelector<HTMLSelectElement>('#event')!;
+const clockEl = document.querySelector<HTMLSpanElement>('#clock')!;
 const btnStep = document.querySelector<HTMLButtonElement>('#stepframe')!;
 const roomSelect = document.querySelector<HTMLSelectElement>('#room')!;
 
@@ -152,6 +173,26 @@ let structs: CharacterStruct[] = characterStructs();
  * every 26 frames. That is why the camp is never quite where you left it.
  */
 let moveIndex = 0;
+
+/**
+ * The day schedule, and the frame counter that drives its clock.
+ *
+ * $9DC5 dispatches a timed event once every 64 iterations of the main loop, so
+ * the counter here is the low six bits of the game counter rather than a
+ * separate timer.
+ */
+const schedule = createSchedule();
+/**
+ * The hero's route ($8002).
+ *
+ * The day events reassign it -- to bed, to roll call, to the mess hall. The
+ * demo does not follow it (the player steers), but it is kept so the events
+ * have somewhere real to write and the status line can show it.
+ */
+const heroRoute = { index: 0, step: 0 };
+let frameCounter = 0;
+/** Debug only: how many logic ticks to run per interval. Not in the game. */
+let speed = 1;
 
 /**
  * Put the view where the game puts it for a given room.
@@ -474,6 +515,14 @@ function render(): void {
         .join(' ')
     : '—';
 
+  const next = timedEvents
+    .filter((e) => e.clock > schedule.clock)
+    .sort((a, b) => a.clock - b.clock)[0] ?? timedEvents[0]!;
+  clockEl.textContent =
+    `clock ${schedule.clock}/${CLOCK_WRAP} · ` +
+    `${schedule.night ? 'night' : 'day'} · ` +
+    `next: ${(next.labels[0] ?? '').replace(/^event_/, '').replace(/_/g, ' ')} at ${next.clock}`;
+
   statusEl.innerHTML =
     `pos <b>(${hero.pos.x}, ${hero.pos.y})</b> · tiny (${tiny.x}, ${tiny.y}) · ` +
     `facing <b>${dirNames[hero.direction & 3]}</b>${hero.direction & 4 ? ' crawling' : ''} · ` +
@@ -609,13 +658,36 @@ function tick(): void {
     lastEvent = '';
   }
 
+  // $9DC5..$9DCA: dispatch a timed event once every 64 iterations. The counter
+  // is the game counter's low six bits, not a timer of its own.
+  frameCounter = (frameCounter + 1) & 0xff;
+  if ((frameCounter & (TICKS_PER_CLOCK - 1)) === 0) {
+    const fired = dispatchTimedEvent(schedule, {
+      structs,
+      vischars,
+      random,
+      room: hero.room,
+      heroRoute: heroRoute,
+      heroPos: hero.pos,
+    });
+    if (fired) {
+      lastEvent = fired.note ? `${fired.event} (${fired.note})` : fired.event;
+    }
+    night = schedule.night;
+    btnNight.setAttribute('aria-pressed', String(night));
+  }
+
   render();
 }
 
 // The original runs its logic on a fixed tick, not on wall-clock time, so the
 // loop is a fixed-step interval rather than requestAnimationFrame chasing.
 const TICK_MS = 1000 / 25;
-setInterval(tick, TICK_MS);
+setInterval(() => {
+  // Debug scaffolding: the game has no speed control, so this runs the logic
+  // tick several times per interval rather than changing anything inside it.
+  for (let i = 0; i < speed; i++) tick();
+}, TICK_MS);
 
 window.addEventListener('keydown', (e) => {
   // Debug keys. Deliberately not arrow keys or anything the game reads, so
@@ -660,6 +732,45 @@ function setPaused(next: boolean): void {
 }
 
 btnPause.addEventListener('click', () => setPaused(!paused));
+
+speedSelect.addEventListener('change', () => {
+  speed = Number(speedSelect.value) || 1;
+});
+
+// Populate the jump list from the table itself, so it cannot drift from it.
+for (const e of timedEvents) {
+  const option = document.createElement('option');
+  option.value = String(e.clock);
+  const name = (e.labels[0] ?? e.handler).replace(/^event_/, '').replace(/_/g, ' ');
+  option.textContent = `${String(e.clock).padStart(3)} · ${name}`;
+  eventSelect.append(option);
+}
+
+eventSelect.addEventListener('change', () => {
+  const target = Number(eventSelect.value);
+  if (eventSelect.value === '') return;
+  // dispatch_timed_event matches on EQUALITY ($A1B0), so an event is missed
+  // entirely if its clock value is stepped over. Wind the clock round to the
+  // value just BEFORE the one wanted and let the next dispatch fire it, rather
+  // than assigning the clock and hoping.
+  const before = (target - 1 + CLOCK_WRAP) % CLOCK_WRAP;
+  while (schedule.clock !== before) {
+    dispatchTimedEvent(schedule, {
+      structs,
+      vischars,
+      random: () => prng.next(),
+      room: hero.room,
+      heroRoute,
+      heroPos: hero.pos,
+    });
+  }
+  night = schedule.night;
+  btnNight.setAttribute('aria-pressed', String(night));
+  frameCounter = 0;
+  lastEvent = `clock wound to ${before}`;
+  eventSelect.value = '';
+  render();
+});
 btnStep.addEventListener('click', () => {
   if (!paused) return;
   stepOnce = true;

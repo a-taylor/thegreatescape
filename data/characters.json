@@ -96,6 +96,23 @@
       "spriteIndex": 2
     }
   ],
+  "prisonersAndGuards": {
+    "_addr": "$A27F",
+    "_bytes": 10,
+    "_label": "prisoners_and_guards",
+    "values": [
+      12,
+      13,
+      20,
+      21,
+      22,
+      14,
+      15,
+      23,
+      24,
+      25
+    ]
+  },
   "resetData": {
     "_addr": "$B819",
     "_bytes": 30,

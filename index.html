@@ -84,6 +84,18 @@
       </select>
     </div>
 
+    <div class="bar">
+      <select id="speed" aria-label="Clock speed" title="Multiply the game loop rate">
+        <option value="1">1&times; speed</option>
+        <option value="4">4&times;</option>
+        <option value="16">16&times;</option>
+      </select>
+      <select id="event" aria-label="Jump to event" title="Wind the clock to just before an event">
+        <option value="">Jump to event&hellip;</option>
+      </select>
+      <span class="sub" id="clock"></span>
+    </div>
+
     <p class="status" id="status"></p>
     <p class="sub">
       <kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd> walk. The four

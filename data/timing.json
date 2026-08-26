@@ -178,6 +178,115 @@
     "_addr": "$A173",
     "_bytes": 45,
     "_label": "timed_events",
+    "clockWrap": 140,
+    "entries": [
+      {
+        "clock": 0,
+        "handler": "$A1D3",
+        "labels": [
+          "event_another_day_dawns"
+        ]
+      },
+      {
+        "clock": 8,
+        "handler": "$A1E7",
+        "labels": [
+          "event_wake_up"
+        ]
+      },
+      {
+        "clock": 12,
+        "handler": "$A228",
+        "labels": [
+          "event_new_red_cross_parcel"
+        ]
+      },
+      {
+        "clock": 16,
+        "handler": "$A1F0",
+        "labels": [
+          "event_go_to_roll_call"
+        ]
+      },
+      {
+        "clock": 20,
+        "handler": "$EF9A",
+        "labels": [
+          "event_roll_call"
+        ]
+      },
+      {
+        "clock": 21,
+        "handler": "$A1F9",
+        "labels": [
+          "event_go_to_breakfast_time"
+        ]
+      },
+      {
+        "clock": 36,
+        "handler": "$A202",
+        "labels": [
+          "event_breakfast_time"
+        ]
+      },
+      {
+        "clock": 46,
+        "handler": "$A206",
+        "labels": [
+          "event_go_to_exercise_time"
+        ]
+      },
+      {
+        "clock": 64,
+        "handler": "$A215",
+        "labels": [
+          "event_exercise_time"
+        ]
+      },
+      {
+        "clock": 74,
+        "handler": "$A1F0",
+        "labels": [
+          "event_go_to_roll_call"
+        ]
+      },
+      {
+        "clock": 78,
+        "handler": "$EF9A",
+        "labels": [
+          "event_roll_call"
+        ]
+      },
+      {
+        "clock": 79,
+        "handler": "$A219",
+        "labels": [
+          "event_go_to_time_for_bed"
+        ]
+      },
+      {
+        "clock": 98,
+        "handler": "$A264",
+        "labels": [
+          "event_time_for_bed"
+        ]
+      },
+      {
+        "clock": 100,
+        "handler": "$A1C3",
+        "labels": [
+          "event_night_time"
+        ]
+      },
+      {
+        "clock": 130,
+        "handler": "$A26A",
+        "labels": [
+          "event_search_light"
+        ]
+      }
+    ],
+    "ticksPerClock": 64,
     "values": [
       0,
       211,
