@@ -102,6 +102,8 @@ than to the game.
 - **`OPEN_QUESTIONS.md`** — every ambiguity found in the source, with the address read and the
   assumption taken. Notably §1: the disassembly encodes the *original, unfixed* bytes, so the
   documented bug fixes are deliberate deviations rather than something inherited.
+- **`FIDELITY.md`** — what happens at each known bug site, and why
+- **`CLAUDE.md`** — how to work on this: coordinate scales, recurring hazards, verification
 - **`BUILD_PROMPT.md`** — the original brief
 
 ---
