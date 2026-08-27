@@ -190,7 +190,10 @@ let moveIndex = 0;
  * the counter here is the low six bits of the game counter rather than a
  * separate timer.
  */
-const schedule = createSchedule();
+// The demo starts the hero standing rather than asleep (see START_ROOM), so
+// the in-bed flag has to agree -- otherwise event_wake_up repositions someone
+// who was never in bed.
+const schedule = createSchedule(false);
 
 /**
  * automatics ($C8FE): the game drives the hero when the player does not.

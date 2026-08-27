@@ -420,3 +420,67 @@ describe('the automatic hero stays on the map', () => {
     }
   });
 });
+
+describe('the events that reposition the hero', () => {
+  /** A context with the hero in bed and an OUTDOOR position. */
+  function inBed() {
+    const c = ctx();
+    // A world-scale position: high bytes non-zero, as outdoors.
+    c.heroPos.x = 100 * 8;
+    c.heroPos.y = 74 * 8;
+    return c;
+  }
+
+  it('writes only the LOW BYTE of x and y', () => {
+    // $A293 `LD (HL),$2E` is a one-byte store into mi.pos.x's low half, and
+    // $A297 does the same for y. The high bytes are untouched.
+    //
+    // Indoors -- where this is meant to fire -- they are zero and the result
+    // reads as (46, 46). Assign the whole 16-bit value instead and an OUTDOOR
+    // hero is teleported to the top-left corner of the world, walks out of the
+    // window and disappears.
+    const s = createSchedule(true);
+    const c = inBed();
+    const beforeHighX = c.heroPos.x & 0xff00;
+    const beforeHighY = c.heroPos.y & 0xff00;
+
+    for (let i = 0; i < 9; i++) dispatchTimedEvent(s, c); // clock 8: wake up
+
+    expect(c.heroPos.x & 0x00ff).toBe(0x2e);
+    expect(c.heroPos.y & 0x00ff).toBe(0x2e);
+    expect(c.heroPos.x & 0xff00, 'high byte preserved').toBe(beforeHighX);
+    expect(c.heroPos.y & 0xff00, 'high byte preserved').toBe(beforeHighY);
+  });
+
+  it('reads as (46, 46) for a hero who really is indoors', () => {
+    // The case the write was designed for: the high bytes are already zero.
+    const s = createSchedule(true);
+    const c = ctx();
+    c.heroPos.x = 60;
+    c.heroPos.y = 60;
+    for (let i = 0; i < 9; i++) dispatchTimedEvent(s, c);
+    expect(c.heroPos).toEqual({ x: 46, y: 46, height: 24 });
+  });
+
+  it('leaves a hero who was never in bed exactly where he is', () => {
+    // $A28D skips the write when hero_in_bed is clear. The demo starts him
+    // standing, so its schedule is built with the flag false -- otherwise
+    // wake_up repositions someone who was never asleep.
+    const s = createSchedule(false);
+    const c = inBed();
+    const before = { ...c.heroPos };
+    for (let i = 0; i < 9; i++) dispatchTimedEvent(s, c);
+    expect(c.heroPos).toEqual(before);
+  });
+
+  it('does the same one-byte write at the end of breakfast', () => {
+    // $A2E9..$A2F0, to (52, 62).
+    const s = createSchedule(false);
+    const c = inBed();
+    s.heroInBreakfast = true;
+    for (let i = 0; i < 37; i++) dispatchTimedEvent(s, c); // clock 36
+    expect(c.heroPos.x & 0x00ff).toBe(0x34);
+    expect(c.heroPos.y & 0x00ff).toBe(0x3e);
+    expect(c.heroPos.x & 0xff00).toBe(100 * 8 & 0xff00);
+  });
+});

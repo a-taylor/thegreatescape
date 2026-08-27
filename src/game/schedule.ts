@@ -79,11 +79,32 @@ export interface ScheduleState {
   gatesLocked: boolean;
 }
 
-export function createSchedule(): ScheduleState {
+/**
+ * Write the low byte of x and y, leaving the high bytes alone.
+ *
+ * `LD (HL),$2E` at $A293 is a single-byte store into mi.pos.x's low half. Both
+ * events that reposition the hero do this, and both are only ever meant to run
+ * while he is indoors, where the high bytes are zero.
+ */
+function setPositionLowByte(
+  pos: { x: number; y: number; height: number },
+  x: number,
+  y: number,
+): void {
+  pos.x = (pos.x & 0xff00) | x;
+  pos.y = (pos.y & 0xff00) | y;
+}
+
+/**
+ * @param heroInBed reset_game puts the hero to bed ($B794), so the game's own
+ *   start state is `true`. A caller that starts him standing instead must say
+ *   so, or event_wake_up will reposition someone who was never asleep.
+ */
+export function createSchedule(heroInBed = true): ScheduleState {
   return {
     clock: 0,
     night: false,
-    heroInBed: true, // reset_game leaves the hero asleep ($B794)
+    heroInBed,
     heroInBreakfast: false,
     gatesLocked: true,
   };
@@ -271,10 +292,13 @@ const handlers: Record<
 
   // $A1E7 -> wake_up ($A289).
   $A1E7: (s, ctx) => {
-    // $A290: the hero climbs out of bed to (46, 46).
+    // $A290..$A297: the hero climbs out of bed. Note this writes the LOW BYTE
+    // of mi.pos.x and mi.pos.y only -- `LD (HL),$2E` is one byte, and the high
+    // bytes are left alone. Indoors, where this is meant to fire, they are
+    // zero and it reads as (46, 46). Assigning the whole 16-bit value instead
+    // teleports an OUTDOOR hero to the top-left corner of the world.
     if (s.heroInBed) {
-      ctx.heroPos.x = 46;
-      ctx.heroPos.y = 46;
+      setPositionLowByte(ctx.heroPos, 0x2e, 0x2e);
     }
     s.heroInBed = false;
     setHeroRoute(ctx, 42, 0); // routeindex_42_HUT2_LEFT_TO_RIGHT
@@ -312,9 +336,9 @@ const handlers: Record<
 
   // $A202 -> end_of_breakfast ($A2E2).
   $A202: (s, ctx) => {
+    // $A2E9..$A2F0: the same low-byte write as wake_up's.
     if (s.heroInBreakfast) {
-      ctx.heroPos.x = 52; // $A2E9
-      ctx.heroPos.y = 62;
+      setPositionLowByte(ctx.heroPos, 0x34, 0x3e);
     }
     s.heroInBreakfast = false;
     setHeroRoute(ctx, 0x90, 3); // REVERSED routeindex_16
