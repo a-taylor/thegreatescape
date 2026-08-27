@@ -27,6 +27,8 @@ import {
   TICKS_PER_CLOCK,
   createSchedule,
   dispatchTimedEvent,
+  heroSleeps,
+  setHeroRoute,
 } from '../src/game/schedule.js';
 import { Prng } from '../src/game/prng.js';
 import {
@@ -45,6 +47,7 @@ import { isoPlacement, resetOutdoorPosition } from '../src/render/place.js';
 import { vischarVisible } from '../src/render/clip.js';
 import { roomsData } from '../src/data/load.js';
 import { INTERIOR_MAP_POSITION } from '../src/game/doors.js';
+import { BYTE7_Y_DOMINANT } from '../src/game/vischar.js';
 
 /** The room state interior_bounds_check needs, per room. */
 function interiorBounds(room: number) {
@@ -71,10 +74,12 @@ function runIdle(ticks: number): Sample {
   heroSlot.flags = 0;
 
   const START = { x: 100 * 8, y: 74 * 8, height: HERO_STANDING_HEIGHT };
-  const hero = createHero({ ...START }, 0, 0);
+  const hero = createHero({ ...START }, 2, 0);
   const start = resetOutdoorPosition(START);
   const view = new ExteriorView(start.x, start.y);
-  const schedule = createSchedule(false); // the demo starts him standing
+  view.position.x = INTERIOR_MAP_POSITION.x; view.position.y = INTERIOR_MAP_POSITION.y;
+  const schedule = createSchedule(); // asleep in hut 2, as reset_game leaves him
+  heroSleeps(schedule, heroSlot, hero.pos);
   const automatic = createAutomaticState();
 
   const out: Sample = {
@@ -93,7 +98,10 @@ function runIdle(ticks: number): Sample {
     if (heroIsAutomatic(automatic)) {
       heroSlot.pos = { ...hero.pos };
       heroSlot.room = hero.room;
+      // counter_and_flags is one byte in the game and has to travel both ways.
+      heroSlot.counterAndFlags = hero.counterAndFlags;
       characterBehaviour(heroSlot, { random, structs, room: hero.room });
+      hero.counterAndFlags = heroSlot.counterAndFlags;
       input = heroSlot.input & 0x0f;
     }
     const outcome = step(hero, input, interiorBounds(hero.room));
@@ -154,7 +162,10 @@ function runIdle(ticks: number): Sample {
       view.position,
     ).visible;
 
-    if (!visible) {
+    // While he is in bed his position is zeroed and he is inside the bed
+    // graphic, so not being drawn is correct ($A498). Only count frames where
+    // he is supposed to be on screen.
+    if (!visible && !schedule.heroInBed) {
       out.offWindow++;
       if (!out.firstFailure) {
         out.firstFailure =
@@ -192,5 +203,65 @@ describe('the hero on autopilot', () => {
     // The routes the day schedule gives him lead indoors, so a run this long
     // should take him through several doorways.
     expect(run.roomChanges).toBeGreaterThan(0);
+  });
+});
+
+describe('the hero can slide along walls', () => {
+  it('alternates axes when a move is refused', () => {
+    // counter_and_flags is ONE byte in the game -- vischar 0's. bounds_check
+    // toggles Y_DOMINANT in it when a move is refused ($B1AF), and
+    // character_behaviour reads it to decide which axis to try first ($C9E1).
+    //
+    // The demo keeps hero state in two objects, so the byte has to be copied
+    // both ways around the behaviour call. Without that the alternation never
+    // reaches the behaviour code: the hero picks a direction, walks into the
+    // nearest wall and presses against it indefinitely. Measured before the
+    // fix: 680 blocked frames out of 800 and zero Y_DOMINANT changes.
+    const prng = new Prng();
+    const random = () => prng.next();
+    const structs = characterStructs();
+    const vischars = createVischars();
+    const heroSlot = vischars[0]!;
+    heroSlot.character = 0;
+    heroSlot.flags = 0;
+
+    // Outdoors, aimed at somewhere with scenery in the way.
+    const hero = createHero(
+      { x: 100 * 8, y: 74 * 8, height: HERO_STANDING_HEIGHT },
+      0,
+      0,
+    );
+    const ctx = {
+      structs,
+      vischars,
+      random,
+      room: 0,
+      hero: heroSlot,
+      heroPos: hero.pos,
+    };
+    setHeroRoute(ctx, 42, 0);
+
+    let flips = 0;
+    let last = heroSlot.counterAndFlags & BYTE7_Y_DOMINANT;
+    let blocked = 0;
+    for (let t = 0; t < 800; t++) {
+      heroSlot.pos = { ...hero.pos };
+      heroSlot.room = hero.room;
+      heroSlot.counterAndFlags = hero.counterAndFlags;
+      characterBehaviour(heroSlot, { random, structs, room: hero.room });
+      hero.counterAndFlags = heroSlot.counterAndFlags;
+
+      const outcome = step(hero, heroSlot.input & 0x0f, interiorBounds(hero.room));
+      if (outcome.blocked) blocked++;
+
+      const now = heroSlot.counterAndFlags & BYTE7_Y_DOMINANT;
+      if (now !== last) {
+        flips++;
+        last = now;
+      }
+    }
+
+    expect(blocked, 'the route really does run him into scenery').toBeGreaterThan(0);
+    expect(flips, 'Y_DOMINANT alternates when blocked').toBeGreaterThan(0);
   });
 });

@@ -80,6 +80,45 @@ export interface ScheduleState {
 }
 
 /**
+ * hero_sleeps ($A489 / $A491): put the hero to bed.
+ *
+ * Zeroes his x and y ($A498 clears four bytes -- both words), halts his route,
+ * and sets the in-bed flag. He is inside the bed graphic and not drawn, which
+ * is why reset_game's start looks like an empty hut.
+ */
+export function heroSleeps(
+  s: ScheduleState,
+  hero: Vischar,
+  pos: { x: number; y: number; height: number },
+): void {
+  s.heroInBed = true;
+  hero.route = { index: 0, step: 0 }; // $A493, routeindex_0_HALT
+  pos.x = 0; // $A498
+  pos.y = 0;
+}
+
+/**
+ * process_player_input_in_bed ($9E5C): any key gets the hero up.
+ *
+ * Note this writes the FULL word ($9E68 loads H with zero first), unlike
+ * event_wake_up's one-byte store -- the hero is necessarily indoors here, so
+ * the two agree, but they are not the same instruction.
+ */
+export function heroGetsUp(
+  s: ScheduleState,
+  hero: Vischar,
+  pos: { x: number; y: number; height: number },
+): void {
+  if (!s.heroInBed) return;
+  hero.route = { index: 44, step: 1 }; // $9E5C
+  hero.target = { x: 0x2e, y: 0x2e, height: 0 }; // $9E62
+  pos.x = 0x2e; // $9E68
+  pos.y = 0x2e;
+  pos.height = 0x18; // $9E70
+  s.heroInBed = false;
+}
+
+/**
  * Write the low byte of x and y, leaving the high bytes alone.
  *
  * `LD (HL),$2E` at $A293 is a single-byte store into mi.pos.x's low half. Both

@@ -73,6 +73,8 @@ import {
   TICKS_PER_CLOCK,
   createSchedule,
   dispatchTimedEvent,
+  heroGetsUp,
+  heroSleeps,
   timedEvents,
 } from './game/schedule.js';
 import { animateVischar, currentFrame } from './game/animate.js';
@@ -190,10 +192,7 @@ let moveIndex = 0;
  * the counter here is the low six bits of the game counter rather than a
  * separate timer.
  */
-// The demo starts the hero standing rather than asleep (see START_ROOM), so
-// the in-bed flag has to agree -- otherwise event_wake_up repositions someone
-// who was never in bed.
-const schedule = createSchedule(false);
+const schedule = createSchedule();
 
 /**
  * automatics ($C8FE): the game drives the hero when the player does not.
@@ -554,6 +553,7 @@ function render(): void {
     `${where} · gwo (${windowOffset.low},${windowOffset.high}) · ` +
     `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span><br>` +
     `vischars <b>${occupied.length}/7</b> <span class="a">${roster}</span>` +
+    (schedule.heroInBed ? ' · <b>IN BED</b> (press an arrow)' : '') +
     (paused ? ' · <b>PAUSED</b>' : '') +
     (lastEvent ? ` · <b>${lastEvent}</b>` : '');
 }
@@ -604,6 +604,14 @@ function tick(): void {
 
   const random = () => prng.next();
 
+  // $9E37..$9E5C: the first keypress gets the hero out of bed rather than
+  // being treated as movement.
+  if (input !== 0 && schedule.heroInBed) {
+    heroGetsUp(schedule, heroSlot, hero.pos);
+    hero.room = 2;
+    lastEvent = 'got out of bed';
+  }
+
   // $9E22..$9E35: input resets the automatic counter, idleness counts it down.
   noteInput(automatic, input);
 
@@ -620,7 +628,15 @@ function tick(): void {
     // step() rebinds hero.pos.
     heroSlot.pos = { ...hero.pos };
     heroSlot.room = hero.room;
+    // counter_and_flags has to travel BOTH ways. It is one byte in the game --
+    // vischar 0's -- written by bounds_check when a move is refused ($B1AF)
+    // and read by character_behaviour to decide which axis to try first
+    // ($C9E1). Split across two objects, the Y_DOMINANT alternation never
+    // reaches the behaviour code: the hero picks one direction, walks into a
+    // wall and presses against it forever instead of sliding along it.
+    heroSlot.counterAndFlags = hero.counterAndFlags;
     characterBehaviour(heroSlot, { random, structs, room: hero.room });
+    hero.counterAndFlags = heroSlot.counterAndFlags;
     effectiveInput = heroSlot.input & 0x0f;
   }
 
@@ -853,18 +869,22 @@ roomSelect.addEventListener('change', () => {
 });
 
 /**
- * Start where the game starts: room 2, hut 2 left ($B78F).
+ * Start where the game starts: room 2, hut 2 left ($B78F), asleep.
  *
- * reset_game also puts the hero to bed -- hero_sleeps ($A489) zeroes his
- * position, sets hero_in_bed and swaps roomdef 2's bed for
- * interiorobject_OCCUPIED_BED, so he is inside the furniture and not drawn.
- * That is deliberately NOT reproduced yet: getting him out again is
- * event_wake_up, which arrives with the day schedule. He stands instead.
+ * hero_sleeps ($A489) zeroes his position and halts his route, so he is inside
+ * the bed graphic and not drawn -- an apparently empty hut is the correct
+ * opening. Any arrow key gets him up ($9E5C), and event_wake_up does it on the
+ * clock at 8.
+ *
+ * Starting him standing instead, as this demo used to, leaves the hero
+ * somewhere the day schedule does not expect: route 42's target is the hut
+ * door, whose stored position is an INDOOR one, and reading it with the
+ * outdoor scale sends him into a fence.
  */
 const START_ROOM = 2;
 hero.room = START_ROOM;
-hero.pos = spawnInRoom(START_ROOM);
 setViewForRoom(START_ROOM, hero.pos);
+heroSleeps(schedule, heroSlot, hero.pos);
 
 function fit(): void {
   presenter.resize(window.innerWidth - 48, window.innerHeight - 260);
