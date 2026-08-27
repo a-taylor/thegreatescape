@@ -155,9 +155,53 @@ export function characterEvent(routeIndex: number): CharacterEvent {
  * change only, and the caller is told which kind it was so nothing is silently
  * dropped.
  */
+/**
+ * character_bed_common ($A404) and charevnt_breakfast_common ($A4E4).
+ *
+ * Both do the same shape of thing: step to zero, then a route index derived
+ * from the character index. The split is at 19 -- "is the character index less
+ * than or equal to character_19_GUARD_DOG_4" -- so hostiles get a shared pair
+ * of routes and prisoners get one each.
+ *
+ *   bed        hostile: 13, or 13|REVERSED with step 1 when the index is odd
+ *              prisoner: index - 13, so 20..25 map to routes 7..12
+ *   breakfast  hostile: 24 when even, 25 when odd
+ *              prisoner: index - 2, so 20..25 map to routes 18..23
+ *
+ * The commandant is handled before this, in the vischar path ($A3FB / $A4DB),
+ * and gets route 44 for bed or 43 for breakfast. The HERO takes that branch
+ * too: his vischar also carries character 0. Route 43 then maps to
+ * charevnt_hero_sits and 44 to charevnt_hero_sleeps, which is how he ends up
+ * sitting down rather than standing about.
+ */
+function bedOrBreakfastRoute(
+  kind: 'bed' | 'breakfast',
+  character: number,
+): { index: number; step: number } {
+  const c = character & 0x1f;
+
+  // $A3FB / $A4DB: commandant -- and the hero, who shares the index.
+  if (c === 0) return { index: kind === 'bed' ? 0x2c : 0x2b, step: 0 };
+
+  // $A407 / $A4E7: `CP $13` then JP Z / JP C, so 19 and below are hostile.
+  const hostile = c <= 19;
+  if (!hostile) {
+    return { index: c - (kind === 'bed' ? 13 : 2), step: 0 }; // $A40F / $A4EF
+  }
+
+  if (kind === 'breakfast') {
+    return { index: c & 1 ? 25 : 24, step: 0 }; // $A4F5..$A4F9
+  }
+  // $A413..$A41B: an odd hostile walks its bed route backwards, from step 1.
+  return c & 1
+    ? { index: 13 | 0x80, step: 1 }
+    : { index: 13, step: 0 };
+}
+
 export function applyCharacterEvent(
   event: CharacterEvent,
   route: { index: number; step: number },
+  character = 0xff,
 ): boolean {
   switch (event.kind) {
     case 'wander':
@@ -178,9 +222,18 @@ export function applyCharacterEvent(
       route.index = 0; // routeindex_0_HALT
       route.step = 0;
       return true;
+    case 'bed':
+    case 'breakfast': {
+      if (character === 0xff) return false; // caller did not supply one
+      const next = bedOrBreakfastRoute(event.kind, character);
+      route.index = next.index;
+      route.step = next.step;
+      return true;
+    }
     default:
-      // sleeps / sits / bed / breakfast / heroSits / heroSleeps need the room
-      // and object state that arrives in P5.
+      // sleeps / sits / heroSits / heroSleeps also poke interior objects and
+      // hide the character inside the furniture. The caller is told which
+      // happened so it can apply the flag and position.
       return false;
   }
 }

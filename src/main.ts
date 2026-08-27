@@ -74,6 +74,7 @@ import {
   createSchedule,
   dispatchTimedEvent,
   heroGetsUp,
+  heroSits,
   heroSleeps,
   timedEvents,
 } from './game/schedule.js';
@@ -554,6 +555,7 @@ function render(): void {
     `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span><br>` +
     `vischars <b>${occupied.length}/7</b> <span class="a">${roster}</span>` +
     (schedule.heroInBed ? ' · <b>IN BED</b> (press an arrow)' : '') +
+    (schedule.heroInBreakfast ? ' · <b>AT BREAKFAST</b>' : '') +
     (paused ? ' · <b>PAUSED</b>' : '') +
     (lastEvent ? ` · <b>${lastEvent}</b>` : '');
 }
@@ -637,17 +639,40 @@ function tick(): void {
     // reaches the behaviour code: the hero picks one direction, walks into a
     // wall and presses against it forever instead of sliding along it.
     heroSlot.counterAndFlags = hero.counterAndFlags;
-    characterBehaviour(heroSlot, { random, structs, room: hero.room });
+    const behaviour = characterBehaviour(heroSlot, {
+      random,
+      structs,
+      room: hero.room,
+    });
     hero.counterAndFlags = heroSlot.counterAndFlags;
     effectiveInput = heroSlot.input & 0x0f;
+
+    // hero_sits / hero_sleeps ($A47F / $A489) halt the route and zero the
+    // position so he is inside the bench or bed. The caller owns his position,
+    // so this half happens here.
+    if (behaviour.event === 'heroSits') {
+      heroSits(schedule, heroSlot, hero.pos);
+      lastEvent = 'sat down to breakfast';
+    } else if (behaviour.event === 'heroSleeps') {
+      heroSleeps(schedule, heroSlot, hero.pos);
+      lastEvent = 'went to bed';
+    }
 
     // target_reached may have walked him through a door ($CAF8 -> transition).
     // That is the AUTOMATIC door path; the player's goes through door_handling
     // inside step(), and $AFA3 makes the two mutually exclusive. Copy the
-    // result back, or the room change is discarded on the next frame's copy in
-    // and he stands at the doorway forever.
-    if (heroSlot.room !== hero.room) {
-      autoEnteredRoom = heroSlot.room;
+    // result back, or it is discarded on the next frame's copy in and he
+    // stands at the doorway forever.
+    //
+    // Keyed on the transition having HAPPENED, not on the room having changed.
+    // The exercise-yard gates (door pairs 0 and 1) have both halves outdoors:
+    // passing through moves the hero from one side of the fence to the other
+    // with the room index unchanged. Comparing rooms throws that away, and
+    // since the fence blocks the direct path he then presses against it until
+    // the next timed event -- with no way round, because his target is aligned
+    // on x and the Y_DOMINANT alternation has nothing to alternate to.
+    if (behaviour.enterRoom !== null) {
+      autoEnteredRoom = behaviour.enterRoom;
       hero.room = heroSlot.room;
       hero.pos = { ...heroSlot.pos };
     }

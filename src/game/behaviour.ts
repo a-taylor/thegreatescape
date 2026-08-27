@@ -23,6 +23,7 @@ import { characterStructFor, type CharacterStruct } from './characters.js';
 import { calcIsoPos } from './coords.js';
 import { halfDoors, resolveDoor, transitionPosition } from './doors.js';
 import { applyCharacterEvent, characterEvent } from './events.js';
+import type { CharacterEventKind } from './events.js';
 import {
   ROUTE_HALT,
   ROUTE_WANDER,
@@ -135,6 +136,17 @@ export interface BehaviourResult {
   readonly enterRoom: number | null;
   /** Set when the route ran out. */
   readonly routeEnded: boolean;
+  /**
+   * The character_event that fired, when one did and it could not be applied
+   * as a route change alone.
+   *
+   * hero_sits and hero_sleeps ($A47F / $A489) halt the route AND zero the
+   * position so the character is inside the bench or bed graphic. The caller
+   * owns the hero's position, so it has to do that part -- and reporting the
+   * kind is what stops it being silently dropped, which leaves the hero
+   * standing in the mess hall with nothing to walk to.
+   */
+  readonly event?: CharacterEventKind;
 }
 
 const IDLE: BehaviourResult = {
@@ -142,6 +154,9 @@ const IDLE: BehaviourResult = {
   enterRoom: null,
   routeEnded: false,
 };
+
+/** What routeEnded decided, so targetReached can pass it up. */
+let lastEventKind: CharacterEventKind | undefined;
 
 /**
  * get_target_assign_pos (c$CB23): fetch the next waypoint into vischar.target.
@@ -199,7 +214,8 @@ function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
   if (!reverses) {
     // $CB47: character_event decides what an arrived character does next.
     const event = characterEvent(v.route.index);
-    const changed = applyCharacterEvent(event, v.route);
+    lastEventKind = event.kind;
+    const changed = applyCharacterEvent(event, v.route, v.character);
     if (changed && v.route.index !== 0) {
       // $CB4E: a non-halt result re-enters get_target_assign_pos so the
       // character starts on its new route immediately.
@@ -250,8 +266,14 @@ export function targetReached(
   const { routeEnded: ended } = getTargetAssignPos(v, ctx);
   if (!ended) return { ...IDLE, targetReached: true };
 
+  lastEventKind = undefined;
   const halted = routeEnded(v, ctx);
-  return { targetReached: true, enterRoom: null, routeEnded: halted };
+  return {
+    targetReached: true,
+    enterRoom: null,
+    routeEnded: halted,
+    ...(lastEventKind ? { event: lastEventKind } : {}),
+  };
 }
 
 /**

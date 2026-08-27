@@ -98,6 +98,24 @@ export function heroSleeps(
 }
 
 /**
+ * hero_sits ($A47F): the hero sits down to breakfast.
+ *
+ * The same shape as hero_sleeps -- both fall into hero_sit_sleep_common
+ * ($A491), which halts the route and zeroes the position so the character is
+ * inside the bench or bed graphic and not drawn.
+ */
+export function heroSits(
+  s: ScheduleState,
+  hero: Vischar,
+  pos: { x: number; y: number; height: number },
+): void {
+  s.heroInBreakfast = true;
+  hero.route = { index: 0, step: 0 }; // $A493
+  pos.x = 0; // $A498
+  pos.y = 0;
+}
+
+/**
  * process_player_input_in_bed ($9E5C): any key gets the hero up.
  *
  * Note this writes the FULL word ($9E68 loads H with zero first), unlike

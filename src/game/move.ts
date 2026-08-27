@@ -227,7 +227,7 @@ function endRoute(struct: CharacterStruct): { changedRoom: number | null } {
 
   // $C6FA: everyone else exits via character_event.
   const event = characterEvent(struct.route.index);
-  applyCharacterEvent(event, struct.route);
+  applyCharacterEvent(event, struct.route, struct.character);
   return { changedRoom: null };
 }
 

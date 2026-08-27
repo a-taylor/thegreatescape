@@ -51,7 +51,7 @@ import { ExteriorView } from '../src/render/exterior.js';
 import { isoPlacement, resetOutdoorPosition } from '../src/render/place.js';
 import { vischarVisible } from '../src/render/clip.js';
 import { roomsData } from '../src/data/load.js';
-import { INTERIOR_MAP_POSITION } from '../src/game/doors.js';
+import { INTERIOR_MAP_POSITION, halfDoors } from '../src/game/doors.js';
 import { BYTE7_Y_DOMINANT } from '../src/game/vischar.js';
 
 /** The room state interior_bounds_check needs, per room. */
@@ -343,5 +343,60 @@ describe('door handling belongs to one path at a time', () => {
     const outcome = step(hero, 0, undefined, { doorHandling: false });
     expect(outcome.enteredRoom).toBeNull();
     expect(hero.room).toBe(before);
+  });
+});
+
+describe('the exercise yard gates', () => {
+  it('are door pairs with BOTH halves outdoors', () => {
+    // Door pairs 0 and 1 are gates in a fence, not doorways into a room, so
+    // walking through one changes the hero's POSITION without changing his
+    // room. Anything that keys on the room index having changed will discard
+    // the transition entirely.
+    for (const pair of [0, 1]) {
+      expect(halfDoors[pair * 2]!.targetRoom, `pair ${pair} half 0`).toBe(0);
+      expect(halfDoors[pair * 2 + 1]!.targetRoom, `pair ${pair} half 1`).toBe(0);
+    }
+  });
+
+  it('put the hero on the far side of the fence', () => {
+    // Half 1 of pair 0 sits at tiny (89,71) and half 0 at (89,69): the fence
+    // at wall 18 runs y=70 across x=70..103, so the two halves straddle it.
+    // That is the only way through -- the alternation cannot route around a
+    // fence when the target is already aligned on x.
+    const south = halfDoors[1]!.pos;
+    const north = halfDoors[0]!.pos;
+    // Door positions are stored quartered outdoors; *4 gives world, /8 tiny.
+    const southTiny = (south.y * 4) >> 3;
+    const northTiny = (north.y * 4) >> 3;
+    expect(southTiny).toBeGreaterThan(70);
+    expect(northTiny).toBeLessThan(70);
+  });
+
+  it('reports the transition even when the room is unchanged', () => {
+    // targetReached returns enterRoom for any door it goes through. Comparing
+    // rooms instead leaves the hero pressed against the fence for the whole
+    // exercise period: measured at 1,528 consecutive blocked frames, against 1
+    // once the position is copied back.
+    const prng = new Prng();
+    const random = () => prng.next();
+    const structs = characterStructs();
+    const vischars = createVischars();
+    const hero = vischars[0]!;
+    hero.character = 0;
+    hero.flags = 0;
+    hero.room = 0;
+
+    // Route 14 step 2 is the yard gate.
+    hero.route = { index: 14, step: 2 };
+    getTargetAssignPos(hero, { random, structs, room: 0 });
+    expect(hero.flags & FLAGS_TARGET_IS_DOOR, 'step 2 is a gate').toBeTruthy();
+
+    hero.pos = { x: hero.target.x * 4, y: hero.target.y * 4, height: 24 };
+    const before = { ...hero.pos };
+    const result = targetReached(hero, { random, structs, room: 0 });
+
+    expect(result.enterRoom, 'the transition is reported').not.toBeNull();
+    expect(hero.room, 'but the room is the same').toBe(0);
+    expect(hero.pos, 'and the position moved across the fence').not.toEqual(before);
   });
 });
