@@ -159,10 +159,23 @@ export interface StepOutcome {
  * Y_DOMINANT, which is what makes characters slide along walls rather than
  * stick to them.
  */
+export interface StepOptions {
+  /**
+   * Whether to run door_handling ($B1F5).
+   *
+   * `touch` calls it for the hero ONLY while the automatic player counter is
+   * positive -- that is, while the PLAYER is steering ($AFA3). Under automatic
+   * control the doors are handled by target_reached instead ($CAF8), and
+   * running both makes the two fight over the room index.
+   */
+  readonly doorHandling?: boolean;
+}
+
 export function step(
   hero: HeroState,
   input: number,
   interior?: InteriorBoundsState,
+  options: StepOptions = {},
 ): StepOutcome {
   const cell = lookupAnimation(hero.direction, input & 0x0f);
 
@@ -207,6 +220,11 @@ export function step(
   const facing = hero.reverse ? anim.header[1] : anim.header[2];
   if (facing !== undefined && facing !== 0xff) {
     hero.direction = (hero.direction & DIRECTION_CRAWL) | (facing & DIRECTION_MASK);
+  }
+
+  // $AFA3: skipped entirely when the game is steering.
+  if (options.doorHandling === false) {
+    return { moved: true, blocked: false, enteredRoom: null, lockedDoor: null };
   }
 
   // door_handling ($B1F5) splits on the room index at its first instruction:

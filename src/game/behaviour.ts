@@ -169,17 +169,32 @@ export function getTargetAssignPos(
 }
 
 /**
- * route_ended (c$CB2D) for a non-hero vischar.
+ * route_ended (c$CB2D).
  *
- * Same split as move_a_character's: the commandant and guards 1..11 turn
- * around, everyone else is handed to character_event ($CB47).
+ * The first test is the one to get right: `$CB2D LD A,L; CP $02` identifies
+ * the HERO by his SLOT -- vischar 0's route field sits at $8002, so its low
+ * byte is 2 -- and only after that does the routine look at the character
+ * index at all.
+ *
+ * That distinction is invisible if you go by character index, because the
+ * hero's vischar also carries character 0, which is the commandant's index.
+ * Treat him as the commandant and he takes the "turn around and walk it
+ * backwards" branch instead of character_event. After breakfast that means
+ * reversing route 16, whose first waypoint is an outdoor LOCATION, while he is
+ * standing in a mess hall: he walks into the nearest corner and stays there.
+ *
+ * After the hero: the commandant turns around unless he is on route 36, guards
+ * 1..11 turn around, and everyone else goes to character_event.
  */
 function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
+  const isHero = v.slot === 0; // $CB2E CP $02
   const character = v.character & 0x1f;
   const reverses =
-    character === 0
-      ? (v.route.index & 0x7f) !== 36 // $CB3D, routeindex_36_GO_TO_SOLITARY
-      : character < 12; // $CB44 CP $0C
+    isHero
+      ? false // $CB30 jumps straight to do_character_event
+      : character === 0
+        ? (v.route.index & 0x7f) !== 36 // $CB3D, routeindex_36_GO_TO_SOLITARY
+        : character < 12; // $CB44 CP $0C
 
   if (!reverses) {
     // $CB47: character_event decides what an arrived character does next.
@@ -259,7 +274,7 @@ function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
 
   const room = target.door.targetRoom; // $CAE3
   v.room = room;
-  v.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff;
+  v.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff; // $CB02
 
   // $CAF8..$CB09: step to the far half of the pair, then transition. The half
   // is chosen by the door's direction -- next for top-left/top-right,
@@ -275,6 +290,15 @@ function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
     v.pos = transitionPosition(dest, room);
     const iso = calcIsoPos(v.pos);
     v.isoPos = { x: iso.x, y: iso.y };
+  }
+
+  // $CAFC..$CB05: for the HERO ONLY -- identified by his SLOT, as everywhere
+  // else in this routine -- the next waypoint is taken before the transition.
+  // Without it he arrives in the new room still holding the door's position as
+  // his target, walks to the nearest wall and waits there until the next timed
+  // event reroutes him.
+  if (v.slot === 0) {
+    getTargetAssignPos(v, { ...ctx, room });
   }
 
   // Keep the character struct in step, since the vischar may be purged before

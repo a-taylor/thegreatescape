@@ -622,6 +622,8 @@ function tick(): void {
   // the scroll phase desynchronises, which is the whole class of bug P3 spent
   // its time on.
   let effectiveInput = input;
+  /** Set when target_reached took the automatic hero through a door. */
+  let autoEnteredRoom: number | null = null;
   if (heroIsAutomatic(automatic)) {
     // character_behaviour reads mi.pos and room, and writes input, target and
     // flags. A one-way copy in is safe; a shared reference would not be, since
@@ -638,9 +640,22 @@ function tick(): void {
     characterBehaviour(heroSlot, { random, structs, room: hero.room });
     hero.counterAndFlags = heroSlot.counterAndFlags;
     effectiveInput = heroSlot.input & 0x0f;
+
+    // target_reached may have walked him through a door ($CAF8 -> transition).
+    // That is the AUTOMATIC door path; the player's goes through door_handling
+    // inside step(), and $AFA3 makes the two mutually exclusive. Copy the
+    // result back, or the room change is discarded on the next frame's copy in
+    // and he stands at the doorway forever.
+    if (heroSlot.room !== hero.room) {
+      autoEnteredRoom = heroSlot.room;
+      hero.room = heroSlot.room;
+      hero.pos = { ...heroSlot.pos };
+    }
   }
 
-  const outcome = step(hero, effectiveInput, interiorBounds(hero.room));
+  const outcome = step(hero, effectiveInput, interiorBounds(hero.room), {
+    doorHandling: !heroIsAutomatic(automatic),
+  });
 
   // main_loop order: move_a_character ($9D8D), then purge ($9D93), then spawn
   // ($9D96). Purging before spawning matters -- the other way round would let
@@ -702,15 +717,16 @@ function tick(): void {
   // place the original calls it from ($6939 / $9D7B).
   if (hero.room === 0 && outcome.moved) followHero();
 
-  if (outcome.enteredRoom !== null) {
-    lastEvent = outcome.enteredRoom === 0 ? 'stepped outside' : `entered room ${outcome.enteredRoom}`;
+  const enteredRoom = outcome.enteredRoom ?? autoEnteredRoom;
+  if (enteredRoom !== null) {
+    lastEvent = enteredRoom === 0 ? 'stepped outside' : `entered room ${enteredRoom}`;
     // enter_room ($68F4) fixes the map position for interiors;
     // reset_outdoor_position ($B2FC) recentres it on the hero outdoors. Leave
     // the interior position in place on the way out and the exterior renderer
     // reads supertiles from (116, 234), far off a 216x136 map -- the window
     // fills with whatever that resolves to and never recovers.
     // setViewForRoom also runs setup_movable_items for the new room.
-    setViewForRoom(outcome.enteredRoom, hero.pos);
+    setViewForRoom(enteredRoom, hero.pos);
   } else if (outcome.lockedDoor !== null) {
     lastEvent = 'THE DOOR IS LOCKED';
   } else if (outcome.blocked) {

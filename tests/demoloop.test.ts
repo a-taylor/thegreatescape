@@ -20,7 +20,12 @@ import {
   npcSlots,
 } from '../src/game/vischar.js';
 import { purgeInvisibleCharacters, spawnCharacters } from '../src/game/spawn.js';
-import { characterBehaviour } from '../src/game/behaviour.js';
+import {
+  FLAGS_TARGET_IS_DOOR,
+  characterBehaviour,
+  getTargetAssignPos,
+  targetReached,
+} from '../src/game/behaviour.js';
 import { animateVischar } from '../src/game/animate.js';
 import { moveCharacter, nextCharacterIndex } from '../src/game/move.js';
 import {
@@ -263,5 +268,80 @@ describe('the hero can slide along walls', () => {
 
     expect(blocked, 'the route really does run him into scenery').toBeGreaterThan(0);
     expect(flips, 'Y_DOMINANT alternates when blocked').toBeGreaterThan(0);
+  });
+});
+
+describe('the hero is identified by his SLOT, not his character index', () => {
+  it('sends him to character_event at the end of a route', () => {
+    // $CB2D `LD A,L; CP $02` -- vischar 0's route field is at $8002, so its low
+    // byte is 2. The routine tests that BEFORE it looks at the character index
+    // at all, and the distinction is invisible if you go by index: the hero's
+    // vischar also carries character 0, which is the COMMANDANT's index.
+    //
+    // Treat him as the commandant and he takes "turn around and walk it
+    // backwards" instead. After breakfast that reverses route 16, whose first
+    // waypoint is an outdoor location, while he is standing in a mess hall --
+    // so he walks into the nearest corner and stays there.
+    const prng = new Prng();
+    const random = () => prng.next();
+    const structs = characterStructs();
+    const vischars = createVischars();
+    const hero = vischars[0]!;
+    hero.character = 0; // also the commandant's index
+    hero.flags = 0;
+    hero.room = 3;
+    hero.pos = { x: 10, y: 10, height: 24 };
+    // Route 42 is [door17, END]. From step 0, tr_set_route advances to 1 --
+    // the terminator -- so the route ends. Note routes are PACKED, so a step
+    // past the terminator reads into the next route rather than ending.
+    hero.route = { index: 42, step: 0 };
+
+    targetReached(hero, { random, structs, room: 3 });
+
+    // character_event maps route 42 to charevnt_exit_hut2, route (5, 0).
+    // The commandant branch would have set the reversed flag instead.
+    expect(hero.route.index & 0x80, 'not reversed like the commandant').toBe(0);
+    expect(hero.route.index).toBe(5);
+  });
+
+  it('takes his next waypoint before going through a door', () => {
+    // $CAFC..$CB05, and again by slot. Without it he arrives in the new room
+    // still holding the door's position as his target, walks to the nearest
+    // wall and waits there until a timed event reroutes him.
+    const prng = new Prng();
+    const random = () => prng.next();
+    const structs = characterStructs();
+    const vischars = createVischars();
+    const hero = vischars[0]!;
+    hero.character = 0;
+    hero.flags = 0;
+    hero.room = 0;
+
+    // Route 16 is [loc12, door10, door20, door19REV]; step 1 is a door.
+    hero.route = { index: 16, step: 1 };
+    getTargetAssignPos(hero, { random, structs, room: 0 });
+    expect(hero.flags & FLAGS_TARGET_IS_DOOR, 'step 1 is a door').toBeTruthy();
+    const doorTarget = { ...hero.target };
+
+    hero.pos = { x: hero.target.x * 4, y: hero.target.y * 4, height: 24 };
+    targetReached(hero, { random, structs, room: 0 });
+
+    expect(hero.room, 'went through the door').not.toBe(0);
+    expect(hero.target, 'took the next waypoint').not.toEqual(doorTarget);
+  });
+});
+
+describe('door handling belongs to one path at a time', () => {
+  it('is skipped while the game is steering', () => {
+    // $AFA3: touch calls door_handling for the hero ONLY while the automatic
+    // player counter is positive -- that is, while the PLAYER is steering.
+    // Under automatic control target_reached handles doors instead ($CAF8),
+    // and running both makes them fight over the room index.
+    const hero = createHero({ x: 100 * 8, y: 74 * 8, height: HERO_STANDING_HEIGHT }, 0, 0);
+    const before = hero.room;
+    // Park him exactly on a door and face it, so door_handling would fire.
+    const outcome = step(hero, 0, undefined, { doorHandling: false });
+    expect(outcome.enteredRoom).toBeNull();
+    expect(hero.room).toBe(before);
   });
 });
