@@ -319,8 +319,18 @@ function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
   // Without it he arrives in the new room still holding the door's position as
   // his target, walks to the nearest wall and waits there until the next timed
   // event reroutes him.
+  //
+  // get_target_assign_pos FALLS THROUGH into route_ended when the route has
+  // run out ($CB29), so the end has to be handled here too. A route whose last
+  // waypoint IS the door -- route 16, the walk to breakfast, is exactly that
+  // -- otherwise leaves the character holding a finished route. He then
+  // arrives, finds both axes in the dead zone, and target_reached advances the
+  // step PAST the terminator into the next route's bytes, because routes are
+  // packed. Route 16 step 5 reads route 17's first waypoint: an outdoor
+  // location, chased from inside a mess hall.
   if (v.slot === 0) {
-    getTargetAssignPos(v, { ...ctx, room });
+    const { routeEnded: ended } = getTargetAssignPos(v, { ...ctx, room });
+    if (ended) routeEnded(v, { ...ctx, room });
   }
 
   // Keep the character struct in step, since the vischar may be purged before

@@ -52,6 +52,7 @@ import { isoPlacement, resetOutdoorPosition } from '../src/render/place.js';
 import { vischarVisible } from '../src/render/clip.js';
 import { roomsData } from '../src/data/load.js';
 import { INTERIOR_MAP_POSITION, halfDoors } from '../src/game/doors.js';
+import { getTarget } from '../src/game/routes.js';
 import { BYTE7_Y_DOMINANT } from '../src/game/vischar.js';
 
 /** The room state interior_bounds_check needs, per room. */
@@ -398,5 +399,51 @@ describe('the exercise yard gates', () => {
     expect(result.enterRoom, 'the transition is reported').not.toBeNull();
     expect(hero.room, 'but the room is the same').toBe(0);
     expect(hero.pos, 'and the position moved across the fence').not.toEqual(before);
+  });
+});
+
+describe('a route that ends AT a door', () => {
+  it('is handled during the transition, not one step later', () => {
+    // get_target_assign_pos FALLS THROUGH into route_ended when the route has
+    // run out ($CB29). $CB05 calls it from inside the door transition, so a
+    // route whose last waypoint IS the door gets its end handled there.
+    //
+    // Discard that result and the character arrives holding a finished route.
+    // He then finds both axes in the dead zone, and target_reached advances the
+    // step PAST the terminator -- and because routes are PACKED, that reads the
+    // next route's first waypoint. Route 16 is exactly this shape: its last
+    // waypoint is the mess hall door, and step 5 reads route 17's outdoor
+    // location, which he then chases from inside the mess hall.
+    const prng = new Prng();
+    const random = () => prng.next();
+    const structs = characterStructs();
+    const vischars = createVischars();
+    const hero = vischars[0]!;
+    hero.character = 0;
+    hero.flags = 0;
+    hero.room = 23;
+
+    // Route 16 is [loc12, door10, door20, door19REV, END]; step 3 is the last
+    // waypoint, and step 4 is the terminator.
+    hero.route = { index: 16, step: 3 };
+    getTargetAssignPos(hero, { random, structs, room: 23 });
+    expect(hero.flags & FLAGS_TARGET_IS_DOOR, 'step 3 is a door').toBeTruthy();
+
+    hero.pos = { x: hero.target.x, y: hero.target.y, height: 24 };
+    targetReached(hero, { random, structs, room: 23 });
+
+    // The route ended, so character_event ran: route 16 maps to the breakfast
+    // handler, which gives the hero route 43. What must NOT happen is the step
+    // walking past the terminator.
+    expect(hero.route.step, 'never past the terminator').toBeLessThanOrEqual(4);
+    expect(hero.route.index, 'the event reassigned him').not.toBe(16);
+  });
+
+  it('never reads a waypoint from the following route', () => {
+    // Routes are packed, so stepping past a terminator silently yields the
+    // next route's data rather than failing.
+    expect(getTarget({ index: 16, step: 4 }, () => 0).kind).toBe('ended');
+    const beyond = getTarget({ index: 16, step: 5 }, () => 0);
+    expect(beyond.kind, 'step 5 IS readable -- that is the hazard').toBe('location');
   });
 });
