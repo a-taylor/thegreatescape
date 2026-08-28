@@ -3,6 +3,56 @@
     "_addr": "$6B79",
     "_bytes": 12,
     "_label": "beds",
+    "objects": [
+      {
+        "addr": "$6C8A",
+        "labels": [
+          "roomdef_3_hut2_right"
+        ],
+        "objectIndex": 3,
+        "roomdef": "$6C6D"
+      },
+      {
+        "addr": "$6C8D",
+        "labels": [
+          "roomdef_3_hut2_right"
+        ],
+        "objectIndex": 4,
+        "roomdef": "$6C6D"
+      },
+      {
+        "addr": "$6C90",
+        "labels": [
+          "roomdef_3_hut2_right"
+        ],
+        "objectIndex": 5,
+        "roomdef": "$6C6D"
+      },
+      {
+        "addr": "$6CE6",
+        "labels": [
+          "roomdef_5_hut3_right"
+        ],
+        "objectIndex": 3,
+        "roomdef": "$6CC9"
+      },
+      {
+        "addr": "$6CE9",
+        "labels": [
+          "roomdef_5_hut3_right"
+        ],
+        "objectIndex": 4,
+        "roomdef": "$6CC9"
+      },
+      {
+        "addr": "$6CEC",
+        "labels": [
+          "roomdef_5_hut3_right"
+        ],
+        "objectIndex": 5,
+        "roomdef": "$6CC9"
+      }
+    ],
     "values": [
       27786,
       27789,
@@ -1393,6 +1443,58 @@
         "y1": 63
       }
     ]
+  },
+  "roomPokes": {
+    "blockedTunnelBoundary": {
+      "addr": "$7077",
+      "boundIndex": 0,
+      "field": "x0",
+      "labels": [
+        "roomdef_50_blocked_tunnel"
+      ],
+      "roomdef": "$7075"
+    },
+    "blockedTunnelObject": {
+      "addr": "$708C",
+      "labels": [
+        "roomdef_50_blocked_tunnel"
+      ],
+      "objectIndex": 3,
+      "roomdef": "$7075"
+    },
+    "heroBed": {
+      "addr": "$6C61",
+      "labels": [
+        "roomdef_2_hut2_left"
+      ],
+      "objectIndex": 4,
+      "roomdef": "$6C47"
+    },
+    "heroBench": {
+      "addr": "$6F58",
+      "labels": [
+        "roomdef_25_breakfast"
+      ],
+      "objectIndex": 10,
+      "roomdef": "$6F32"
+    },
+    "messHallBenchRoom23": {
+      "addr": "$6F17",
+      "labels": [
+        "roomdef_23_breakfast"
+      ],
+      "objectIndex": 9,
+      "roomdef": "$6EF2"
+    },
+    "messHallBenchRoom25": {
+      "addr": "$6F4F",
+      "labels": [
+        "roomdef_25_breakfast"
+      ],
+      "objectIndex": 7,
+      "roomdef": "$6F32"
+    },
+    "note": "addresses taken from the instruction operands at $A2CF, $B404 and $B408"
   },
   "routeToPermitted": {
     "_addr": "$9EE4",

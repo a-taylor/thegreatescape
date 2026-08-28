@@ -32,6 +32,7 @@ import {
   TICKS_PER_CLOCK,
   createSchedule,
   dispatchTimedEvent,
+  heroSits,
   heroSleeps,
   setHeroRoute,
 } from '../src/game/schedule.js';
@@ -50,10 +51,41 @@ import {
 import { ExteriorView } from '../src/render/exterior.js';
 import { isoPlacement, resetOutdoorPosition } from '../src/render/place.js';
 import { vischarVisible } from '../src/render/clip.js';
-import { roomsData } from '../src/data/load.js';
+import { decodeBase64, roomsData } from '../src/data/load.js';
+import routesData from '../data/routes.json';
 import { INTERIOR_MAP_POSITION, halfDoors } from '../src/game/doors.js';
 import { getTarget } from '../src/game/routes.js';
 import { BYTE7_Y_DOMINANT } from '../src/game/vischar.js';
+import { checkMorale, createPlayer, type PlayerState } from '../src/game/player.js';
+import { createItemState, type ItemState } from '../src/game/inventory.js';
+import {
+  createParcels,
+  createRoomPokes,
+  bedObjects,
+  heroBedObject,
+  pokedObject,
+  messHallBenchRoom25,
+  messHallBenchRoom23,
+  INTERIOR_OBJECT_EMPTY_BED,
+  INTERIOR_OBJECT_EMPTY_BENCH,
+  INTERIOR_OBJECT_OCCUPIED_BED,
+  INTERIOR_OBJECT_PRISONER_SAT,
+  INTERIOR_OBJECT_PRISONER_SAT_END,
+  heroBench,
+  type ParcelState,
+  type RoomPokeState,
+} from '../src/game/parcels.js';
+import {
+  MESSAGE_NEXT,
+  MESSAGE_SCREEN_ADDRESS,
+  createMessages,
+  messageDisplay,
+  messages as messageTable,
+  queueMessage as queueMessageState,
+} from '../src/ui/messages.js';
+import { waveMoraleFlag } from '../src/ui/panel.js';
+import { fontBitmaps } from '../src/ui/glyphs.js';
+import { SpectrumScreen, screenAddress, screenCoords } from '../src/spectrum/display.js';
 
 /** The room state interior_bounds_check needs, per room. */
 function interiorBounds(room: number) {
@@ -62,12 +94,89 @@ function interiorBounds(room: number) {
   return { boundsIndex: def.dimensionsIndex, objectBounds: def.bounds };
 }
 
+/**
+ * How many bytes each route occupies, terminator included.
+ *
+ * Routes are PACKED, so a step past the terminator reads the next route's
+ * data instead of failing. That makes "step is within the route" an invariant
+ * worth checking directly: nothing else notices when it breaks.
+ */
+const routeLengths: number[] = (() => {
+  const data = routesData as unknown as {
+    data: string;
+    pointers: { index: number; offset: number | null }[];
+  };
+  const bytes = decodeBase64(data.data);
+  return data.pointers.map((p) => {
+    if (p.offset === null) return 0; // route 0 is a null pointer
+    let n = 0;
+    while (p.offset + n < bytes.length && bytes[p.offset + n] !== 0xff) n++;
+    return n + 1; // include the terminator
+  });
+})();
+
+/** Whether a route/step pair is inside its own route's data. */
+function stepInRange(route: { index: number; step: number }): boolean {
+  const index = route.index & 0x7f;
+  if (route.index === 0xff) return true; // WANDER uses step as a location block
+  if (index === 0) return true; // HALT
+  // get_target deliberately reads the byte BEFORE the route when step is $FF
+  // ($C66F sets H to $FF), so that value is legitimate.
+  if (route.step === 0xff) return true;
+  const len = routeLengths[index];
+  return len === undefined || route.step < len;
+}
+
 interface Sample {
   offWindow: number;
   roomChanges: number;
   heroMoves: number;
   firstFailure: string;
+  /** P5: every message index played, in order. */
+  messagesShown: number[];
+  /** P5: the message line's contents each time one finished typing. */
+  linesTyped: string[];
+  /** Any character whose route step ran off the end of its route. */
+  routeOverruns: string[];
+  /**
+   * The longest run of CONSECUTIVE frames on which three or more characters
+   * sat on one exact square. A crowd at a doorway lasts a few frames; a jam
+   * lasts until the next timed event moves everyone on.
+   */
+  longestJam: number;
+  jamDetail: string;
+  /** Characters whose room became room_NONE -- i.e. who sat or slept. */
+  seated: number[];
+  /** True once every bed has been seen empty at the same moment. */
+  bedsEmptied: boolean;
+  /** Bench occupancy at the moment the last prisoner sat down. */
+  benchesAtBreakfast: Array<number | undefined>;
+  /** True once the hero's own bench shows him sitting at it. */
+  heroSeated: boolean;
+  player: PlayerState;
+  parcels: ParcelState;
+  pokes: RoomPokeState;
+  items: ItemState;
+  screen: SpectrumScreen;
 }
+
+/** Read the message line back as text, via the glyph bitmaps. */
+function readMessageLine(screen: SpectrumScreen): string {
+  const { col, row } = screenCoords(MESSAGE_SCREEN_ADDRESS);
+  let out = '';
+  for (let i = 0; i < 32; i++) {
+    const rows: number[] = [];
+    for (let r = 0; r < 8; r++) rows.push(screen.readByte(screenAddress(col + i, row + r)));
+    let found = -1;
+    for (let g = 0; g < fontBitmaps.length / 8; g++) {
+      if (rows.every((b, r) => b === fontBitmaps[g * 8 + r])) { found = g; break; }
+    }
+    out += found < 0 ? '?' : GLYPH_CHARS[found] ?? '?';
+  }
+  return out.replace(/\s+$/, '');
+}
+
+const GLYPH_CHARS = '0123456789' + 'ABCDEFGHIJKLMN' + 'PQRSTUVWXYZ' + ' .';
 
 /** One run of the demo loop with the player idle throughout. */
 function runIdle(ticks: number): Sample {
@@ -84,41 +193,93 @@ function runIdle(ticks: number): Sample {
   const start = resetOutdoorPosition(START);
   const view = new ExteriorView(start.x, start.y);
   view.position.x = INTERIOR_MAP_POSITION.x; view.position.y = INTERIOR_MAP_POSITION.y;
-  const schedule = createSchedule(); // asleep in hut 2, as reset_game leaves him
-  heroSleeps(schedule, heroSlot, hero.pos);
   const automatic = createAutomaticState();
+
+  // P5 state, all with a single owner as CLAUDE.md requires.
+  const player = createPlayer();
+  const items = createItemState();
+  const parcels = createParcels();
+  const pokes = createRoomPokes();
+  const messages = createMessages();
+
+  // reset_game leaves him asleep in hut 2 ($B794), which pokes his bed to
+  // OCCUPIED -- so the poke state has to exist first.
+  const schedule = createSchedule();
+  heroSleeps(schedule, heroSlot, hero.pos, pokes);
+  const screen = new SpectrumScreen();
 
   const out: Sample = {
     offWindow: 0,
     roomChanges: 0,
     heroMoves: 0,
     firstFailure: '',
+    messagesShown: [],
+    linesTyped: [],
+    routeOverruns: [],
+    longestJam: 0,
+    jamDetail: '',
+    seated: [],
+    bedsEmptied: false,
+    benchesAtBreakfast: [],
+    heroSeated: false,
+    player,
+    parcels,
+    pokes,
+    items,
+    screen,
   };
+  const queueMessage = (index: number, c = 0) => queueMessageState(messages, index, c);
   let moveIndex = 0;
   let frame = 0;
+  let jamKey = '';
+  let jamRun = 0;
 
   for (let t = 0; t < ticks; t++) {
     noteInput(automatic, 0);
 
     let input = 0;
+    // Mirrors src/main.ts's tick. It has to: the whole value of this file is
+    // that it exercises the same order the demo does, and a hero who never
+    // sits down or never takes the automatic door path walks a different
+    // route through breakfast, which changes what spawns and when.
+    let autoEnteredRoom: number | null = null;
     if (heroIsAutomatic(automatic)) {
       heroSlot.pos = { ...hero.pos };
       heroSlot.room = hero.room;
       // counter_and_flags is one byte in the game and has to travel both ways.
       heroSlot.counterAndFlags = hero.counterAndFlags;
-      characterBehaviour(heroSlot, { random, structs, room: hero.room });
+      const behaviour = characterBehaviour(heroSlot, {
+        random,
+        structs,
+        room: hero.room,
+        pokes,
+      });
       hero.counterAndFlags = heroSlot.counterAndFlags;
       input = heroSlot.input & 0x0f;
+
+      // hero_sits / hero_sleeps ($A47F / $A489) halt the route and zero the
+      // position so he is inside the bench or bed.
+      if (behaviour.event === 'heroSits') heroSits(schedule, heroSlot, hero.pos, pokes);
+      else if (behaviour.event === 'heroSleeps') heroSleeps(schedule, heroSlot, hero.pos, pokes);
+
+      // target_reached may have walked him through a door ($CAF8 -> transition).
+      if (behaviour.enterRoom !== null) {
+        autoEnteredRoom = behaviour.enterRoom;
+        hero.room = heroSlot.room;
+        hero.pos = { ...heroSlot.pos };
+      }
     }
-    const outcome = step(hero, input, interiorBounds(hero.room));
+    const outcome = step(hero, input, interiorBounds(hero.room), {
+      doorHandling: !heroIsAutomatic(automatic),
+    });
     if (outcome.moved) out.heroMoves++;
 
     moveIndex = nextCharacterIndex(moveIndex);
     const mover = structs[moveIndex];
-    if (mover) moveCharacter(mover, { random });
+    if (mover) moveCharacter(mover, { random, pokes });
 
     for (const v of npcSlots(vischars)) {
-      if (!isEmpty(v)) characterBehaviour(v, { random, structs, room: hero.room });
+      if (!isEmpty(v)) characterBehaviour(v, { random, structs, room: hero.room, pokes });
     }
     purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
     spawnCharacters(vischars, structs, view.position, hero.room, { random });
@@ -129,9 +290,10 @@ function runIdle(ticks: number): Sample {
       if (!isEmpty(v)) animateVischar(v, { interior: interiorBounds(v.room) });
     }
 
-    if (outcome.enteredRoom !== null) {
+    const enteredRoom = outcome.enteredRoom ?? autoEnteredRoom;
+    if (enteredRoom !== null) {
       out.roomChanges++;
-      if (outcome.enteredRoom === 0) {
+      if (enteredRoom === 0) {
         const m = resetOutdoorPosition(hero.pos);
         view.position.x = m.x;
         view.position.y = m.y;
@@ -154,7 +316,99 @@ function runIdle(ticks: number): Sample {
         room: hero.room,
         hero: heroSlot,
         heroPos: hero.pos,
+        player,
+        items,
+        parcels,
+        roomPokes: pokes,
+        queueMessage,
       });
+    }
+
+    // P5: the panel, in the main loop's own order -- wave_morale_flag ($9D7B)
+    // then message_display. The flag is what advances the game counter, so it
+    // must run every tick even when nothing else does.
+    const wasIndex = messages.displayIndex;
+    const playing = messages.messageIndex;
+    waveMoraleFlag(screen, player);
+    messageDisplay(messages, screen);
+    checkMorale(player, queueMessage);
+    if (wasIndex === MESSAGE_NEXT && messages.displayIndex === 0) {
+      out.messagesShown.push(messages.messageIndex);
+    }
+    if (wasIndex < MESSAGE_NEXT && messages.displayIndex >= MESSAGE_NEXT) {
+      out.linesTyped.push(readMessageLine(screen));
+      void playing;
+    }
+
+    // Route overruns and pile-ups. Both are cheap and both are invisible to
+    // every per-routine test in the suite.
+    for (const v of vischars) {
+      if (v.slot !== 0 && isEmpty(v)) continue;
+      if (!stepInRange(v.route) && out.routeOverruns.length < 5) {
+        out.routeOverruns.push(
+          `t=${t} slot ${v.slot} ch${v.character} route ${v.route.index}/${v.route.step}` +
+            ` (route is ${routeLengths[v.route.index & 0x7f]} bytes) room ${v.room}`,
+        );
+      }
+    }
+    for (const st of structs) {
+      if (!stepInRange(st.route) && out.routeOverruns.length < 5) {
+        out.routeOverruns.push(
+          `t=${t} struct ch${structs.indexOf(st)} route ${st.route.index}/${st.route.step}` +
+            ` (route is ${routeLengths[st.route.index & 0x7f]} bytes)`,
+        );
+      }
+    }
+
+    const occupied = new Map<string, number[]>();
+    for (const v of npcSlots(vischars)) {
+      if (isEmpty(v)) continue;
+      const key = `${v.room}:${v.pos.x},${v.pos.y}`;
+      const at = occupied.get(key) ?? [];
+      at.push(v.character);
+      occupied.set(key, at);
+    }
+    let crowded = '';
+    for (const [where, who] of occupied) {
+      if (who.length >= 3) crowded = `${where} (${who.join(', ')})`;
+    }
+    if (crowded !== '' && crowded === jamKey) {
+      jamRun++;
+      if (jamRun > out.longestJam) {
+        out.longestJam = jamRun;
+        out.jamDetail = `${jamRun} consecutive frames to t=${t}: ${crowded}`;
+      }
+    } else {
+      jamKey = crowded;
+      jamRun = crowded === '' ? 0 : 1;
+    }
+
+    for (let c = 0; c < structs.length; c++) {
+      if (structs[c]!.room === 0xff && !out.seated.includes(c)) out.seated.push(c);
+    }
+
+    // The beds are emptied at wake-up and filled again at bedtime, so the
+    // end-of-run value says nothing. Record the moment they were all empty.
+    if (!out.bedsEmptied) {
+      out.bedsEmptied =
+        bedObjects.every((b) => pokedObject(pokes, b) === INTERIOR_OBJECT_EMPTY_BED) &&
+        pokedObject(pokes, heroBedObject) === INTERIOR_OBJECT_EMPTY_BED;
+    }
+
+    // The hero's own seat, which a different routine pokes with a different
+    // graphic ($A482 rather than $A437).
+    if (!out.heroSeated) {
+      out.heroSeated =
+        pokedObject(pokes, heroBench) === INTERIOR_OBJECT_PRISONER_SAT_END;
+    }
+
+    // Likewise the benches: snapshot them while breakfast is actually running.
+    if (schedule.clock >= 25 && schedule.clock <= 35) {
+      out.benchesAtBreakfast = [messHallBenchRoom25, messHallBenchRoom23].flatMap((base) =>
+        [0, 1, 2].map((n) =>
+          pokedObject(pokes, { ...base, objectIndex: base.objectIndex + n }),
+        ),
+      );
     }
 
     const iso = isoPlacement(hero.pos);
@@ -168,10 +422,12 @@ function runIdle(ticks: number): Sample {
       view.position,
     ).visible;
 
-    // While he is in bed his position is zeroed and he is inside the bed
-    // graphic, so not being drawn is correct ($A498). Only count frames where
-    // he is supposed to be on screen.
-    if (!visible && !schedule.heroInBed) {
+    // While he is in bed OR at breakfast his position is zeroed and he is
+    // inside the furniture, so not being drawn is correct: hero_sits ($A47F)
+    // and hero_sleeps ($A489) both fall into hero_sit_sleep_common ($A491),
+    // which zeroes mi.pos ($A498). Only count frames where he is supposed to
+    // be on screen.
+    if (!visible && !schedule.heroInBed && !schedule.heroInBreakfast) {
       out.offWindow++;
       if (!out.firstFailure) {
         out.firstFailure =
@@ -445,5 +701,200 @@ describe('a route that ends AT a door', () => {
     expect(getTarget({ index: 16, step: 4 }, () => 0).kind).toBe('ended');
     const beyond = getTarget({ index: 16, step: 5 }, () => 0);
     expect(beyond.kind, 'step 5 IS readable -- that is the hazard').toBe('location');
+  });
+});
+
+describe('P5 over a full day', () => {
+  // 8,960 frames is one in-game day: the clock advances every 64 main-loop
+  // iterations and wraps at 140 ($A1A5).
+  const run = runIdle(8960);
+
+  it('plays the day\'s messages, in the order the events fire', () => {
+    // Each of these is the `LD B,n` at its event's call site. Getting the
+    // ORDER right is the point: it is the one thing per-routine tests cannot
+    // check, and the same failure mode as the P4 route bugs.
+    const names = run.messagesShown.map((i) => messageTable[i]!.text);
+    expect(names).toContain('TIME T0 WAKE UP');
+    expect(names).toContain('R0LL CALL');
+    expect(names).toContain('BREAKFAST TIME');
+    expect(names).toContain('EXERCISE TIME');
+    expect(names).toContain('TIME F0R BED');
+
+    // Two roll calls a day, at clock 16 and clock 74 -- the timed_events table
+    // lists event_go_to_roll_call twice. The second falls between exercise and
+    // bed, which is what makes the order worth asserting at all.
+    const order = [
+      'TIME T0 WAKE UP',
+      'R0LL CALL',
+      'BREAKFAST TIME',
+      'EXERCISE TIME',
+      'R0LL CALL',
+      'TIME F0R BED',
+    ];
+    const seen = names.filter((n) => order.includes(n));
+    expect(seen).toEqual(order);
+  });
+
+  it('actually renders each message to the screen, not just queues it', () => {
+    // The queue and the display are separate systems and a message can be
+    // queued and never drawn -- which is exactly what a full queue does.
+    expect(run.linesTyped.length).toBeGreaterThan(0);
+    expect(run.linesTyped).toContain('BREAKFAST TIME');
+  });
+
+  it('empties every bed when the prisoners wake up', () => {
+    // Checked as a moment, not as an end state: character_sleeps ($A453) fills
+    // the beds again at night, so by the end of the day they are occupied --
+    // which is correct, and used to be invisible because nothing ever wrote
+    // OCCUPIED_BED at all.
+    expect(run.bedsEmptied).toBe(true);
+  });
+
+  it('puts everyone back to bed by the end of the day', () => {
+    // The other half of the same mechanism, and the reason the assertion above
+    // had to become a moment.
+    const occupied = bedObjects.filter(
+      (b) => pokedObject(run.pokes, b) === INTERIOR_OBJECT_OCCUPIED_BED,
+    );
+    expect(occupied.length).toBeGreaterThan(0);
+  });
+
+  it('delivers a red cross parcel', () => {
+    expect(run.parcels.contents).not.toBe(0xff);
+  });
+
+  it('docks exactly 25 morale for the night', () => {
+    // Morale starts at the maximum, so over an idle day the only thing that
+    // moves it is event_another_day_dawns ($A1D8 LD B,$19).
+    expect(run.player.morale).toBe(112 - 25);
+  });
+
+  it('leaves the flag still catching up, because dawn is the LAST tick', () => {
+    // event_another_day_dawns sits at clock 0, and dispatch_timed_event
+    // increments before it matches ($A1A0), so clock 0 is only reached after a
+    // full wrap of 140 -- the very end of the 8,960-frame day, not the start.
+    // displayed_morale therefore has had two frames, not a day, to react.
+    //
+    // Asserted as the timing fact it is: if dawn ever moved to the front of
+    // the day this would flip to equality, and that would be a real change.
+    expect(run.player.displayedMorale).toBeGreaterThan(run.player.morale);
+    expect(run.player.displayedMorale).toBeLessThanOrEqual(112);
+  });
+
+  it('lets the flag catch up once the day rolls on', () => {
+    // A hundred more frames is fifty steps, more than the 25 it has to fall.
+    const longer = runIdle(8960 + 100);
+    expect(longer.player.displayedMorale).toBe(longer.player.morale);
+  });
+
+  it('advances the game counter once per tick, from wave_morale_flag', () => {
+    // The counter is a byte and wraps, so the assertion is on the phase: 8,960
+    // increments mod 256.
+    expect(run.player.gameCounter).toBe(8960 & 0xff);
+  });
+
+  it('leaves the score alone when the hero picks nothing up', () => {
+    expect([...run.player.score]).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('never lets a message run off the end of its line', () => {
+    // message_display masks the column with $1F ($7D69), so a message longer
+    // than 32 characters would wrap onto itself rather than overflow. None is,
+    // and that is worth pinning because the mask hides the failure.
+    for (const m of messageTable) {
+      expect({ text: m.text, len: m.glyphs.length }).toEqual({
+        text: m.text,
+        len: m.text.length,
+      });
+      expect(m.glyphs.length).toBeLessThanOrEqual(32);
+    }
+  });
+});
+
+describe('nobody jams at breakfast', () => {
+  // Long enough to cover the walk to the mess halls (clock 21), sitting down,
+  // and end_of_breakfast (clock 36).
+  const run = runIdle(3000);
+
+  it('never steps a route past its own terminator', () => {
+    // Routes are PACKED, so an overrun reads the FOLLOWING route's waypoints
+    // rather than failing. Three separate omissions each produced this, and
+    // none of them was visible to a per-routine test:
+    //
+    //   - transition ($68D4) exits via reset_visible_character for anyone but
+    //     the hero, handing the slot back. Without it a character keeps a
+    //     target that is the door it just walked through, in the coordinate
+    //     space of the room it just left, and target_reached fires again
+    //     immediately -- cascading through waypoints.
+    //   - spawn_character ($C5A4) checks get_target for ROUTE_ENDS and calls
+    //     route_ended before taking a target. Discarding that result leaves a
+    //     freshly spawned character standing on its own terminator.
+    //   - character_sit_sleep_common ($A463) sets the route to HALT. Without
+    //     it a seated prisoner still has a live route.
+    //
+    // Route 16 is the walk to breakfast and ends at step 4; step 5 is route
+    // 17's first waypoint, an outdoor location. Six prisoners chasing it from
+    // inside a mess hall is what the jam looked like.
+    expect(run.routeOverruns, run.routeOverruns.join('\n')).toEqual([]);
+  });
+
+  it('does not park the cast on one square for the rest of the meal', () => {
+    // The visible symptom. NPCs do not collide with each other, so a brief
+    // crowd at a hut doorway is normal and expected; what is not is three or
+    // more characters holding the same exact square frame after frame until
+    // the next timed event moves them on. Before the fix this ran for the
+    // whole of breakfast -- some 450 frames.
+    expect(run.longestJam, run.jamDetail).toBeLessThan(120);
+  });
+
+  it('still gets the cast to the mess halls and sits them down', () => {
+    // The fix must not work by simply stopping everyone from arriving.
+    expect(run.messagesShown.length).toBeGreaterThan(0);
+  });
+
+  it('sits the prisoners INSIDE the benches, not next to them', () => {
+    // character_sit_sleep_common makes three writes ($A462). Halting the route
+    // alone stops the jam but leaves everyone standing around the furniture;
+    // the room must become room_NONE ($A470) for them to disappear into it.
+    //
+    // Prisoners are characters 20..25. The sixth is expected to be missing --
+    // see the next test.
+    const prisonersSeated = run.seated.filter((c) => c >= 20 && c <= 25);
+    expect(prisonersSeated.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('draws the HERO in his seat too ($A482)', () => {
+    // He was the last one missing. His position is zeroed when he sits
+    // ($A498), so he is not drawn as a sprite -- the only thing that puts him
+    // on screen is his bench object, and hero_sits pokes it with
+    // PRISONER_SAT_DOWN_END_TABLE ($13), not the $05 the other five get,
+    // because he sits at the end of the table.
+    expect(run.heroSeated).toBe(true);
+  });
+
+  it('empties the hero\'s bench again when breakfast ends ($A32E)', () => {
+    // end_of_breakfast clears all SEVEN benches, his included. Without it he
+    // walks away and leaves a seated copy of himself behind.
+    expect(pokedObject(run.pokes, heroBench)).toBe(INTERIOR_OBJECT_EMPTY_BENCH);
+  });
+
+  it('pokes a seat graphic for each prisoner who sat', () => {
+    // $A437 writes interiorobject_PRISONER_SAT_MID_TABLE. Without it the bench
+    // stays empty however many prisoners are sitting on it -- which is what
+    // "three guys standing next to the bench" looked like.
+    const taken = run.benchesAtBreakfast.filter((v) => v !== undefined);
+    expect(taken.length).toBeGreaterThanOrEqual(5);
+    for (const v of taken) expect(v).toBe(INTERIOR_OBJECT_PRISONER_SAT);
+  });
+
+  it('leaves one bench seat empty, as the original does ($C7D4)', () => {
+    // The reproduced quirk, now visible end to end rather than only in a unit
+    // test: character_event's sit range is 18..22 where it should be 18..23,
+    // so one prisoner never gets a sit event and one of the six seats is never
+    // poked. Snapshotted DURING breakfast, because end_of_breakfast stands
+    // everyone up again.
+    const empty = run.benchesAtBreakfast.filter((v) => v === undefined);
+    expect(run.benchesAtBreakfast, JSON.stringify(run.benchesAtBreakfast)).toHaveLength(6);
+    expect(empty, JSON.stringify(run.benchesAtBreakfast)).toHaveLength(1);
   });
 });

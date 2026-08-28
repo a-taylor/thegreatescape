@@ -376,6 +376,28 @@
       15
     ]
   },
+  "redCrossParcelReset": {
+    "_addr": "$A259",
+    "_bytes": 6,
+    "_label": "red_cross_parcel_reset_data",
+    "fields": [
+      "room",
+      "x",
+      "y",
+      "height",
+      "isoX",
+      "isoY"
+    ],
+    "targetOffset": 1,
+    "values": [
+      20,
+      44,
+      44,
+      12,
+      128,
+      244
+    ]
+  },
   "structStride": 7,
   "structs": [
     [

@@ -29,7 +29,7 @@ import {
 } from './characters.js';
 import { divideBy8, divideBy8WithRounding } from './math.js';
 import { calcIsoPos } from './coords.js';
-import { getTargetAssignPos } from './behaviour.js';
+import { getTargetAssignPos, routeEnded } from './behaviour.js';
 import {
   CHARACTER_NONE,
   FLAGS_EMPTY_SLOT,
@@ -221,14 +221,30 @@ export function spawnCharacter(
   const iso = calcIsoPos(slot.pos);
   slot.isoPos = { x: iso.x, y: iso.y };
 
-  // $C592..$C5A1: a moving character gets its first target immediately, so it
+  // $C592..$C5B4: a moving character gets its first target immediately, so it
   // walks from the frame it appears. Halted ones ($C594) skip this.
+  //
+  // The result of get_target is CHECKED, and that is the whole point of this
+  // block. $C5A4 tests for get_target_ROUTE_ENDS, calls route_ended ($C5AC),
+  // and then jumps back to $C592 to try again with whatever route that left
+  // behind. Discard the result instead and a character that arrives on the
+  // last waypoint of its route never has the end handled: the next
+  // target_reached steps PAST the terminator, and because routes are packed it
+  // reads the following route's data. Route 16 (the walk to breakfast) ends on
+  // step 4, and step 5 is route 17's first waypoint -- an outdoor location,
+  // which every prisoner in the mess hall then walks into the wall chasing.
   if (ctx && slot.route.index !== 0) {
-    getTargetAssignPos(slot, {
-      random: ctx.random,
-      structs: ctx.structs,
-      room: currentRoom,
-    });
+    const behaviourCtx = { random: ctx.random, structs: ctx.structs, room: currentRoom };
+    // The original loops unbounded. route_ended always either halts the route
+    // or moves it somewhere new, so it terminates -- but BUILD_PROMPT.md §9
+    // says not to reproduce hangs, and an unbounded loop here would freeze the
+    // browser rather than misdraw. Bounded at the number of routes.
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const { routeEnded: ended } = getTargetAssignPos(slot, behaviourCtx);
+      if (!ended) break;
+      routeEnded(slot, behaviourCtx);
+      if (slot.route.index === 0) break; // $C594, now halted
+    }
   }
 
   return slot;

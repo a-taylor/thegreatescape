@@ -20,6 +20,7 @@ import {
 } from './characters.js';
 import { halfDoors, resolveDoor } from './doors.js';
 import { applyCharacterEvent, characterEvent } from './events.js';
+import { characterSits, characterSleeps, type RoomPokeState } from './parcels.js';
 import {
   ROUTE_HALT,
   advanceRoute,
@@ -69,6 +70,8 @@ export function moveTowards(
 export interface MoveContext {
   /** random_nibble ($CB85), injected so tests are deterministic. */
   readonly random: () => number;
+  /** The roomdef poke overlay, for character_sits / character_sleeps. */
+  readonly pokes?: RoomPokeState;
 }
 
 export interface MoveResult {
@@ -109,7 +112,7 @@ export function moveCharacter(
   const target = getTarget(struct.route, ctx.random);
 
   if (target.kind === 'ended') {
-    return { ...idle, routeEnded: true, ...endRoute(struct) };
+    return { ...idle, routeEnded: true, ...endRoute(struct, ctx.pokes) };
   }
 
   // $C723 / $C727: indoors characters move three times as far per turn.
@@ -213,7 +216,10 @@ function passThroughDoor(
  */
 export const ROUTE_GO_TO_SOLITARY = 36;
 
-function endRoute(struct: CharacterStruct): { changedRoom: number | null } {
+function endRoute(
+  struct: CharacterStruct,
+  pokes?: RoomPokeState,
+): { changedRoom: number | null } {
   const c = struct.character;
   const reverses =
     c === CHARACTER_COMMANDANT
@@ -227,6 +233,29 @@ function endRoute(struct: CharacterStruct): { changedRoom: number | null } {
 
   // $C6FA: everyone else exits via character_event.
   const event = characterEvent(struct.route.index);
+
+  // character_sits / character_sleeps reach character_sit_sleep_common ($A462)
+  // from here too, and it writes to whichever structure the caller is holding
+  // -- "a route structure which is within either a characterstruct or a
+  // vischar" ($A463). Off-screen, that is the struct.
+  //
+  // DIVERGENCE: the original picks WHICH structure by comparing the seat's
+  // room against the global current room ($A469) and then applying a fixed
+  // pointer offset -- route-4 for a struct, route+$1A for a vischar. Holding a
+  // struct while the comparison says "vischar" would write 24 bytes past its
+  // end, into a later character's record. We write to the structure we
+  // actually hold, which is the same result in every state that occurs and
+  // cannot corrupt a neighbour. BUILD_PROMPT.md §9 excludes that kind of
+  // out-of-bounds write.
+  if (event.kind === 'sits') {
+    characterSits(pokes, struct, struct.route.index);
+    return { changedRoom: null };
+  }
+  if (event.kind === 'sleeps') {
+    characterSleeps(pokes, struct, struct.route.index);
+    return { changedRoom: null };
+  }
+
   applyCharacterEvent(event, struct.route, struct.character);
   return { changedRoom: null };
 }

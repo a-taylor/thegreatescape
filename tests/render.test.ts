@@ -15,6 +15,13 @@ import { inflateSync } from 'node:zlib';
 import { exteriorTiles, interiorTiles, mapData, roomsData } from '../src/data/load.js';
 import { fillExterior, fillRoom, exteriorTileAt } from '../src/render/scene.js';
 import {
+  INTERIOR_OBJECT_EMPTY_BED,
+  bedObjects,
+  blockedTunnelObject,
+  createRoomPokes,
+  pokeObject,
+} from '../src/game/parcels.js';
+import {
   BUFFER_ROWS,
   GameWindowBuffers,
   VISIBLE_PIXEL_ROWS,
@@ -360,5 +367,52 @@ describe('interior rooms', () => {
     // Re-plotting an object with transparent regions must not clear anything.
     fillRoom(buffers, 1);
     expect(buffers.tiles).toEqual(before);
+  });
+});
+
+describe('the roomdef poke overlay reaches the screen', () => {
+  it('draws the poked object instead of the shipped one', () => {
+    // The game pokes roomdef bytes at runtime -- occupied beds ($A453),
+    // seated prisoners ($A437), the tunnel blockage the shovel clears
+    // ($B408) -- and setup_room simply reads them back. Here the roomdef
+    // table stays immutable and an overlay is consulted instead, so this
+    // asserts the overlay is actually READ. Recording a poke that the
+    // renderer ignores is exactly as visible as not poking at all: prisoners
+    // sit down on benches that stay empty.
+    const bed = bedObjects[0]!;
+
+    const plain = new GameWindowBuffers();
+    fillRoom(plain, 3); // roomdef_3_hut2_right holds three prisoner beds
+
+    const pokes = createRoomPokes();
+    pokeObject(pokes, bed, INTERIOR_OBJECT_EMPTY_BED);
+    const poked = new GameWindowBuffers();
+    fillRoom(poked, 3, pokes);
+
+    expect([...poked.tiles]).not.toEqual([...plain.tiles]);
+  });
+
+  it('is a no-op when nothing has been poked', () => {
+    const withEmpty = new GameWindowBuffers();
+    fillRoom(withEmpty, 3, createRoomPokes());
+    const without = new GameWindowBuffers();
+    fillRoom(without, 3);
+    expect([...withEmpty.tiles]).toEqual([...without.tiles]);
+  });
+
+  it('honours a poked value of ZERO, which is the transparent tile', () => {
+    // action_shovel writes 0 to remove the blockage graphic ($B408). Treating
+    // a falsy poke as "no override" would leave the rubble on screen while
+    // the boundary was gone -- an invisible wall in reverse.
+    const ref = blockedTunnelObject;
+    const plain = new GameWindowBuffers();
+    fillRoom(plain, 50);
+
+    const pokes = createRoomPokes();
+    pokeObject(pokes, ref, 0);
+    const cleared = new GameWindowBuffers();
+    fillRoom(cleared, 50, pokes);
+
+    expect([...cleared.tiles]).not.toEqual([...plain.tiles]);
   });
 });

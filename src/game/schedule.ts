@@ -28,6 +28,19 @@ import timingJson from '../../data/timing.json';
 import { characterStructFor, type CharacterStruct } from './characters.js';
 import { getTargetAssignPos, FLAGS_TARGET_IS_DOOR } from './behaviour.js';
 import { isEmpty, npcSlots, type Vischar } from './vischar.js';
+import { decreaseMorale, type PlayerState } from './player.js';
+import type { ItemState } from './inventory.js';
+import {
+  type ParcelState,
+  type RoomPokeState,
+  clearAllBenches,
+  emptyAllBeds,
+  eventNewRedCrossParcel,
+  heroLeavesBedPoke,
+  heroLeavesBenchPoke,
+  heroSitsPoke,
+  heroSleepsPoke,
+} from './parcels.js';
 
 interface TimedEvent {
   readonly clock: number;
@@ -90,7 +103,9 @@ export function heroSleeps(
   s: ScheduleState,
   hero: Vischar,
   pos: { x: number; y: number; height: number },
+  pokes?: RoomPokeState,
 ): void {
+  heroSleepsPoke(pokes); // $A48C, his bed shows him in it
   s.heroInBed = true;
   hero.route = { index: 0, step: 0 }; // $A493, routeindex_0_HALT
   pos.x = 0; // $A498
@@ -108,11 +123,38 @@ export function heroSits(
   s: ScheduleState,
   hero: Vischar,
   pos: { x: number; y: number; height: number },
+  pokes?: RoomPokeState,
 ): void {
+  // $A482: the hero's own bench, with PRISONER_SAT_DOWN_END_TABLE rather than
+  // the mid-table graphic the other five get. Without this he vanishes at
+  // breakfast -- his position is zeroed so he is not drawn as a sprite, and
+  // nothing draws him as furniture either.
+  heroSitsPoke(pokes);
   s.heroInBreakfast = true;
   hero.route = { index: 0, step: 0 }; // $A493
   pos.x = 0; // $A498
   pos.y = 0;
+}
+
+/**
+ * The breakfast half of process_player_input ($9E43..$9E5A): any key stands
+ * the hero up from the bench.
+ *
+ * Four writes, mirroring the in-bed case: route 43 step 0, position (52, 62),
+ * the bench emptied ($9E55) and the flag cleared. The bench poke is the one
+ * that shows -- without it the seated graphic stays behind after he walks off.
+ */
+export function heroStandsFromBreakfast(
+  s: ScheduleState,
+  hero: Vischar,
+  pos: { x: number; y: number; height: number },
+  pokes?: RoomPokeState,
+): void {
+  if (!s.heroInBreakfast) return;
+  hero.route = { index: 43, step: 0 }; // $9E43
+  setPositionLowByte(pos, 0x34, 0x3e); // $9E4C / $9E50
+  heroLeavesBenchPoke(pokes); // $9E55
+  s.heroInBreakfast = false; // $9E7D
 }
 
 /**
@@ -126,8 +168,10 @@ export function heroGetsUp(
   s: ScheduleState,
   hero: Vischar,
   pos: { x: number; y: number; height: number },
+  pokes?: RoomPokeState,
 ): void {
   if (!s.heroInBed) return;
+  heroLeavesBedPoke(pokes); // $9E78
   hero.route = { index: 44, step: 1 }; // $9E5C
   hero.target = { x: 0x2e, y: 0x2e, height: 0 }; // $9E62
   pos.x = 0x2e; // $9E68
@@ -188,7 +232,39 @@ export interface ScheduleContext {
   readonly heroPos: { x: number; y: number; height: number };
   /** in_solitary ($A13A): set_hero_route does nothing while it is set. */
   readonly inSolitary?: boolean;
+
+  /**
+   * P5 state. Optional so that a caller interested only in where the cast
+   * walks -- the route tests, and the demo before the panel existed -- can
+   * still drive the schedule without standing up the whole game.
+   *
+   * When any of these is absent the corresponding side effect is skipped, and
+   * the EventOutcome says so rather than pretending it happened.
+   */
+  readonly player?: PlayerState;
+  readonly items?: ItemState;
+  readonly parcels?: ParcelState;
+  readonly roomPokes?: RoomPokeState;
+  readonly queueMessage?: (index: number, c?: number) => void;
 }
+
+/**
+ * The message each timed event queues, from the `LD B,n` at its call site.
+ *
+ * These are the only messages the day schedule raises; everything else in the
+ * table comes from the action handlers or from jeopardy.
+ */
+export const EVENT_MESSAGES = {
+  ANOTHER_DAY_DAWNS: 0x13, // $A1D3
+  TIME_TO_WAKE_UP: 0x01, // $A1E8
+  ROLL_CALL: 0x08, // $A1F1
+  BREAKFAST_TIME: 0x02, // $A1FA
+  EXERCISE_TIME: 0x03, // $A207
+  TIME_FOR_BED: 0x04, // $A220
+} as const;
+
+/** The morale a night costs ($A1D8 LD B,$19). */
+export const NIGHT_MORALE_COST = 25;
 
 /**
  * set_hero_route ($A33F / $A344).
@@ -341,14 +417,17 @@ const handlers: Record<
   string,
   (s: ScheduleState, ctx: ScheduleContext) => EventOutcome
 > = {
-  // $A1D3: clear the night flag. The message queue and morale are P5.
-  $A1D3: (s) => {
-    s.night = false;
-    return { event: 'another day dawns', note: 'morale -25 pending P5' };
+  // $A1D3 -> event_another_day_dawns.
+  $A1D3: (s, ctx) => {
+    ctx.queueMessage?.(EVENT_MESSAGES.ANOTHER_DAY_DAWNS); // $A1D5
+    if (ctx.player) decreaseMorale(ctx.player, NIGHT_MORALE_COST); // $A1DA
+    s.night = false; // $A1DD
+    return { event: 'another day dawns' };
   },
 
   // $A1E7 -> wake_up ($A289).
   $A1E7: (s, ctx) => {
+    ctx.queueMessage?.(EVENT_MESSAGES.TIME_TO_WAKE_UP); // $A1E8
     // $A290..$A297: the hero climbs out of bed. Note this writes the LOW BYTE
     // of mi.pos.x and mi.pos.y only -- `LD (HL),$2E` is one byte, and the high
     // bytes are left alone. Indoors, where this is meant to fire, they are
@@ -365,16 +444,30 @@ const handlers: Record<
     placePrisoners(ctx, 23, 3, 5);
     setCastRoutesSplit(5, 0, ctx); // $A2B9
 
-    // $A2C1 empties the beds. The iteration count there is 7 over a six-entry
-    // array and writes to ROM at $1A42 -- see FIDELITY.md; we use six.
+    // $A2C1 empties the beds -- six of them, not the seven the instruction
+    // codes for; the seventh writes to ROM. See FIDELITY.md and parcels.ts.
+    if (ctx.roomPokes) emptyAllBeds(ctx.roomPokes);
     return { event: 'wake up' };
   },
 
-  // $A228: red cross parcels are P5.
-  $A228: () => ({ event: 'new red cross parcel', note: 'parcels are P5' }),
+  // $A228 -> event_new_red_cross_parcel.
+  $A228: (_s, ctx) => {
+    if (!ctx.items || !ctx.parcels) {
+      return { event: 'new red cross parcel', note: 'no item state supplied' };
+    }
+    const item = eventNewRedCrossParcel(
+      ctx.items,
+      ctx.parcels,
+      ctx.queueMessage ?? (() => {}),
+    );
+    return item < 0
+      ? { event: 'new red cross parcel', note: 'none could be spawned' }
+      : { event: 'new red cross parcel' };
+  },
 
   // $A1F0 -> go_to_roll_call ($A4FD).
   $A1F0: (_s, ctx) => {
+    ctx.queueMessage?.(EVENT_MESSAGES.ROLL_CALL); // $A1F1
     setCastRoutesIndividual(26, 0, ctx); // routeindex_26_GUARD_12_ROLL_CALL
     setHeroRoute(ctx, 45, 0); // routeindex_45_HERO_ROLL_CALL
     return { event: 'roll call' };
@@ -386,6 +479,7 @@ const handlers: Record<
 
   // $A1F9 -> set_route_go_to_breakfast ($A4C5).
   $A1F9: (_s, ctx) => {
+    ctx.queueMessage?.(EVENT_MESSAGES.BREAKFAST_TIME); // $A1FA
     setHeroRoute(ctx, 16, 0); // routeindex_16_BREAKFAST_25
     setCastRoutesSplit(16, 0, ctx);
     return { event: 'breakfast time' };
@@ -397,6 +491,8 @@ const handlers: Record<
     if (s.heroInBreakfast) {
       setPositionLowByte(ctx.heroPos, 0x34, 0x3e);
     }
+    // $A31A..$A32E: all seven benches empty, the hero's included.
+    if (ctx.roomPokes) clearAllBenches(ctx.roomPokes);
     s.heroInBreakfast = false;
     setHeroRoute(ctx, 0x90, 3); // REVERSED routeindex_16
 
@@ -408,6 +504,7 @@ const handlers: Record<
 
   // $A206 -> set_route_go_to_yard ($A4A9), having unlocked the gates.
   $A206: (s, ctx) => {
+    ctx.queueMessage?.(EVENT_MESSAGES.EXERCISE_TIME); // $A207
     s.gatesLocked = false; // $A20C
     setHeroRoute(ctx, 14, 0); // routeindex_14_GO_TO_YARD
     setCastRoutesSplit(14, 0, ctx);
@@ -423,6 +520,7 @@ const handlers: Record<
 
   // $A219 -> go_to_time_for_bed ($A351), having locked the gates.
   $A219: (s, ctx) => {
+    ctx.queueMessage?.(EVENT_MESSAGES.TIME_FOR_BED); // $A220
     s.gatesLocked = true; // $A21A
     setHeroRoute(ctx, 0x85, 2); // REVERSED routeindex_5_EXIT_HUT2
     setCastRoutesSplit(0x85, 2, ctx);

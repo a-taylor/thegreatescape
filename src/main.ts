@@ -41,9 +41,34 @@
  */
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
-import { tinyposStash, toTinyPos } from './game/coords.js';
+import { heroMapPosition, tinyposStash, toTinyPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
-import { itemDefinitions, itemStructs, type ItemStruct } from './game/items.js';
+import { itemDefinitions, type ItemStruct } from './game/items.js';
+import {
+  ITEM_NONE,
+  allItemStructs,
+  createItemState,
+  dropItemTail,
+  markNearbyItems,
+  processPlayerInputFire,
+} from './game/inventory.js';
+import { type ActionContext, createLockedDoors, itemActions } from './game/actions.js';
+import { interiorDoorsForRoom } from './game/doors.js';
+import { MORALE_MAX, checkMorale, createPlayer, scoreValue } from './game/player.js';
+import {
+  clearTunnelBlockage,
+  createParcels,
+  createRoomPokes,
+  isTunnelBlockageCleared,
+} from './game/parcels.js';
+import {
+  createMessages,
+  messageDisplay,
+  messageOnScreen,
+  messages as messageTable,
+  queueMessage,
+} from './ui/messages.js';
+import { plotScore, setMoraleFlagScreenAttributes, waveMoraleFlag } from './ui/panel.js';
 import {
   characterClass,
   characterStructs,
@@ -74,6 +99,7 @@ import {
   createSchedule,
   dispatchTimedEvent,
   heroGetsUp,
+  heroStandsFromBreakfast,
   heroSits,
   heroSleeps,
   timedEvents,
@@ -83,6 +109,7 @@ import {
   HERO_STANDING_HEIGHT,
   animations,
   createHero,
+  INPUT_FIRE,
   encodeInput,
   step,
 } from './game/hero.js';
@@ -204,6 +231,95 @@ const schedule = createSchedule();
  * him to roll call.
  */
 const automatic = createAutomaticState();
+
+/**
+ * P5 state, each with exactly one owner.
+ *
+ * `itemState` is the authoritative item_structs array; the shipped table in
+ * `items.json` is only its seed. `player` holds morale and score, `messages`
+ * the queue and the line being typed, `parcels` the current parcel contents,
+ * and `roomPokes` the roomdef bytes the game overwrites (the beds, and the
+ * tunnel blockage the shovel clears).
+ */
+const itemState = createItemState();
+const player = createPlayer();
+const messages = createMessages();
+const parcels = createParcels();
+const roomPokes = createRoomPokes();
+const queueGameMessage = (index: number, c = 0) => queueMessage(messages, index, c);
+
+/**
+ * The panel's own display file.
+ *
+ * See render() -- the game keeps the panel in screen memory permanently, and
+ * this demo rebuilds the screen each frame, so the two are reconciled by
+ * letting the panel accumulate here and copying it in.
+ */
+const panelScreen = new SpectrumScreen();
+
+/**
+ * attribute_BRIGHT_GREEN_OVER_BLACK ($F16A), which reset_game sets the flag to.
+ *
+ * in_permitted_area swaps it for red ($9FDA) when the hero strays; that is P6,
+ * so the demo shows the starting colour.
+ */
+const MORALE_FLAG_ATTRIBUTE_GREEN = 0x44;
+
+/**
+ * The demo's "fire" key.
+ *
+ * Debug scaffolding: the real game has no fixed key here at all -- choose_keys
+ * ($F2A7) lets the player define all five, which is P7. Space is chosen so
+ * that fire + an arrow is reachable one-handed.
+ */
+const FIRE_KEY = ' ';
+
+/** saved_pos ($81A4), which use_item fills before dispatching ($7B0A). */
+const savedPos = { x: 0, y: 0, height: 0 };
+
+/** locked_doors ($F05D), mutable: action_key clears bit 7 in it. */
+const lockedDoors = createLockedDoors();
+
+/** The hero's sprite set, which IS the uniform ($B3E1 / $7B96). */
+let heroSprite: 'prisoner' | 'guard' = 'prisoner';
+
+/**
+ * The context the action handlers need, rebuilt per command.
+ *
+ * Cheap, and it keeps the handlers reading live values rather than a snapshot
+ * taken when the demo started.
+ */
+function actionContext(): ActionContext {
+  return {
+    items: itemState,
+    player,
+    room: hero.room,
+    hero: heroSlot,
+    // $81B8, the HERO's tinypos -- not map_position ($81BB), the view scroll.
+    mapPosition: heroMapPosition(hero.pos, hero.room === 0),
+    savedPos,
+    vischars,
+    interiorDoors: hero.room === 0 ? [] : interiorDoorsForRoom(hero.room),
+    lockedDoors,
+    redCrossParcelContents: parcels.contents,
+    playerLockedOutUntil: 0,
+    bribedCharacter: 0xff,
+    doorBeingLockpicked: -1,
+    queueMessage: queueGameMessage,
+    dropItemTail: (item) => dropItemTail(itemState, item, hero.room, hero.pos),
+    setHeroSprite: (sprite) => { heroSprite = sprite; },
+    heroSpriteIsGuard: () => heroSprite === 'guard',
+    refreshRoom: () => { render(); },
+    clearTunnelBlockage: () => clearTunnelBlockage(roomPokes),
+    isTunnelBlockageCleared: () => isTunnelBlockageCleared(roomPokes),
+    // P6 owns both of these; the handlers only need to be able to call them.
+    solitary: () => { lastEvent = 'solitary (P6)'; },
+    transitionOutsideMainGate: () => { lastEvent = 'out of the gate (P6)'; },
+  };
+}
+
+/** attribute_WHITE_OVER_BLACK, what the screen clear leaves ($F266 LD (HL),$07). */
+const PANEL_ATTRIBUTE = 0x07;
 
 /**
  * The hero's own vischar, slot 0.
@@ -463,7 +579,10 @@ function plotVischars(): void {
 
   // Items in this room compete in the same ordering. get_next_drawable's item
   // half works on tinypos * 8 ($B1C7), so they are scaled to meet the vischars.
-  const here = itemStructs().filter((s) => !s.nowhere && s.room === hero.room);
+  // Read through the single owner, never itemStructs(): that decodes the
+  // SHIPPED table, so calling it per frame would resurrect anything the hero
+  // had picked up. CLAUDE.md's "one game field, two objects" hazard.
+  const here = allItemStructs(itemState).filter((s) => !s.nowhere && s.room === hero.room);
   const items: Drawable[] = here.map((s) => ({
     kind: 'item',
     index: s.index,
@@ -495,6 +614,12 @@ function plotVischars(): void {
   }
 }
 
+/** The two held-item slots, for the debug line. Item names are not in the data. */
+function heldLabel(): string {
+  const names = [...itemState.held].map((i) => (i === ITEM_NONE ? '—' : `#${i}`));
+  return names.join(' ');
+}
+
 function render(): void {
   const itemsHeld: [number, number] = torch ? [4, 0xff] : [0xff, 0xff];
   const { attribute, wipeTiles } = chooseGameWindowAttributes(hero.room, night, itemsHeld);
@@ -504,7 +629,10 @@ function render(): void {
   } else if (hero.room === 0) {
     view.render(buffers);
   } else {
-    fillRoom(buffers, hero.room);
+    // The poke overlay carries the runtime roomdef writes -- occupied beds,
+    // seated prisoners, the cleared tunnel blockage. Without it they are
+    // recorded and never drawn.
+    fillRoom(buffers, hero.room, roomPokes);
   }
 
   buffers.expandTiles(hero.room === 0 ? exteriorTiles() : interiorTiles());
@@ -517,9 +645,27 @@ function render(): void {
   // suppresses everything.
   if (!wipeTiles) plotVischars();
 
-  screen.clear(0x00, 0x00);
+  // The panel is PERSISTENT screen memory in the original: the score, the
+  // morale flag and the message line are poked into the display file and stay
+  // there until something overwrites them. This demo clears and rebuilds the
+  // whole screen every frame, so the panel accumulates on its own display and
+  // is copied in first; the game window is then blitted over the middle of it.
+  // Same pixels on screen, different bookkeeping -- see CLAUDE.md on the
+  // renderer running more than once per frame.
+  // $F266: the game's own screen clear sets every attribute to $07, white
+  // over black, and only then paints the flag green and the game window its
+  // chosen colour. Clearing to zero instead leaves black ink on black paper,
+  // which draws the score and the message line perfectly and invisibly.
+  screen.clear(0x00, PANEL_ATTRIBUTE);
+  screen.display.set(panelScreen.display);
   plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);
   setWindowAttributes(screen, attribute);
+
+  // plot_score and the flag attributes are re-run every frame rather than
+  // being part of the persistent panel: the score digits change in place and
+  // the attributes are cleared by screen.clear.
+  plotScore(screen, player);
+  setMoraleFlagScreenAttributes(screen, MORALE_FLAG_ATTRIBUTE_GREEN);
   presenter.present(screen);
 
   const tiny = toTinyPos(hero.pos);
@@ -553,7 +699,13 @@ function render(): void {
     `facing <b>${dirNames[hero.direction & 3]}</b>${hero.direction & 4 ? ' crawling' : ''} · ` +
     `${where} · gwo (${windowOffset.low},${windowOffset.high}) · ` +
     `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span><br>` +
-    `vischars <b>${occupied.length}/7</b> <span class="a">${roster}</span>` +
+    `vischars <b>${occupied.length}/7</b> <span class="a">${roster}</span> · ` +
+    // P5: morale, the flag's lagging copy, the score, and what is on the
+    // message line. Debug scaffolding -- the game shows all four graphically.
+    `morale <b>${player.morale}</b>/${MORALE_MAX} (flag ${player.displayedMorale}) · ` +
+    `score <b>${String(scoreValue(player)).padStart(5, '0')}</b> · ` +
+    `held ${heldLabel()}` +
+    (messageOnScreen(messages) ? ` · msg "<b>${messageTable[messages.messageIndex]!.text}</b>"` : '') +
     (schedule.heroInBed ? ' · <b>IN BED</b> (press an arrow)' : '') +
     (schedule.heroInBreakfast ? ' · <b>AT BREAKFAST</b>' : '') +
     (paused ? ' · <b>PAUSED</b>' : '') +
@@ -602,16 +754,46 @@ function tick(): void {
     keys.has('ArrowDown'),
     keys.has('ArrowLeft'),
     keys.has('ArrowRight'),
+    keys.has(FIRE_KEY),
   );
 
   const random = () => prng.next();
 
-  // $9E37..$9E5C: the first keypress gets the hero out of bed rather than
-  // being treated as movement.
+  // $9E86: `CP $09 / JR C` -- anything below 9 has no fire and takes the
+  // ordinary movement path. With fire, the item commands run and the input
+  // then becomes input_KICK ($9E8D), which carries no direction, so the hero
+  // does NOT also walk. Passing the raw value on would move him, because
+  // lookupAnimation takes `input % 9` and fire+up would read as plain up.
+  const command = processPlayerInputFire(itemState, input, {
+    player,
+    room: hero.room,
+    mapPosition: heroMapPosition(hero.pos, hero.room === 0),
+    heroPos: hero.pos,
+    savedPos,
+    actions: itemActions(actionContext()),
+    // $7B96: dropping the uniform puts the prisoner sprite back.
+    onUniformRemoved: () => { heroSprite = 'prisoner'; },
+  });
+  if (command) {
+    lastEvent =
+      command.item < 0
+        ? `${command.command}: nothing`
+        : `${command.command}: item ${command.item}`;
+  }
+  // input_KICK ($9E8D): a sprite refresh with no direction bits.
+  const moveInput = input >= INPUT_FIRE ? 0 : input;
+
+  // $9E37..$9E5C: the first keypress gets the hero out of bed, or up off the
+  // breakfast bench, rather than being treated as movement. Both branches poke
+  // the furniture back to its empty graphic ($9E78 / $9E55) -- skip that and
+  // he walks away leaving a seated copy of himself behind.
   if (input !== 0 && schedule.heroInBed) {
-    heroGetsUp(schedule, heroSlot, hero.pos);
+    heroGetsUp(schedule, heroSlot, hero.pos, roomPokes);
     hero.room = 2;
     lastEvent = 'got out of bed';
+  } else if (input !== 0 && schedule.heroInBreakfast) {
+    heroStandsFromBreakfast(schedule, heroSlot, hero.pos, roomPokes);
+    lastEvent = 'stood up from breakfast';
   }
 
   // $9E22..$9E35: input resets the automatic counter, idleness counts it down.
@@ -623,7 +805,7 @@ function tick(): void {
   // move_map still scrolls once, so he walks straight out of the window and
   // the scroll phase desynchronises, which is the whole class of bug P3 spent
   // its time on.
-  let effectiveInput = input;
+  let effectiveInput = moveInput;
   /** Set when target_reached took the automatic hero through a door. */
   let autoEnteredRoom: number | null = null;
   if (heroIsAutomatic(automatic)) {
@@ -643,6 +825,7 @@ function tick(): void {
       random,
       structs,
       room: hero.room,
+      pokes: roomPokes,
     });
     hero.counterAndFlags = heroSlot.counterAndFlags;
     effectiveInput = heroSlot.input & 0x0f;
@@ -651,10 +834,10 @@ function tick(): void {
     // position so he is inside the bench or bed. The caller owns his position,
     // so this half happens here.
     if (behaviour.event === 'heroSits') {
-      heroSits(schedule, heroSlot, hero.pos);
+      heroSits(schedule, heroSlot, hero.pos, roomPokes);
       lastEvent = 'sat down to breakfast';
     } else if (behaviour.event === 'heroSleeps') {
-      heroSleeps(schedule, heroSlot, hero.pos);
+      heroSleeps(schedule, heroSlot, hero.pos, roomPokes);
       lastEvent = 'went to bed';
     }
 
@@ -688,13 +871,13 @@ function tick(): void {
   // $9D8D: one off-screen character walks its route.
   moveIndex = nextCharacterIndex(moveIndex);
   const mover = structs[moveIndex];
-  if (mover) moveCharacter(mover, { random });
+  if (mover) moveCharacter(mover, { random, pokes: roomPokes });
 
   // $9D90: follow_suspicious_character loops the seven NPC slots and runs
   // character_behaviour on each, which synthesises an input.
   for (const v of npcSlots(vischars)) {
     if (isEmpty(v)) continue;
-    characterBehaviour(v, { random, structs, room: hero.room });
+    characterBehaviour(v, { random, structs, room: hero.room, pokes: roomPokes });
   }
 
   purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
@@ -756,9 +939,29 @@ function tick(): void {
     lastEvent = 'THE DOOR IS LOCKED';
   } else if (outcome.blocked) {
     lastEvent = 'blocked';
-  } else if (input !== 0) {
+  } else if (moveInput !== 0) {
+    // moveInput, not input: a fire command carries no movement ($9E8D turns it
+    // into input_KICK), so there is no "moved and nothing happened" to report
+    // and clearing here would wipe the command's own message.
     lastEvent = '';
   }
+
+  // $DB9E: recompute which items are near enough to draw and to pick up. Runs
+  // every iteration in the main loop, and reads map_position ($81BB) -- the
+  // view scroll -- unlike the pick-up range check, which reads the hero's own
+  // position.
+  markNearbyItems(itemState, view.position, hero.room);
+
+  // $9D7B's own order: wave_morale_flag first -- it is what advances the game
+  // counter, so it has to run every tick even when nothing is moving -- then
+  // message_display, then check_morale.
+  //
+  // These write straight into the display file rather than into the window
+  // buffer, and render() clears the screen before blitting, so they are
+  // redrawn from render() as well. Only the STATE advances here.
+  waveMoraleFlag(panelScreen, player);
+  messageDisplay(messages, panelScreen);
+  checkMorale(player, queueGameMessage);
 
   // $9DC5..$9DCA: dispatch a timed event once every 64 iterations. The counter
   // is the game counter's low six bits, not a timer of its own.
@@ -771,6 +974,11 @@ function tick(): void {
       room: hero.room,
       hero: heroSlot,
       heroPos: hero.pos,
+      player,
+      items: itemState,
+      parcels,
+      roomPokes,
+      queueMessage: queueGameMessage,
     });
     if (fired) {
       lastEvent = fired.note ? `${fired.event} (${fired.note})` : fired.event;
@@ -807,8 +1015,10 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  if (e.key.startsWith('Arrow')) {
+  if (e.key.startsWith('Arrow') || e.key === FIRE_KEY) {
     keys.add(e.key);
+    // Space scrolls the page otherwise, which moves the canvas out from under
+    // whatever the player is looking at.
     e.preventDefault();
   }
 });
@@ -857,6 +1067,11 @@ eventSelect.addEventListener('change', () => {
   // than assigning the clock and hoping.
   const before = (target - 1 + CLOCK_WRAP) % CLOCK_WRAP;
   while (schedule.clock !== before) {
+    // The same context the real dispatch uses, so winding the clock leaves the
+    // beds, the parcel and morale in the state the elapsed day would have. The
+    // intervening messages all get queued and then play out in order, which is
+    // what the game would do too -- queue_message simply drops any that do not
+    // fit ($7D1B).
     dispatchTimedEvent(schedule, {
       structs,
       vischars,
@@ -864,6 +1079,11 @@ eventSelect.addEventListener('change', () => {
       room: hero.room,
       hero: heroSlot,
       heroPos: hero.pos,
+      player,
+      items: itemState,
+      parcels,
+      roomPokes,
+      queueMessage: queueGameMessage,
     });
   }
   night = schedule.night;
@@ -925,7 +1145,7 @@ roomSelect.addEventListener('change', () => {
 const START_ROOM = 2;
 hero.room = START_ROOM;
 setViewForRoom(START_ROOM, hero.pos);
-heroSleeps(schedule, heroSlot, hero.pos);
+heroSleeps(schedule, heroSlot, hero.pos, roomPokes);
 
 function fit(): void {
   presenter.resize(window.innerWidth - 48, window.innerHeight - 260);

@@ -39,8 +39,10 @@ side.
 `LD B,$07` iterates seven times over a six-entry array, and the seventh iteration writes to
 `$1A42`, which is **ROM**. Named explicitly in §9 as not to be reproduced.
 
-**Not yet reached** — the beds arrive with the day schedule in P4/P5. Recorded now so it is not
-implemented from the raw byte count by accident.
+**Applied.** `BED_COUNT` is 6, with `BED_COUNT_AS_CODED = 7` kept alongside it
+(`src/game/parcels.ts`) on the same pattern as `EXTERIOR_MASK_COUNT`. `emptyAllBeds` writes the
+six prisoner beds plus the hero's ($A2CF, a separate poke into roomdef 2), and a test asserts
+exactly seven objects change — not eight.
 
 ---
 
@@ -52,16 +54,17 @@ directives (see above), each is a decision made here. All eight, with their disp
 | Site | Described fix | Disposition |
 |---|---|---|
 | `$B935` | `exterior_mask_data` iteration count 59 → 58 | **Applied.** Out-of-bounds read; §9 excludes it. Both constants kept in source. |
-| `$A2C6` | `beds` iteration count 7 → 6 | **To apply** when the beds land. ROM write, named in §9. |
+| `$A2C6` | `beds` iteration count 7 → 6 | **Applied.** ROM write, named in §9. Both constants kept in source. |
 | `$7CAF` | needless `RET Z` → `RET` | **No effect.** The condition is always met; a plain return is equivalent. |
 | `$B916` | missing `RET` at the end of `render_mask_buffer` | **No effect**, and the disassembly says so: without it "the routine will harmlessly fall through into `multiply`", which computes a value nobody reads and returns. Returning normally is equivalent. |
 | `$6B19` | redundant self-modifying code | **No effect.** Structural; nothing observable depends on it. |
 | `$7AFB` | redundant jump | **No effect.** |
 | `$A0B8` | redundant jump | **No effect.** |
-| `$CCED` | `is_item_discoverable` off-by-one | **Open.** P5. The header calls it a "potential bug fix" and `TheGreatEscapeBugs.ref` describes an off-by-one at `$CCCD` where `HL` is decremented but not restored. The corrected form must be derived from the code, not the prose — see `OPEN_QUESTIONS.md` §1. |
+| `$CCED` | `is_item_discoverable` off-by-one | **Not applied — reproduced.** See below. The read stays inside `item_structs`, so §9's exclusions do not reach it. |
 
-So of the eight, one is applied, one is pending with a clear rule from §9, five are genuinely
-inert, and one needs work when P5 reaches it. None of them block P4.
+So of the eight, **two are applied** (`$B935`, `$A2C6` — both excluded by §9), five are
+genuinely inert, and one (`$CCED`) is deliberately reproduced because it is a visible quirk
+rather than an out-of-bounds read. The ledger is now closed: nothing is outstanding.
 
 ---
 
@@ -121,6 +124,34 @@ made the view swing 8 pixels sideways on alternate frames during P3.
 Rooms 6, 26 and 27 are unreachable in the finished game. They are extracted, listed in the
 demo's room selector, and marked `unused` — §9 wants unused things visibly unused rather than
 dropped.
+
+### `$CCEB` — `is_item_discoverable` loses its place
+
+`DEC HL` steps the pointer back from an itemstruct's room byte to its item byte and is never
+undone. When the item turns out to be the green key or food, the `ADD HL,DE` at `$CCE7`
+therefore advances from the wrong byte, and every later iteration of the scan is one byte
+early: it tests bit 7 of an ITEM byte — `ITEM_FLAG_HELD`, not `NEARBY_7` — and reads its
+"item index" out of the *previous* struct's `iso_pos.y`. The disassembly guesses the
+consequence and stops there: "I think it'll screw up when multiple items are in range."
+
+**Reproduced** (`src/game/discovery.ts`). The header lists this as a *potential* bug fix, and
+§9's exclusions do not apply: the pointer drifts back one byte per skip while advancing seven,
+so across sixteen iterations it stays inside the 112 bytes of `item_structs` and can never read
+out of bounds. A test asserts the shifted read directly — a held item nowhere near the hero
+reporting a nonsense index — and a second test drives the maximum possible drift to show the
+scan stays in the array.
+
+Two smaller misreadings in the same pair of routines are reproduced for the same reason, both
+flagged by the disassembly:
+
+- **`$CD17`** compares `default_item_locations[item].room_and_flags` whole against a room index
+  that was masked with `$3F` two instructions earlier. Only one default location has flag bits
+  set — the wiresnips, at `$FF` — so the effect is confined to that one item, which reads as
+  "moved" wherever it is. The DOS version fixes this; this one does not.
+- **`$CD44` / `$CD4F`** in `item_discovered` add the *unmasked* index back into two address
+  calculations after masking it to `$0F`. Every caller passes an index below 16, where the two
+  agree, so the divergence is unreachable in play — but it is coded as written rather than
+  normalised.
 
 ### The character set has no letter "O"
 

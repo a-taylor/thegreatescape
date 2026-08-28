@@ -8,6 +8,7 @@
  */
 
 import { mapData, objectsData, roomDef } from '../data/load.js';
+import { pokedObjectIn, type RoomPokeState } from '../game/parcels.js';
 import { BUFFER_ROWS, WINDOW_COLS, type GameWindowBuffers } from './window.js';
 
 /** Supertiles are 4x4 tiles. */
@@ -109,9 +110,28 @@ export function plotObject(
  * Objects are drawn in the roomdef's stored order so later ones overlay
  * earlier, matching setup_room. `room` is 1-based: rooms_and_tunnels ($6BAD)
  * starts at room 1.
+ *
+ * `pokes` is the overlay of roomdef bytes the game overwrites AT RUNTIME:
+ * occupied beds ($A453), seated prisoners ($A437), the tunnel blockage the
+ * shovel clears ($B408). The original writes those straight into the roomdef
+ * table, so setup_room simply reads them back; here the table stays immutable
+ * and the overlay is consulted on the way past. Omit it and every one of those
+ * writes is recorded and then ignored -- prisoners sit down invisibly on
+ * benches that stay empty.
  */
-export function fillRoom(buffers: GameWindowBuffers, room: number): void {
+export function fillRoom(
+  buffers: GameWindowBuffers,
+  room: number,
+  pokes?: RoomPokeState,
+): void {
   const { def } = roomDef(room);
   buffers.wipeTiles();
-  for (const o of def.objects) plotObject(buffers, o.object, o.x, o.y);
+  def.objects.forEach((o, index) => {
+    const poked = pokes ? pokedObjectIn(pokes, def.addr, index) : undefined;
+    const object = poked ?? o.object;
+    // A poked value of 0 is the transparent tile -- that is how action_shovel
+    // removes the blockage graphic ($B408) -- so it must reach plotObject
+    // rather than being treated as "no override".
+    plotObject(buffers, object, o.x, o.y);
+  });
 }

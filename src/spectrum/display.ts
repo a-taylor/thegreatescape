@@ -180,3 +180,38 @@ export class SpectrumScreen {
     }
   }
 }
+
+/**
+ * next_scanline_down ($7CE9): the same column, one pixel row lower.
+ *
+ * Not the same thing as `screenAddress(col, row + 1)`. The game walks the
+ * address arithmetically, and the walk is only correct while it stays inside
+ * the display file -- at the bottom of the screen it runs on into the
+ * attribute file rather than stopping. Modelled as the Z80 does it, so callers
+ * that overrun get the original's behaviour rather than a silent clamp.
+ *
+ * `INC H` steps the scanline within a character row. When that carries out of
+ * bits 8..10 (H becoming a multiple of 8) it has spilled into the next third,
+ * so the routine subtracts a third and adds a character row: $F820, or $FF20
+ * when the column is at $E0 or above and the character-row add would itself
+ * carry ($7CF3).
+ */
+export function nextScanlineDown(addr: number): number {
+  let hl = (addr + 0x100) & 0xffff; // INC H
+  if (((hl >> 8) & 0x07) !== 0) return hl; // $7CED RET NZ
+  const de = (hl & 0xff) >= 0xe0 ? 0xff20 : 0xf820; // $7CF3 / $7CF7
+  return (hl + de) & 0xffff;
+}
+
+/**
+ * next_scanline_up ($A082): the same column, one pixel row higher.
+ *
+ * The mirror of {@link nextScanlineDown} but NOT its exact inverse in shape:
+ * the easy case tests H's low three bits BEFORE decrementing ($A083), and the
+ * hard case adds $06E0, or -$20 when the column is below 32 ($A08D CP $20).
+ */
+export function nextScanlineUp(addr: number): number {
+  if (((addr >> 8) & 0x07) !== 0) return (addr - 0x100) & 0xffff; // DEC H
+  const de = (addr & 0xff) < 0x20 ? 0xffe0 : 0x06e0; // $A091 / $A089
+  return (addr + de) & 0xffff;
+}

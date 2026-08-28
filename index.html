@@ -104,6 +104,24 @@
       <code>animindices</code> table dictates. Walk into a door to change room.
     </p>
     <p class="sub">
+      <kbd>Space</kbd> is fire, and fire <em>plus a direction</em> is an item command, exactly
+      as <code>process_player_input_fire</code> ($7AC9) reads it:
+      <kbd>Space</kbd>+<kbd>&uarr;</kbd> picks up,
+      <kbd>Space</kbd>+<kbd>&darr;</kbd> drops,
+      <kbd>Space</kbd>+<kbd>&larr;</kbd> uses the first held item and
+      <kbd>Space</kbd>+<kbd>&rarr;</kbd> the second.
+      Fire on its own, and fire with two directions at once, do nothing at all &mdash; the
+      routine tests only those four values. A fire command never moves the hero.
+      The original has no fixed key here: all five are player-defined via
+      <code>choose_keys</code>, which is P7.
+    </p>
+    <p class="sub">
+      Pick-up radius is 1 outdoors and 6 indoors, and
+      <code>find_nearby_item</code> returns the first item <em>by index</em>, not the nearest
+      &mdash; so in a pile you get the lowest-numbered one. Each item scores 5 the first time
+      it is picked up and never again.
+    </p>
+    <p class="sub">
       <kbd>P</kbd> pauses and <kbd>.</kbd> advances a single tick while paused &mdash; debug
       scaffolding for catching a rendering fault mid-motion, not part of the original game.
       The status line records the paused state so a screenshot carries it.

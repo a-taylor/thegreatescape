@@ -19,7 +19,7 @@
  * what gets it around a corner without any pathfinding.
  */
 
-import { characterStructFor, type CharacterStruct } from './characters.js';
+import type { CharacterStruct } from './characters.js';
 import { calcIsoPos } from './coords.js';
 import { halfDoors, resolveDoor, transitionPosition } from './doors.js';
 import { applyCharacterEvent, characterEvent } from './events.js';
@@ -32,6 +32,8 @@ import {
   type Target,
 } from './routes.js';
 import { BYTE7_Y_DOMINANT, type Vischar } from './vischar.js';
+import { resetVisibleCharacter } from './spawn.js';
+import { characterSits, characterSleeps, type RoomPokeState } from './parcels.js';
 
 /** vischar_FLAGS_MASK ($CA85). "$0F would be sufficient." */
 export const FLAGS_MASK = 0x3f;
@@ -127,6 +129,13 @@ export interface BehaviourContext {
   readonly structs: CharacterStruct[];
   /** The global current room index ($68A0). */
   readonly room: number;
+  /**
+   * The roomdef poke overlay, for character_sits / character_sleeps ($A420 /
+   * $A444). Optional: a caller that only wants to know where a character walks
+   * need not stand one up, and without it the seat graphic simply is not
+   * poked -- the route still halts, which is what the movement depends on.
+   */
+  readonly pokes?: RoomPokeState;
 }
 
 export interface BehaviourResult {
@@ -201,7 +210,7 @@ export function getTargetAssignPos(
  * After the hero: the commandant turns around unless he is on route 36, guards
  * 1..11 turn around, and everyone else goes to character_event.
  */
-function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
+export function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
   const isHero = v.slot === 0; // $CB2E CP $02
   const character = v.character & 0x1f;
   const reverses =
@@ -215,6 +224,30 @@ function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
     // $CB47: character_event decides what an arrived character does next.
     const event = characterEvent(v.route.index);
     lastEventKind = event.kind;
+
+    // character_sits ($A420) and character_sleeps ($A444) both end in
+    // character_sit_sleep_common ($A462), which makes THREE writes. All three
+    // are needed and they fail in different ways:
+    //
+    //   $A463  route.index = HALT. Skip it and the character keeps a route
+    //          whose step already sits on the terminator; the next
+    //          target_reached steps PAST it and, because routes are packed,
+    //          starts walking the following route -- the mess hall jam.
+    //   $A470  room = room_NONE, which is how the character disappears INTO
+    //          the bench or bed. Skip it and he stands next to the furniture
+    //          instead of sitting in it.
+    //   $A437  the bench or bed object is poked so the graphic shows someone
+    //          seated. Skip it and the seat stays empty however many
+    //          prisoners are sitting on it.
+    if (event.kind === 'sits') {
+      characterSits(ctx.pokes, v, v.route.index);
+      return true;
+    }
+    if (event.kind === 'sleeps') {
+      characterSleeps(ctx.pokes, v, v.route.index);
+      return true;
+    }
+
     const changed = applyCharacterEvent(event, v.route, v.character);
     if (changed && v.route.index !== 0) {
       // $CB4E: a non-halt result re-enters get_target_assign_pos so the
@@ -296,7 +329,6 @@ function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
 
   const room = target.door.targetRoom; // $CAE3
   v.room = room;
-  v.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff; // $CB02
 
   // $CAF8..$CB09: step to the far half of the pair, then transition. The half
   // is chosen by the door's direction -- next for top-left/top-right,
@@ -314,11 +346,10 @@ function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
     v.isoPos = { x: iso.x, y: iso.y };
   }
 
-  // $CAFC..$CB05: for the HERO ONLY -- identified by his SLOT, as everywhere
-  // else in this routine -- the next waypoint is taken before the transition.
-  // Without it he arrives in the new room still holding the door's position as
-  // his target, walks to the nearest wall and waits there until the next timed
-  // event reroutes him.
+  // $CAFC..$CB05: the HERO ONLY -- identified by his SLOT, as everywhere else
+  // in this routine. He clears TARGET_IS_DOOR ($CB02) and takes the next
+  // waypoint immediately. Both of those are INSIDE the hero branch: $CAFE
+  // jumps over them for anyone else.
   //
   // get_target_assign_pos FALLS THROUGH into route_ended when the route has
   // run out ($CB29), so the end has to be handled here too. A route whose last
@@ -329,15 +360,26 @@ function enterDoor(v: Vischar, ctx: BehaviourContext): number | null {
   // packed. Route 16 step 5 reads route 17's first waypoint: an outdoor
   // location, chased from inside a mess hall.
   if (v.slot === 0) {
+    v.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff; // $CB02
     const { routeEnded: ended } = getTargetAssignPos(v, { ...ctx, room });
     if (ended) routeEnded(v, { ...ctx, room });
+    return room;
   }
 
-  // Keep the character struct in step, since the vischar may be purged before
-  // the room is next considered.
-  const struct = characterStructFor(ctx.structs, v.character);
-  if (struct) struct.room = room;
-
+  // $68CE..$68D4: transition ends differently for everyone else. `AND A / JP Z`
+  // takes the hero to the hero path; anybody else exits via
+  // reset_visible_character ($C5D3), which hands the SLOT BACK -- writing the
+  // new room, the new position and the advanced route into the character
+  // struct and marking the vischar empty.
+  //
+  // This is the whole mechanism by which an NPC survives a doorway. Leave it
+  // out and the vischar keeps a target that is still the door it just walked
+  // through, in the coordinate space of the room it just left; target_reached
+  // fires again immediately, advances the route again, and the character
+  // cascades through waypoints until it runs off the end of its route into the
+  // next one. Five characters converging on route 17's first location from
+  // inside a mess hall is what that looks like.
+  resetVisibleCharacter(v, ctx.structs);
   return room;
 }
 

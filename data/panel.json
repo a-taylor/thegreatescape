@@ -1,0 +1,40 @@
+{
+  "bellRinger": {
+    "off": {
+      "_addr": "$A147",
+      "_bytes": 12,
+      "_label": "bell_ringer_bitmap_off",
+      "data": "5+eDg0NBIBAIBAIC",
+      "height": 12,
+      "widthBytes": 1
+    },
+    "on": {
+      "_addr": "$A153",
+      "_bytes": 12,
+      "_label": "bell_ringer_bitmap_on",
+      "data": "Pz8nExMJCAQEAgIB",
+      "height": 12,
+      "widthBytes": 1
+    }
+  },
+  "moraleFlag": {
+    "down": {
+      "_addr": "$DA6B",
+      "_bytes": 75,
+      "_label": "bitmap_flag_down",
+      "data": "AAAAAAAAAAAA+AAAfwAAf+AAP/wcMP/8MB/8MAPYPwAYP+AYP/w4P//wcP/wYB/wYAfwfwD4/+AYw/gYAH8cAA/8AADwAAAAAAAA",
+      "height": 25,
+      "widthBytes": 3
+    },
+    "note": "the last three rows of flag_up ARE the first three of flag_down; see $A063",
+    "overlapRows": 3,
+    "up": {
+      "_addr": "$DA29",
+      "_bytes": 75,
+      "_label": "bitmap_flag_up",
+      "data": "AAAAAAB8AAP+gB/+4P+Of/wGf+AGfwB+YAP+YB/+MP/+P/8MP/wcP/AcP4D4MAP4cA/AYH4Af/gA/+AADwAAAAAAAAAAAAAAAAAA",
+      "height": 25,
+      "widthBytes": 3
+    }
+  }
+}

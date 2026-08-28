@@ -15,6 +15,7 @@ import {
   characterBehaviour,
   getTargetAssignPos,
   setInput,
+  targetReached,
   targetScale,
   vischarMoveX,
   vischarMoveY,
@@ -446,5 +447,63 @@ describe('every animated slot ends the tick drawable', () => {
     installMovable(vs[1]!, movableItems.stove1!, 0);
     tickPass(vs, structs, random);
     expect(vs[1]!.counterAndFlags & VISCHAR_DRAWABLE).toBeTruthy();
+  });
+});
+
+describe('going through a door hands the slot back', () => {
+  /** Put an NPC on a route whose current step is a door, standing on it. */
+  function atDoor(slot: number, character: number) {
+    const vischars = createVischars();
+    const structs = characterStructs();
+    const v = vischars[slot]!;
+    v.character = character;
+    v.flags = 0;
+    // Route 16 step 1 is door 10; step 2 is door 20.
+    v.route = { index: 16, step: 1 };
+    v.room = 0;
+    getTargetAssignPos(v, { random: seeded(), structs, room: 0 });
+    expect(v.flags & FLAGS_TARGET_IS_DOOR).toBeTruthy();
+    // Stand exactly on the target so target_reached fires.
+    v.pos = { x: v.target.x * 4, y: v.target.y * 4, height: 0 };
+    return { v, vischars, structs };
+  }
+
+  it('empties the vischar and writes the state back to the struct ($68D4)', () => {
+    // transition ends `AND A / JP Z` -- the hero takes the hero path, and
+    // EVERYONE ELSE exits via reset_visible_character ($C5D3). That is the
+    // mechanism by which an NPC survives a doorway: the slot is handed back
+    // and the character carries on off-screen from its struct.
+    //
+    // Leave it out and the vischar keeps a target that is the door it just
+    // walked through, expressed in the coordinate space of the room it just
+    // left; target_reached fires again at once and the character cascades
+    // through its remaining waypoints.
+    const { v, structs } = atDoor(3, 22);
+    const before = { ...v.route };
+
+    targetReached(v, { random: seeded(), structs, room: 0 });
+
+    expect(isEmpty(v)).toBe(true);
+    expect(v.character).toBe(0xff);
+
+    const struct = structs[22]!;
+    expect(struct.onScreen).toBe(false);
+    expect(struct.route.step).toBe(before.step + 1); // $CAD9, stepped on
+    expect(struct.room).not.toBe(0); // it went indoors
+  });
+
+  it('keeps the HERO in his slot and gives him the next waypoint ($CAFE)', () => {
+    // The hero branch is the exception, and it is selected by SLOT, not by
+    // character index -- his vischar carries character 0, the commandant's.
+    const { v, structs } = atDoor(0, 0);
+    const before = { ...v.route };
+
+    targetReached(v, { random: seeded(), structs, room: 0 });
+
+    expect(isEmpty(v)).toBe(false);
+    expect(v.route.step).toBe(before.step + 1);
+    // $CB02 clears TARGET_IS_DOOR and $CB05 takes the next waypoint, so he is
+    // already heading somewhere new rather than at the door he just used.
+    expect(v.target).not.toEqual({ x: 252, y: 202, height: 0 });
   });
 });

@@ -88,6 +88,8 @@ uniformly, so the gate is split by asset class (see `OPEN_QUESTIONS.md` §8).
 | 218 supertiles | exact |
 | 51 interior objects (RLE) | exact |
 | 30 masks | exact within the reference's bounding box |
+| 35 font glyphs vs `font.png` | exact |
+| 2 morale-flag bitmaps | exact within the reference's 24 rows |
 
 `room-N.png` is deliberately **excluded** as a frame oracle: it is a placeholder canvas the
 disassembly's author drew on a hardcoded 24×16 grid, ignoring room dimensions, attributes and
@@ -129,8 +131,23 @@ than to the game.
   `timed_events` day schedule, `character_event` handlers and `automatics`.
   A full 8,960-frame day is covered by a test: all fifteen events fire in order and
   the cast walks to roll call, both mess halls, the yard and back to bed.
-  Still to come with P5: the message queue, morale, red cross parcels, the roll call
-  check, and the room-object pokes behind the bed/breakfast handlers.
+
+- **P5 — items and player state** ✅ the glyph plotter and the panel outside the game
+  window (`src/ui/`), morale and the flag that chases it, the digit-wise score, the
+  message queue and its type-hold-wipe line, pick up / drop / use, all twelve
+  `action_*` handlers, item discovery, red cross parcels, and the roomdef pokes behind
+  the beds and the shovel.
+  The same 8,960-frame day now also plays the day's six messages in order, empties the
+  beds, delivers a parcel and docks 25 morale for the night.
+  Controls: arrows walk; **Space + a direction** is an item command (up picks up,
+  down drops, left/right use the first/second held item), per
+  `process_player_input_fire` ($7AC9).
+  The bed and breakfast handlers make all three of `character_sit_sleep_common`'s
+  writes ($A462): the route halts, the character's room becomes `room_NONE` so
+  he disappears into the furniture, and the bench or bed object is poked so the
+  graphic shows him there. `fillRoom` reads that overlay when it draws.
+  Still to come with P6: the readers of what the handlers set — pursuit after a bribe,
+  the wire-cutting and lock-picking timers, line of sight, arrest and solitary.
 
 See `PLAN.md` §6 for the phase breakdown, `FIDELITY.md` for what happens at each bug site,
 and `OPEN_QUESTIONS.md` for ambiguities and their resolutions.

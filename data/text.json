@@ -148,6 +148,508 @@
     "_addr": "$7DCD",
     "_bytes": 40,
     "_label": "messages_table",
+    "messages": [
+      {
+        "addr": "$7DF5",
+        "glyphs": [
+          22,
+          18,
+          27,
+          27,
+          14,
+          13,
+          35,
+          26,
+          0,
+          21,
+          21,
+          35,
+          12,
+          10,
+          21,
+          21
+        ],
+        "index": 0,
+        "labels": [
+          "messages_missed_roll_call"
+        ],
+        "text": "MISSED R0LL CALL"
+      },
+      {
+        "addr": "$7E06",
+        "glyphs": [
+          28,
+          18,
+          22,
+          14,
+          35,
+          28,
+          0,
+          35,
+          31,
+          10,
+          20,
+          14,
+          35,
+          29,
+          24
+        ],
+        "index": 1,
+        "labels": [
+          "messages_time_to_wake_up"
+        ],
+        "text": "TIME T0 WAKE UP"
+      },
+      {
+        "addr": "$7E16",
+        "glyphs": [
+          11,
+          26,
+          14,
+          10,
+          20,
+          15,
+          10,
+          27,
+          28,
+          35,
+          28,
+          18,
+          22,
+          14
+        ],
+        "index": 2,
+        "labels": [
+          "messages_breakfast_time"
+        ],
+        "text": "BREAKFAST TIME"
+      },
+      {
+        "addr": "$7E25",
+        "glyphs": [
+          14,
+          32,
+          14,
+          26,
+          12,
+          18,
+          27,
+          14,
+          35,
+          28,
+          18,
+          22,
+          14
+        ],
+        "index": 3,
+        "labels": [
+          "messages_exercise_time"
+        ],
+        "text": "EXERCISE TIME"
+      },
+      {
+        "addr": "$7E33",
+        "glyphs": [
+          28,
+          18,
+          22,
+          14,
+          35,
+          15,
+          0,
+          26,
+          35,
+          11,
+          14,
+          13
+        ],
+        "index": 4,
+        "labels": [
+          "messages_time_for_bed"
+        ],
+        "text": "TIME F0R BED"
+      },
+      {
+        "addr": "$7E40",
+        "glyphs": [
+          28,
+          17,
+          14,
+          35,
+          13,
+          0,
+          0,
+          26,
+          35,
+          18,
+          27,
+          35,
+          21,
+          0,
+          12,
+          20,
+          14,
+          13
+        ],
+        "index": 5,
+        "labels": [
+          "messages_the_door_is_locked"
+        ],
+        "text": "THE D00R IS L0CKED"
+      },
+      {
+        "addr": "$7E53",
+        "glyphs": [
+          18,
+          28,
+          35,
+          18,
+          27,
+          35,
+          0,
+          24,
+          14,
+          23
+        ],
+        "index": 6,
+        "labels": [
+          "messages_it_is_open"
+        ],
+        "text": "IT IS 0PEN"
+      },
+      {
+        "addr": "$7E5E",
+        "glyphs": [
+          18,
+          23,
+          12,
+          0,
+          26,
+          26,
+          14,
+          12,
+          28,
+          35,
+          20,
+          14,
+          33
+        ],
+        "index": 7,
+        "labels": [
+          "messages_incorrect_key"
+        ],
+        "text": "INC0RRECT KEY"
+      },
+      {
+        "addr": "$7E6C",
+        "glyphs": [
+          26,
+          0,
+          21,
+          21,
+          35,
+          12,
+          10,
+          21,
+          21
+        ],
+        "index": 8,
+        "labels": [
+          "messages_roll_call"
+        ],
+        "text": "R0LL CALL"
+      },
+      {
+        "addr": "$7E76",
+        "glyphs": [
+          26,
+          14,
+          13,
+          35,
+          12,
+          26,
+          0,
+          27,
+          27,
+          35,
+          24,
+          10,
+          26,
+          12,
+          14,
+          21
+        ],
+        "index": 9,
+        "labels": [
+          "messages_red_cross_parcel"
+        ],
+        "text": "RED CR0SS PARCEL"
+      },
+      {
+        "addr": "$7E87",
+        "glyphs": [
+          24,
+          18,
+          12,
+          20,
+          18,
+          23,
+          16,
+          35,
+          28,
+          17,
+          14,
+          35,
+          21,
+          0,
+          12,
+          20
+        ],
+        "index": 10,
+        "labels": [
+          "messages_picking_the_lock"
+        ],
+        "text": "PICKING THE L0CK"
+      },
+      {
+        "addr": "$7E98",
+        "glyphs": [
+          12,
+          29,
+          28,
+          28,
+          18,
+          23,
+          16,
+          35,
+          28,
+          17,
+          14,
+          35,
+          31,
+          18,
+          26,
+          14
+        ],
+        "index": 11,
+        "labels": [
+          "messages_cutting_the_wire"
+        ],
+        "text": "CUTTING THE WIRE"
+      },
+      {
+        "addr": "$7EA9",
+        "glyphs": [
+          33,
+          0,
+          29,
+          35,
+          0,
+          24,
+          14,
+          23,
+          35,
+          28,
+          17,
+          14,
+          35,
+          11,
+          0,
+          32
+        ],
+        "index": 12,
+        "labels": [
+          "messages_you_open_the_box"
+        ],
+        "text": "Y0U 0PEN THE B0X"
+      },
+      {
+        "addr": "$7EBA",
+        "glyphs": [
+          33,
+          0,
+          29,
+          35,
+          10,
+          26,
+          14,
+          35,
+          18,
+          23,
+          35,
+          27,
+          0,
+          21,
+          18,
+          28,
+          10,
+          26,
+          33
+        ],
+        "index": 13,
+        "labels": [
+          "messages_you_are_in_solitary"
+        ],
+        "text": "Y0U ARE IN S0LITARY"
+      },
+      {
+        "addr": "$7ECE",
+        "glyphs": [
+          31,
+          10,
+          18,
+          28,
+          35,
+          15,
+          0,
+          26,
+          35,
+          26,
+          14,
+          21,
+          14,
+          10,
+          27,
+          14
+        ],
+        "index": 14,
+        "labels": [
+          "messages_wait_for_release"
+        ],
+        "text": "WAIT F0R RELEASE"
+      },
+      {
+        "addr": "$7EDF",
+        "glyphs": [
+          22,
+          0,
+          26,
+          10,
+          21,
+          14,
+          35,
+          18,
+          27,
+          35,
+          34,
+          14,
+          26,
+          0
+        ],
+        "index": 15,
+        "labels": [
+          "messages_morale_is_zero"
+        ],
+        "text": "M0RALE IS ZER0"
+      },
+      {
+        "addr": "$7EEE",
+        "glyphs": [
+          18,
+          28,
+          14,
+          22,
+          35,
+          13,
+          18,
+          27,
+          12,
+          0,
+          30,
+          14,
+          26,
+          14,
+          13
+        ],
+        "index": 16,
+        "labels": [
+          "messages_item_discovered"
+        ],
+        "text": "ITEM DISC0VERED"
+      },
+      {
+        "addr": "$F026",
+        "glyphs": [
+          17,
+          14,
+          35,
+          28,
+          10,
+          20,
+          14,
+          27,
+          35,
+          28,
+          17,
+          14,
+          35,
+          11,
+          26,
+          18,
+          11,
+          14
+        ],
+        "index": 17,
+        "labels": [
+          "more_messages_he_takes_the_bribe"
+        ],
+        "text": "HE TAKES THE BRIBE"
+      },
+      {
+        "addr": "$F039",
+        "glyphs": [
+          10,
+          23,
+          13,
+          35,
+          10,
+          12,
+          28,
+          27,
+          35,
+          10,
+          27,
+          35,
+          13,
+          14,
+          12,
+          0,
+          33
+        ],
+        "index": 18,
+        "labels": [
+          "more_messages_and_acts_as_decoy"
+        ],
+        "text": "AND ACTS AS DEC0Y"
+      },
+      {
+        "addr": "$F04B",
+        "glyphs": [
+          10,
+          23,
+          0,
+          28,
+          17,
+          14,
+          26,
+          35,
+          13,
+          10,
+          33,
+          35,
+          13,
+          10,
+          31,
+          23,
+          27
+        ],
+        "index": 19,
+        "labels": [
+          "more_messages_another_day_dawns"
+        ],
+        "text": "AN0THER DAY DAWNS"
+      }
+    ],
     "pointers": [
       "$7DF5",
       "$7E06",

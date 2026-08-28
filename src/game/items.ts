@@ -40,7 +40,16 @@ const data = itemsJson as unknown as {
   structStride: number;
   structs: number[][];
   definitions: { records: ItemDefinition[] };
+  attributes: { values: number[] };
 };
+
+/**
+ * item_attributes ($DD69), as SHIPPED.
+ *
+ * Only the seed: action_poison rewrites the food's entry, so the live copy
+ * lives in ItemState. Read this and you will never see poisoned food.
+ */
+export const itemAttributes: readonly number[] = data.attributes.values;
 
 export const itemDefinitions: readonly ItemDefinition[] = data.definitions.records;
 

@@ -179,13 +179,54 @@ def test_items(sk: Skool, r: Results) -> None:
         r.check(name, mine == ref, f"{_diff(mine, ref)} px differ")
 
 
+def test_font(sk: Skool, r: Results) -> None:
+    """bitmap_font ($A69E) against images/font/font.png, at scale 2.
+
+    The reference renders 35 of the 37 glyphs -- the alphanumerics only, with
+    space and full stop left off the end -- so the comparison is bounded by the
+    reference's width rather than by the table's extent. Everything it does
+    render is exact, including the absent letter "O": glyph 24 is "P", and
+    "R0LL CALL" is the game's own spelling.
+    """
+    font = sk.slice("bitmap_font")
+    rw, rh, ref = _bits(REF / "images" / "font" / "font.png", scale=2)
+    r.check("font height", rh == 8, f"{rh} rows")
+    n = rw // 8
+    r.check("font glyph count", n <= len(font) // 8, f"{n} rendered vs {len(font) // 8} in table")
+    mine = [(font[g * 8 + row] >> (7 - col)) & 1
+            for row in range(8) for g in range(n) for col in range(8)]
+    r.check("font pixels", mine == ref, f"{_diff(mine, ref)}/{len(ref)} differ")
+
+
+def test_panel(sk: Skool, r: Results) -> None:
+    """The morale flag bitmaps against images/udgs/flag-*.png, at scale 4.
+
+    Tier 2: the reference renders 24 rows where wave_morale_flag plots 25
+    ($A06B LD BC,$0319), because its UDGARRAY is three 8-pixel rows tall. The
+    25th row has no oracle, so the comparison is bounded by the reference and
+    the extra row is left unchecked rather than quietly dropped.
+    """
+    for label, name in (("bitmap_flag_up", "flag-up"), ("bitmap_flag_down", "flag-down")):
+        addr = sk.addr_of(label)
+        rw, rh, ref = _bits(UDGS / f"{name}.png", scale=4)
+        if rw != 24:
+            r.check(name, False, f"reference is {rw}px wide, expected 24")
+            continue
+        data = sk.image[addr:addr + 3 * rh]
+        mine = [(data[row * 3 + (col >> 3)] >> (7 - (col & 7))) & 1
+                for row in range(rh) for col in range(rw)]
+        r.check(name, mine == ref, f"{_diff(mine, ref)}/{len(ref)} differ")
+
+
 TIERS: list[tuple[str, str, Callable[[Skool, Results], None]]] = [
     ("TIER 1  (pixel-exact; these gate the build)", "exterior map", test_map),
     ("TIER 1  (pixel-exact; these gate the build)", "individual 8x8 tiles", test_tiles),
     ("TIER 1  (pixel-exact; these gate the build)", "supertiles", test_supertiles),
     ("TIER 1  (pixel-exact; these gate the build)", "interior objects (RLE)", test_objects),
     ("TIER 1  (pixel-exact; these gate the build)", "item sprites", test_items),
+    ("TIER 1  (pixel-exact; these gate the build)", "bitmap font", test_font),
     ("TIER 2  (exact within reference bbox)", "masks", test_masks),
+    ("TIER 2  (exact within reference bbox)", "morale flag", test_panel),
 ]
 
 

@@ -425,6 +425,42 @@ three movables store `0`. The sprite is chosen by the pointer at offset 6 (`$CE2
 
 ---
 
+## 15. The messages table holds 20 pointers, not 19 — RESOLVED
+
+The block comment above `messages_table` ($7DCD) says "an array of 19 pointers to game
+messages". The label's extent is 40 bytes, which is 20. Both readings cannot be right, and the
+extent wins: `next_message` indexes the table with whatever `queue_message` was handed, and
+`event_another_day_dawns` ($A1D3) passes `B = $13` — index 19, the twentieth entry. Take the
+prose and that message would read past the end of the table.
+
+The three highest-numbered messages are also nowhere near the other seventeen: strings 0..16
+sit at $7DF5..$7EEE, and 17..19 at $F026..$F04B, 29K away. The extractor follows each pointer
+to its `$FF` terminator rather than slicing a block (`extract_text`).
+
+**Assumption taken:** 20 messages, from the table's extent. The count is asserted in
+`tests/messages.test.ts`, and the whole day's worth is exercised end to end in
+`tests/demoloop.test.ts`.
+
+---
+
+## 16. Which iteration counts are bugs and which are data — RESOLVED per site
+
+Three routines in P5's territory iterate one time too many. They are not the same kind of
+problem and they do not get the same treatment; each is recorded in `FIDELITY.md` with its
+disposition. Summarised here because "off-by-one iteration count" looked like one issue and is
+in fact three:
+
+| Site | Reads | Disposition |
+|---|---|---|
+| `$A2C6` | one pointer past `beds`, then WRITES through it — into ROM at `$1A42` | **Fixed.** §9 names ROM writes explicitly. |
+| `$B500` | one entry past `locked_doors` | **Reproduced.** The two bytes after the array are inside the same block, labelled "unused" by the disassembly, and both zero — so the extra iteration searches for door index 0, an outdoor gate that never appears in `interior_doors`, and finds nothing. Deterministic and inert. |
+| `$B935` | one entry past `exterior_mask_data`, into unrelated memory | **Fixed.** Out-of-bounds read whose effect depends on adjacent contents. |
+
+The distinction that decides it is not "is it an overrun" but **what the extra read lands on**:
+defined data in the same block (reproduce), unrelated memory (do not), or a write (never).
+
+---
+
 ## Not open, but worth recording
 
 Two things that looked like problems and are not:

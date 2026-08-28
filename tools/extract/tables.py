@@ -414,6 +414,15 @@ def extract_items(sk: Skool) -> dict[str, Any]:
             **provenance(sk, "red_cross_parcel_contents_list"),
             "values": list(sk.slice("red_cross_parcel_contents_list")),
         },
+        # Six bytes copied over item_structs[12] from $771D onward, so this is
+        # room_and_flags, x, y, height, iso_x, iso_y -- it starts at the ROOM
+        # field, not at item_and_flags ($A249 LDIR of $0006).
+        "redCrossParcelReset": {
+            **provenance(sk, "red_cross_parcel_reset_data"),
+            "values": list(sk.slice("red_cross_parcel_reset_data")),
+            "fields": ["room", "x", "y", "height", "isoX", "isoY"],
+            "targetOffset": 1,
+        },
     }
 
 
@@ -473,6 +482,67 @@ def extract_characters(sk: Skool) -> dict[str, Any]:
     }
 
 
+def _roomdef_layout(img: bytes, addr: int) -> dict[str, Any]:
+    """Byte offsets of a roomdef's parts, mirroring _read_roomdef's walk."""
+    i = addr + 1
+    n_bounds = img[i]; i += 1
+    bounds_at = i; i += n_bounds * 4
+    n_masks = img[i]; i += 1
+    masks_at = i; i += n_masks
+    n_objects = img[i]; i += 1
+    return {
+        "boundsAt": bounds_at, "nBounds": n_bounds,
+        "masksAt": masks_at, "nMasks": n_masks,
+        "objectsAt": i, "nObjects": n_objects,
+    }
+
+
+def _roomdef_addresses(sk: Skool) -> list[int]:
+    img = sk.image
+    rt = sk.addr_of("rooms_and_tunnels")
+    return sorted(set(pointer_table(img, rt, N_ROOMS)))
+
+
+def _resolve_roomdef_object(sk: Skool, addr: int) -> dict[str, Any]:
+    """Turn a poked address into {roomdef, objectIndex}.
+
+    The game writes an interior-object index straight into a roomdef's object
+    list. Locating which roomdef and which entry keeps that as data rather than
+    as a magic address in the engine.
+    """
+    img = sk.image
+    for base in _roomdef_addresses(sk):
+        L = _roomdef_layout(img, base)
+        for j in range(L["nObjects"]):
+            if L["objectsAt"] + j * 3 == addr:
+                return {
+                    "addr": f"${addr:04X}",
+                    "roomdef": f"${base:04X}",
+                    "labels": sk.addr_to_labels.get(base, []),
+                    "objectIndex": j,
+                }
+    raise ValueError(f"${addr:04X} is not a roomdef object byte")
+
+
+def _resolve_roomdef_bound(sk: Skool, addr: int) -> dict[str, Any]:
+    """Turn a poked address into {roomdef, boundIndex, field}."""
+    img = sk.image
+    fields = ("x0", "x1", "y0", "y1")
+    for base in _roomdef_addresses(sk):
+        L = _roomdef_layout(img, base)
+        for j in range(L["nBounds"]):
+            for f, name in enumerate(fields):
+                if L["boundsAt"] + j * 4 + f == addr:
+                    return {
+                        "addr": f"${addr:04X}",
+                        "roomdef": f"${base:04X}",
+                        "labels": sk.addr_to_labels.get(base, []),
+                        "boundIndex": j,
+                        "field": name,
+                    }
+    raise ValueError(f"${addr:04X} is not a roomdef bounds byte")
+
+
 def extract_geography(sk: Skool) -> dict[str, Any]:
     """Doors, locations, walls, beds and the solitary position."""
     img = sk.image
@@ -521,9 +591,37 @@ def extract_geography(sk: Skool) -> dict[str, Any]:
             "values": words(img, sk.addr_of("locations"),
                             _count(sk, "locations", 2)),
         },
+        # The six prisoner beds, as pointers INTO roomdef data ($6B79). The
+        # game pokes those addresses directly to swap an occupied bed for an
+        # empty one; resolved here to {roomdef, objectIndex} so the engine
+        # mutates a structured field instead of chasing an address.
         "beds": {
             **provenance(sk, "beds"),
             "values": words(img, sk.addr_of("beds"), _count(sk, "beds", 2)),
+            "objects": [
+                _resolve_roomdef_object(sk, a)
+                for a in words(img, sk.addr_of("beds"), _count(sk, "beds", 2))
+            ],
+        },
+        # Addresses the game pokes that are NOT in the beds array. The hero's
+        # own bed ($A2CF) and the two writes action_shovel makes to clear the
+        # blocked tunnel ($B404 invalidates the boundary, $B408 removes the
+        # graphic).
+        "roomPokes": {
+            "heroBed": _resolve_roomdef_object(sk, 0x6C61),
+            # character_sits ($A424 / $A42B) indexes forward from these two by
+            # THREE bytes per route index -- one object record -- so each is
+            # the first of three consecutive bench objects.
+            "messHallBenchRoom25": _resolve_roomdef_object(sk, 0x6F4F),
+            "messHallBenchRoom23": _resolve_roomdef_object(sk, 0x6F17),
+            # hero_sits ($9E52 / $A47F) pokes its own bench, not one of those.
+            "heroBench": _resolve_roomdef_object(sk, 0x6F58),
+            "blockedTunnelBoundary": _resolve_roomdef_bound(sk, 0x7077),
+            "blockedTunnelObject": _resolve_roomdef_object(sk, 0x708C),
+            "note": (
+                "addresses taken from the instruction operands at $A2CF, "
+                "$B404 and $B408"
+            ),
         },
         # 24 wall/boundary volumes in map space, stride 6:
         # {minx, maxx, miny, maxy, minh, maxh}. bounds_check (c$B14C) tests the
@@ -750,10 +848,33 @@ def extract_text(sk: Skool) -> dict[str, Any]:
     mt = sk.addr_of("messages_table")
     n = _count(sk, "messages_table", 2)
 
+    # next_message ($7D99) reads messages_table[index] as an address and walks
+    # it a byte at a time until $FF, so the strings are only reachable through
+    # the pointers -- and they are NOT contiguous with the table: seventeen sit
+    # at $7DF5..$7EEE and the last three at $F026..$F04B, 29K away. Follow each
+    # pointer rather than slicing a block.
+    #
+    # The block comment above the table says "an array of 19 pointers"; it holds
+    # 20. The count comes from the extent, not the prose.
+    messages = []
+    for i, p in enumerate(words(img, mt, n)):
+        end = img.index(0xFF, p)
+        glyphs = list(img[p:end])
+        messages.append({
+            "index": i,
+            "addr": f"${p:04X}",
+            "labels": sk.addr_to_labels.get(p, []),
+            # message_display ($7D65) plots these straight through plot_glyph,
+            # so they are font indices, not ASCII.
+            "glyphs": glyphs,
+            "text": decode_glyphs(bytes(glyphs)),
+        })
+
     return {
         "messagesTable": {
             **provenance(sk, "messages_table"),
             "pointers": [f"${p:04X}" for p in words(img, mt, n)],
+            "messages": messages,
         },
         "escapeStrings": {
             **provenance(sk, "escape_strings"),
@@ -770,6 +891,53 @@ def extract_text(sk: Skool) -> dict[str, Any]:
         "glyphSet": {
             "note": 'the letter "O" is absent; digit zero doubles for it',
             "chars": list(decode_glyphs(bytes(range(48)))),
+        },
+    }
+
+
+def extract_panel(sk: Skool) -> dict[str, Any]:
+    """The screen furniture outside the game window: morale flag and bell ringer.
+
+    These are plotted straight into the display file by plot_bitmap ($7CBE),
+    which takes its dimensions in registers rather than from any table, so the
+    sizes below are instruction operands and are cited as such.
+
+    The two flag bitmaps deliberately OVERLAP. wave_morale_flag plots 24x25
+    ($A06B LD BC,$0319 -- 3 bytes wide, 25 rows = 75 bytes) but bitmap_flag_down
+    begins only 66 bytes after bitmap_flag_up, so the last three rows of "up"
+    are the first three rows of "down". The disassembly calls this out at $A063
+    as intended rather than as a glitch, so the slices are taken by the plotted
+    size and are allowed to overlap rather than being clipped to the labels.
+    """
+    img = sk.image
+    up = sk.addr_of("bitmap_flag_up")
+    down = sk.addr_of("bitmap_flag_down")
+    flag_w, flag_h = 3, 25  # $A06B LD BC,$0319
+    ring_w, ring_h = 1, 12  # $A0CC LD BC,$010C
+
+    def bitmap(label: str, addr: int, w: int, h: int) -> dict[str, Any]:
+        return {
+            "_label": label,
+            "_addr": f"${addr:04X}",
+            "_bytes": w * h,
+            "widthBytes": w,
+            "height": h,
+            "data": b64(bytes(img[addr:addr + w * h])),
+        }
+
+    return {
+        "moraleFlag": {
+            "up": bitmap("bitmap_flag_up", up, flag_w, flag_h),
+            "down": bitmap("bitmap_flag_down", down, flag_w, flag_h),
+            "overlapRows": (up + flag_w * flag_h - down) // flag_w,
+            "note": (
+                "the last three rows of flag_up ARE the first three of "
+                "flag_down; see $A063"
+            ),
+        },
+        "bellRinger": {
+            "on": bitmap("bell_ringer_bitmap_on", sk.addr_of("bell_ringer_bitmap_on"), ring_w, ring_h),
+            "off": bitmap("bell_ringer_bitmap_off", sk.addr_of("bell_ringer_bitmap_off"), ring_w, ring_h),
         },
     }
 
@@ -888,6 +1056,7 @@ EXTRACTORS = {
     "movables": extract_movables,
     "routes": extract_routes,
     "text": extract_text,
+    "panel": extract_panel,
     "timing": extract_timing,
     "audio": extract_audio,
     "prng": extract_prng,
