@@ -207,6 +207,47 @@ onto it. Calling `itemStructs()` during play rebuilds the world from the origina
 resurrects anything the hero picked up — the same hazard as the stove, in its fourth costume.
 `src/main.ts` called it once per frame until P5.
 
+### `searchlight_state` is a COUNTER, not a tri-state
+
+`$81BD` is documented in the disassembly's own table as:
+
+    255     searching
+    31      caught the hero
+    0..30   tracking the hero
+
+Modelling only the two named values made the searchlight a one-way trap: once a light had the
+hero the only way out was to go indoors ($ADCC). The missing half is `searchlight_mask_test`
+($B83B), called from `plot_sprites` ($B87B) whenever the state is not SEARCHING. For the HERO
+only (`$B83E AND A` — the slot test again) it samples eight rows of the mask buffer from
+`mask_buffer + $31`, "approximately the middle of the character", four bytes apart:
+
+- any non-zero byte → `still_in_searchlight` ($B860) resets the state to 31
+- all zero → the hero has broken line of sight, so the state is **decremented** ($B854)
+- when it wraps 0 → 255 the light gives up and the window attributes are restored ($B859)
+
+Escaping takes 32 consecutive frames out of sight and the counter resets the moment he is seen
+again. That is the whole tension of the mechanic.
+
+**The polarity is the trap, and the routine's own header comment points the wrong way.** It
+says the test checks "if the hero is hiding behind the scenery", which reads as though a
+non-zero mask byte — scenery present — should mean hidden. It is the opposite. The mask buffer
+is a PERMISSION mask: `render_mask_buffer` fills it with `$FF` and ANDs scenery in, so 1 means
+"the sprite may draw here" and 0 means "occluded". Non-zero therefore means **exposed**. Settle
+this kind of question against `src/render/maskbuffer.ts`'s fill-and-AND, not against prose.
+
+Two things that were wrong alongside it:
+
+- the shipped initial value is `$04` (mid-countdown), not `$FF`. It now comes out of the
+  extractor as `timing.searchlightState.initial` rather than being typed.
+- the demo's Night button held its own `night` boolean while the searchlights read
+  `schedule.night`, so toggling it darkened the window and started nothing. `day_or_night`
+  ($A146) is one byte; `schedule` owns it. The same hazard as the stove, in its fifth costume.
+
+Reachability was measured, not assumed: sweeping 16,384 outdoor positions through the real
+`renderMaskBuffer`, 192 give all eight sampled bytes zero and 246 give a partial mask. The
+hiding places exist, so the countdown is reachable in play — which per the note below is a
+separate question from whether the routine is correct.
+
 ### A routine can be implemented, tested, and still unreachable
 
 P5's item logic passed every unit test while being impossible to trigger in the demo, for two

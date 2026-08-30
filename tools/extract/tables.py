@@ -543,6 +543,43 @@ def _resolve_roomdef_bound(sk: Skool, addr: int) -> dict[str, Any]:
     raise ValueError(f"${addr:04X} is not a roomdef bounds byte")
 
 
+def _searchlight_movements(sk: Skool) -> list[dict[str, Any]]:
+    """The three searchlights and the sweep each one walks.
+
+    Record layout is {x, y, counter, direction, index, pointer} with the
+    pointer LAST; searchlight_movement reaches it by stepping past index
+    ($AD78). Each path is $FF-terminated pairs of {counter, direction}, and
+    the paths live inside the same block as the table.
+    """
+    img = sk.image
+    lo, _hi = sk.extent_of("searchlight_movements")
+    block_lo, block_hi = sk.extent_of_block("searchlight_movements")
+    out = []
+    for i in range(3):  # $AE10 LD B,$03
+        a = lo + i * 7
+        ptr = word_at(img, a + 5)
+        assert block_lo <= ptr < block_hi, (
+            f"searchlight {i} path ${ptr:04X} outside its own block"
+        )
+        steps = []
+        j = ptr
+        while img[j] != 0xFF:
+            steps.append({"counter": img[j], "direction": img[j + 1]})
+            j += 2
+        out.append({
+            "index": i,
+            "x": img[a],
+            "y": img[a + 1],
+            "counter": img[a + 2],
+            "direction": img[a + 3],
+            "step": img[a + 4],
+            "addr": f"${ptr:04X}",
+            "labels": sk.addr_to_labels.get(ptr, []),
+            "path": steps,
+        })
+    return out
+
+
 def _route_to_permitted(sk: Skool) -> list[dict[str, Any]]:
     img = sk.image
     lo, hi = sk.extent_of("route_to_permitted")
@@ -1017,9 +1054,29 @@ def extract_timing(sk: Skool) -> dict[str, Any]:
                 for v in _triples(list(sk.slice("timed_events")))
             ],
         },
+        # searchlight_movements ($AD29): THREE 7-byte records
+        # {x, y, counter, direction, index, pointer} -- the pointer is LAST,
+        # not first ($AD78 advances past index to reach it). Each points at a
+        # $FF-terminated list of {counter, direction} pairs, and the three
+        # lists sit immediately after the table in the same block.
+        #
+        # Resolved to offsets and decoded pairs so the engine never chases an
+        # address; the raw bytes are kept alongside.
         "searchlightMovements": {
             **provenance(sk, "searchlight_movements"),
             "values": list(sk.slice("searchlight_movements")),
+            "stride": 7,
+            "fields": ["x", "y", "counter", "direction", "index", "pointer"],
+            "entries": _searchlight_movements(sk),
+        },
+        # searchlight_state ($81BD) is a COUNTER, not a tri-state: $FF is
+        # searching, $1F is "has the hero", and $00..$1E count down while it
+        # tracks him. The SHIPPED value is $04 -- mid-countdown, not $FF -- so
+        # the game starts with a light already most of the way to giving up.
+        # Parsed rather than typed: it is a data byte like any other.
+        "searchlightState": {
+            **provenance(sk, "searchlight_state"),
+            "initial": sk.slice("searchlight_state")[0],
         },
         "searchlightShape": {
             **provenance(sk, "searchlight_shape"),

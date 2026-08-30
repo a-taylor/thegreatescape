@@ -55,6 +55,17 @@ import {
   solitaryPos,
 } from './game/jeopardy.js';
 import { isItemDiscoverable, itemDiscovered } from './game/discovery.js';
+import { FLAGS_PICKING_LOCK, runWorkingTimers } from './game/timers.js';
+import {
+  STATE_CAUGHT,
+  STATE_SEARCHING,
+  createSearchlights,
+  lightOnScreen,
+  nighttime,
+  searchlightMaskTest,
+  searchlightPlot,
+} from './game/searchlight.js';
+import timingJson from '../data/timing.json';
 import { HERO_RELEASE_ROUTE } from './game/events.js';
 import { calcIsoPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
@@ -210,7 +221,9 @@ const START_MAP = resetOutdoorPosition(START);
 const hero = createHero({ ...START }, 0, 0);
 const view = new ExteriorView(START_MAP.x, START_MAP.y);
 const keys = new Set<string>();
-let night = false;
+// There is no `night` local: day_or_night ($A146) is ONE byte and its owner is
+// `schedule`. A second copy here meant the Night button darkened the window
+// while the searchlights, which read schedule.night, carried on sleeping.
 let torch = false;
 let lastEvent = '';
 let windowOffset = NO_OFFSET;
@@ -377,6 +390,16 @@ const pursuitState = { foodDiscoveredCounter: 0, bellRingingPerpetually: false }
 /** in_solitary ($A13A) and the global current door ($68A1). */
 const solitaryState = { inSolitary: false, currentDoor: -1 };
 
+/** searchlight_shape ($AF3E), 16 rows of 2 bytes. */
+const searchlightShape = decodeBase64(
+  (timingJson as unknown as { searchlightShape: { data: string } }).searchlightShape.data,
+);
+
+/** The three searchlights and searchlight_state ($81BD). */
+const searchlights = createSearchlights();
+/** Which lights nighttime wants drawn this frame, for the debug readout. */
+let litBySearchlight: ReturnType<typeof nighttime> = [];
+
 /** solitary ($CB98): everything the arrest writes, in one place. */
 /**
  * charevnt_hero_release's effects on the HERO ($C852 / $C859).
@@ -518,18 +541,36 @@ const PRISONER_SPRITE_BASE = 2;
 const foreground = new Uint8Array(MASK_BUFFER_SIZE);
 
 /**
+ * The hero's own copy of that mask, for searchlight_mask_test.
+ *
+ * In the original the test runs INSIDE plot_sprites, between render_mask_buffer
+ * and the sprite plotter ($B873..$B87B). Here it cannot: the test DECREMENTS
+ * searchlight_state, and this demo re-renders on pause, resize and every
+ * toggle, so running it during the draw would count a paused frame down to
+ * nothing. Instead the draw snapshots the buffer -- a pure copy, safe to repeat
+ * -- and the tick consumes it exactly once, after render().
+ */
+const heroForeground = new Uint8Array(MASK_BUFFER_SIZE);
+/** Whether the hero survived vischar_visible this frame, i.e. was drawn. */
+let heroPlotted = false;
+
+/**
  * Plot any sprite at a world position through the full masked path.
  *
  * Shared by the hero and by the movable items, which the game likewise treats
  * as vischars -- they occupy the second visible character slot.
+ *
+ * @returns true if the sprite was actually plotted, i.e. it survived
+ *   vischar_visible. The searchlight mask test needs to know, because
+ *   plot_sprites only reaches $B87B for a vischar it is drawing.
  */
 function plotSpriteAt(
   spriteIndex: number,
   pos: { x: number; y: number; height: number },
   flip: boolean,
-): void {
+): boolean {
   const record = spritesData.sprites[spriteIndex];
-  if (!record) return;
+  if (!record) return false;
 
   const iso0 = isoPlacement(pos);
 
@@ -544,7 +585,7 @@ function plotSpriteAt(
     },
     view.position,
   );
-  if (!clip.visible) return;
+  if (!clip.visible) return false;
 
   const place = windowPlacement(pos, view.position, record.widthBytes, record.height);
 
@@ -599,6 +640,7 @@ function plotSpriteAt(
       maskRow: clip.topSkip + (iso0.pixelRow & 7),
     },
   );
+  return true;
 }
 
 /**
@@ -714,6 +756,11 @@ function plotVischars(): void {
     drawable: true,
   }));
 
+  // Cleared before the scan, not after: if the hero is off-window this frame
+  // plot_sprites never reaches him, and a stale true would let the searchlight
+  // test run on last frame's mask.
+  heroPlotted = false;
+
   for (const d of drawOrder(slots, items)) {
     if (d.kind === 'item') {
       plotItem(here.find((s) => s.index === d.index)!);
@@ -724,7 +771,12 @@ function plotVischars(): void {
       const frame = anim?.frames[hero.frame];
       // TL/TR and BR/BL are the same artwork mirrored; the frame's own flip
       // flag is the only thing distinguishing them.
-      if (frame) plotSpriteAt(PRISONER_SPRITE_BASE + frame.sprite, hero.pos, frame.flip);
+      heroPlotted = frame
+        ? plotSpriteAt(PRISONER_SPRITE_BASE + frame.sprite, hero.pos, frame.flip)
+        : false;
+      // $B873: the buffer render_mask_buffer just filled is the hero's. Keep
+      // it for the searchlight test the tick runs after this render.
+      if (heroPlotted) heroForeground.set(foreground);
       continue;
     }
     const v = vischars[d.index];
@@ -746,7 +798,7 @@ function heldLabel(): string {
 
 function render(): void {
   const itemsHeld: [number, number] = torch ? [4, 0xff] : [0xff, 0xff];
-  const { attribute, wipeTiles } = chooseGameWindowAttributes(hero.room, night, itemsHeld);
+  const { attribute, wipeTiles } = chooseGameWindowAttributes(hero.room, schedule.night, itemsHeld);
 
   if (wipeTiles) {
     buffers.wipeTiles();
@@ -784,6 +836,18 @@ function render(): void {
   screen.display.set(panelScreen.display);
   plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);
   setWindowAttributes(screen, attribute);
+
+  // $AE69: the searchlights paint OVER the window attributes, so they go on
+  // after set_game_window_attributes rather than before it.
+  for (const light of litBySearchlight) {
+    // Searchlight positions are in MAP space; convert to screen attribute
+    // cells and drop the ones off-window ($AE22..$AE53).
+    const at = lightOnScreen(light, view.position);
+    if (!at) continue;
+    searchlightPlot(at, searchlightShape, at.clipLeft, (col, row, attr) => {
+      screen.setAttribute(col, row, attr);
+    });
+  }
 
   // plot_score and the flag attributes are re-run every frame rather than
   // being part of the persistent panel: the score digits change in place and
@@ -846,6 +910,18 @@ function render(): void {
     `<b>${heroIsAutomatic(automatic) ? 'CPU' : 'player'}</b>` +
     `(${automatic.counter}${solitaryState.inSolitary ? ',solitary' : ''}` +
     `${pursuitState.bellRingingPerpetually ? ',BELL' : ''}) · ` +
+    // The searchlights: how many are sweeping, and whether one has him.
+    // The counter is the interesting number: 255 sweeping, 31 on him, and
+    // 30..0 counting down the frames he has stayed out of sight.
+    (schedule.night
+      ? `<b>${
+          searchlights.state === STATE_SEARCHING
+            ? 'lights'
+            : searchlights.state === STATE_CAUGHT
+              ? 'CAUGHT'
+              : `hiding ${searchlights.state}`
+        }</b>(${litBySearchlight.length}) · `
+      : '') +
     `score <b>${String(scoreValue(player)).padStart(5, '0')}</b> · ` +
     `held ${heldLabel()}` +
     (messageOnScreen(messages) ? ` · msg "<b>${messageTable[messages.messageIndex]!.text}</b>"` : '') +
@@ -902,6 +978,19 @@ function tick(): void {
 
   const random = () => prng.next();
 
+  // $9DB4..$9DB8: the searchlights only run at night. Once one has him it
+  // stops sweeping and tracks him until he gets indoors, which is the only
+  // thing that shakes it off.
+  litBySearchlight =
+    schedule.night
+      ? nighttime(searchlights, {
+          room: hero.room,
+          mapPosition: view.position,
+          player,
+          ringBell: () => { pursuitState.bellRingingPerpetually = true; }, // $AEB0
+        })
+      : [];
+
   // $9E07..$9E0D: process_player_input returns IMMEDIATELY when in_solitary
   // or morale_exhausted is set -- the original loads both bytes at once
   // ($A13A/$A13B are adjacent) and bails on either. That inhibits the WHOLE
@@ -910,6 +999,26 @@ function tick(): void {
   // chain never completes.
   const inputInhibited = solitaryState.inSolitary || player.moraleExhausted;
   if (inputInhibited) input = 0;
+
+  // $9E0E..$9E1F: if the hero is picking a lock or cutting wire, that branch
+  // takes the WHOLE frame instead of the ordinary input path -- which is what
+  // "locks out player controls" means. It also feeds him inputs of its own
+  // over the last three turns of a cut, to walk him through the gap.
+  const working = runWorkingTimers(
+    {
+      gameCounter: player.gameCounter,
+      lockedOutUntil: jeopardy.playerLockedOutUntil,
+      hero: heroSlot,
+      lockedDoors,
+      doorBeingLockpicked: jeopardy.doorBeingLockpicked,
+      queueMessage: queueGameMessage,
+    },
+    (turns) => { automatic.counter = turns; }, // $9E18
+  );
+  if (working) {
+    input = 0;
+    lastEvent = heroSlot.flags & FLAGS_PICKING_LOCK ? 'picking the lock' : 'cutting the wire';
+  }
 
   // $9E86: `CP $09 / JR C` -- anything below 9 has no fire and takes the
   // ordinary movement path. With fire, the item commands run and the input
@@ -1245,11 +1354,25 @@ function tick(): void {
     if (fired) {
       lastEvent = fired.note ? `${fired.event} (${fired.note})` : fired.event;
     }
-    night = schedule.night;
-    btnNight.setAttribute('aria-pressed', String(night));
+    syncNightButton();
   }
 
   render();
+
+  // $B876..$B87B: plot_sprites tests the mask buffer for each vischar it draws
+  // while a light has the hero, and searchlight_mask_test itself ignores every
+  // slot but his. Eight fully-zero rows mean scenery covers him and the
+  // counter drops; anything non-zero means he is still exposed and it snaps
+  // back to CAUGHT. Run here rather than inside render() so a paused or
+  // resized frame cannot count it down -- see heroForeground.
+  if (schedule.night && heroPlotted && searchlights.state !== STATE_SEARCHING) {
+    if (searchlightMaskTest(searchlights, heroForeground)) {
+      // $B859: the light gave up. The window attributes it had overwritten are
+      // recomputed, which here means simply drawing the next frame without the
+      // beam -- chooseGameWindowAttributes already runs every render.
+      lastEvent = 'lost the searchlight';
+    }
+  }
 }
 
 // The original runs its logic on a fixed tick, not on wall-clock time, so the
@@ -1287,9 +1410,17 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => keys.delete(e.key));
 window.addEventListener('blur', () => keys.clear());
 
+/** The button reflects day_or_night; it never holds it. */
+function syncNightButton(): void {
+  btnNight.setAttribute('aria-pressed', String(schedule.night));
+}
+
 btnNight.addEventListener('click', () => {
-  night = !night;
-  btnNight.setAttribute('aria-pressed', String(night));
+  // Debug scaffolding: event_night_time ($A1C3) and event_dawn ($A1DD) are the
+  // only things that write day_or_night in the game. This forces it so the
+  // searchlights can be driven without winding the clock to 100.
+  schedule.night = !schedule.night;
+  syncNightButton();
   render();
 });
 btnTorch.addEventListener('click', () => {
@@ -1349,8 +1480,7 @@ eventSelect.addEventListener('change', () => {
       queueMessage: queueGameMessage,
     });
   }
-  night = schedule.night;
-  btnNight.setAttribute('aria-pressed', String(night));
+  syncNightButton();
   frameCounter = 0;
   lastEvent = `clock wound to ${before}`;
   eventSelect.value = '';

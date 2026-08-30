@@ -33,6 +33,7 @@ import {
 } from './inventory.js';
 import { increaseMoraleBy10ScoreBy50, type PlayerState } from './player.js';
 import { PURSUIT_PURSUE } from './pursuit.js';
+import { FLAGS_CUTTING_WIRE, FLAGS_PICKING_LOCK } from './timers.js';
 import type { Pos } from './math.js';
 import type { Vischar } from './vischar.js';
 
@@ -66,8 +67,9 @@ export { PURSUIT_PURSUE };
 /** itemstruct_ITEM_FLAG_POISONED ($B3D4 SET 5). */
 export const ITEM_FLAG_POISONED = 0x20;
 /** vischar_FLAGS_PICKING_LOCK / _CUTTING_WIRE ($B4A7 / $B47B). */
-export const FLAGS_PICKING_LOCK = 0x01;
-export const FLAGS_CUTTING_WIRE = 0x02;
+// One owner, in timers.ts -- where they are run down and cleared. Keeping a
+// second copy here is how PURSUIT_* drifted into three files.
+export { FLAGS_CUTTING_WIRE, FLAGS_PICKING_LOCK };
 /** input_KICK ($B476 LD (HL),$80). */
 export const INPUT_KICK = 0x80;
 

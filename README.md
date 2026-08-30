@@ -149,5 +149,17 @@ than to the game.
   Still to come with P6: the readers of what the handlers set — pursuit after a bribe,
   the wire-cutting and lock-picking timers, line of sight, arrest and solitary.
 
+- **P6 — rules and jeopardy** 🚧 in progress. Done: `in_permitted_area` and the
+  red flag, the four pursuit modes with line of sight, `collision`, `accept_bribe`,
+  arrest and `solitary` (including the release chain), the lockpick and
+  wire-cutting timers, and the three searchlights — the sweep and its bounce, the
+  attribute beam, capture, and `searchlight_mask_test`, which is what lets a
+  caught hero escape by staying behind scenery for 32 consecutive frames.
+  `searchlight_state` is a counter, not a tri-state; the Night button drives
+  `day_or_night` itself rather than a parallel flag, so the lights can be driven
+  from the demo without winding the clock.
+  Remaining: night/day beyond the searchlights, the escape conditions and both
+  endings, and the `Completion:solutionOne` walkthrough as the acceptance test.
+
 See `PLAN.md` §6 for the phase breakdown, `FIDELITY.md` for what happens at each bug site,
 and `OPEN_QUESTIONS.md` for ambiguities and their resolutions.

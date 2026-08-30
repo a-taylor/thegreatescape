@@ -144,6 +144,107 @@
     "_addr": "$AD29",
     "_bytes": 21,
     "_label": "searchlight_movements",
+    "entries": [
+      {
+        "addr": "$AD54",
+        "counter": 44,
+        "direction": 2,
+        "index": 0,
+        "labels": [
+          "searchlight_path_2"
+        ],
+        "path": [
+          {
+            "counter": 44,
+            "direction": 2
+          },
+          {
+            "counter": 42,
+            "direction": 1
+          }
+        ],
+        "step": 0,
+        "x": 36,
+        "y": 82
+      },
+      {
+        "addr": "$AD43",
+        "counter": 24,
+        "direction": 1,
+        "index": 1,
+        "labels": [
+          "searchlight_path_1"
+        ],
+        "path": [
+          {
+            "counter": 24,
+            "direction": 1
+          },
+          {
+            "counter": 12,
+            "direction": 0
+          },
+          {
+            "counter": 24,
+            "direction": 3
+          },
+          {
+            "counter": 12,
+            "direction": 0
+          },
+          {
+            "counter": 32,
+            "direction": 1
+          },
+          {
+            "counter": 20,
+            "direction": 0
+          },
+          {
+            "counter": 32,
+            "direction": 3
+          },
+          {
+            "counter": 44,
+            "direction": 2
+          }
+        ],
+        "step": 0,
+        "x": 120,
+        "y": 82
+      },
+      {
+        "addr": "$AD3E",
+        "counter": 32,
+        "direction": 2,
+        "index": 2,
+        "labels": [
+          "searchlight_path_0"
+        ],
+        "path": [
+          {
+            "counter": 32,
+            "direction": 2
+          },
+          {
+            "counter": 32,
+            "direction": 1
+          }
+        ],
+        "step": 0,
+        "x": 60,
+        "y": 76
+      }
+    ],
+    "fields": [
+      "x",
+      "y",
+      "counter",
+      "direction",
+      "index",
+      "pointer"
+    ],
+    "stride": 7,
     "values": [
       36,
       82,
@@ -173,6 +274,12 @@
     "_bytes": 32,
     "_label": "searchlight_shape",
     "data": "AAAAAAAAAYAH4A/wD/Af+B/4D/AP8AfgAYAAAAAAAAA="
+  },
+  "searchlightState": {
+    "_addr": "$81BD",
+    "_bytes": 1,
+    "_label": "searchlight_state",
+    "initial": 4
   },
   "timedEvents": {
     "_addr": "$A173",
