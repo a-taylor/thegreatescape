@@ -60,7 +60,7 @@ Consequences that keep biting:
 
 ### One game field, two objects
 
-Every time a single game byte was split across two JS objects, it broke. Three times:
+Every time a single game byte was split across two JS objects, it broke. Four times:
 
 - the stove's position (`MovableState` vs vischar 1) — **twice**, once when a caller re-created
   the state and once when `animate` rebound `pos`
@@ -68,6 +68,11 @@ Every time a single game byte was split across two JS objects, it broke. Three t
 - the hero's `counter_and_flags` — `bounds_check` toggles `Y_DOMINANT` in it ($B1AF) and
   `character_behaviour` reads it ($C9E1); split, the wall-slide alternation never happened and
   he pressed against walls forever
+- `day_or_night` ($A146) — the demo's Night button held its own `night` boolean while the
+  searchlights read `schedule.night`. The button darkened the window and started nothing, so
+  the entire searchlight system was unreachable from the demo. **This one was invisible for a
+  different reason than the others: nothing was wrong, it just never ran.** A split field does
+  not always corrupt state; sometimes it quietly disconnects a feature.
 
 If the game has one byte, model one owner. Where the demo genuinely must keep hero state in
 `HeroState` *and* vischar 0, copy explicitly and **both ways**, and say why in a comment.
@@ -199,6 +204,20 @@ guards off their platforms. Read the initial state; don't pick a plausible-looki
 exactly once per main-loop iteration. This demo re-renders on pause, resize and toggles.
 Anything consumed during rendering must be idempotent; clear per-tick instead.
 
+This has now bitten twice, and the second one is the general shape: **`searchlight_mask_test`
+($B83B) runs inside `plot_sprites` and DECREMENTS `searchlight_state`.** Ported literally, a
+paused frame would count a searchlight down to nothing while the player was not even playing.
+
+The fix is a pattern worth reusing whenever a draw-time routine mutates: **the render
+snapshots, the tick consumes.** `render()` copies the hero's mask buffer into `heroForeground`
+and sets `heroPlotted` — both pure writes, safe to repeat any number of times — and `tick()`
+runs the actual test once, after `render()` returns. Ordering is preserved (the test still sees
+the buffer built for this frame's hero) without the mutation being tied to how often the
+renderer happens to run.
+
+Before porting anything called from `plot_sprites` or `render_mask_buffer`, ask what it writes.
+If the answer is anything at all, it does not belong in `render()`.
+
 ### Item state has one owner, and it is not `itemStructs()`
 
 `itemStructs()` in `src/game/items.ts` decodes the **shipped** table. `createItemState()` in
@@ -247,6 +266,15 @@ Reachability was measured, not assumed: sweeping 16,384 outdoor positions throug
 `renderMaskBuffer`, 192 give all eight sampled bytes zero and 246 give a partial mask. The
 hiding places exist, so the countdown is reachable in play — which per the note below is a
 separate question from whether the routine is correct.
+
+**Dawn does not reset the state, and that is correct — do not "fix" it.**
+`event_another_day_dawns` ($A1D3) does exactly four things: queues the message, docks 25
+morale, clears `day_or_night` ($A1DD), and repaints the window attributes ($A1E1/$A1E4). It
+never touches `$81BD`. So a hero caught at 3am is still `CAUGHT` at noon, frozen, because
+`nighttime` stops being called at all. It becomes visible again at the next nightfall, where
+the counter resumes wherever it stopped. Watching a state freeze across dawn in the demo looks
+exactly like a missed reset; it is the shipped behaviour, and it is the same reason `$81BD`
+ships as `$04` rather than `$FF`.
 
 ### A routine can be implemented, tested, and still unreachable
 
@@ -338,6 +366,32 @@ blocked frames. When a symptom seems to point somewhere, check that place *is* t
 fixing it — one report about masking turned out to be a door-index error, and the mask code I
 had verified at length was fine.
 
+**How to instrument the running demo.** Unit tests cannot answer "does this ever happen in the
+real map", which is the question that P5's items and P6's searchlight escape both turned on.
+The setup that works:
+
+```sh
+npx vite --port 5199        # serves at http://localhost:5199/thegreatescape/
+```
+
+Two techniques, both from the browser console:
+
+- **A temporary probe.** Add `(window as unknown as Record<string, unknown>).__probe = {...}`
+  at the end of `tick()`, exposing the live objects. Now the console can read state the demo
+  never prints, and *write* it — parking the hero at a chosen position, forcing
+  `schedule.night`, setting `searchlights.state` — to reach a situation that would take
+  thousands of frames to hit by playing. Copy `main.ts` aside first, delete the probe after,
+  and `diff` against the copy to prove it is gone. It must never reach a commit.
+- **Import the real modules and sweep.** `await import('/thegreatescape/src/render/maskbuffer.ts')`
+  gives the actual code, against the actual `data/`. Note the **base path**: `/src/...` 404s,
+  because `vite.config.ts` sets `base = '/thegreatescape/'` for Pages.
+
+That second one is how the searchlight escape was shown to be reachable: 16,384 outdoor
+positions pushed through `renderMaskBuffer` with the real `isoPlacement`/`tinyposStash`, of
+which 192 fully occlude the sampled rows. **Build the subject with the same functions
+`plotSpriteAt` uses.** A hand-rolled iso projection reported zero occluded positions out of
+4,096 — a confident, wrong answer that looked exactly like "the feature is unreachable".
+
 **`tests/demoloop.test.ts` is the integration net, and it must MIRROR `src/main.ts`'s tick.**
 It runs thousands of frames of the whole main loop in order. When the two drifted apart -- the
 test's loop had no `heroSits`, no automatic door path and no `doorHandling` flag -- the hero
@@ -345,6 +399,20 @@ took a different route through breakfast, the simulation diverged from the demo,
 happily passed on behaviour the demo never exhibited. If you add a step to the demo's tick, add
 it here in the same place. Every "fit" bug — the teleport, the double step, the gate, the mess hall — was
 invisible to per-routine tests and obvious there. Extend it when adding systems.
+
+**As of P6 part 2 the mirror is BROKEN, and this is the first thing to fix next session.**
+Three steps are in `src/main.ts`'s tick and not in the test's:
+
+- `runWorkingTimers` — the lockpick and wire-cutting timers, which take the whole frame
+  instead of the ordinary input path and feed the hero inputs of their own
+- `nighttime` — the searchlight sweep and capture
+- `searchlightMaskTest` after `render()` — the escape countdown
+
+The searchlight one matters most, because it is the only step that reads a *rendering* product
+(the mask buffer) back into game state. The demoloop test does not render at all, so mirroring
+it needs a decision about how the test obtains a mask buffer — probably by calling
+`renderMaskBuffer` for the hero directly, which is what `plot_sprites` effectively does. Until
+that is done, nothing exercises the timers or the searchlights across a full day.
 
 ---
 
