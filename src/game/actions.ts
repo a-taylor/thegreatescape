@@ -32,6 +32,7 @@ import {
   type ItemState,
 } from './inventory.js';
 import { increaseMoraleBy10ScoreBy50, type PlayerState } from './player.js';
+import { PURSUIT_PURSUE } from './pursuit.js';
 import type { Pos } from './math.js';
 import type { Vischar } from './vischar.js';
 
@@ -60,8 +61,8 @@ export const ROOM_NONE = 0x3f;
 export const ROOM_BLOCKED_TUNNEL = 50;
 /** The first character index that is NOT a fellow prisoner ($B3B2 CP $14). */
 export const CHARACTER_PRISONER_1 = 0x14;
-/** vischar_PURSUIT_PURSUE ($B3C1 LD (HL),$01). */
-export const PURSUIT_PURSUE = 0x01;
+// vischar_PURSUIT_PURSUE ($B3C1 LD (HL),$01) -- one owner, in pursuit.ts.
+export { PURSUIT_PURSUE };
 /** itemstruct_ITEM_FLAG_POISONED ($B3D4 SET 5). */
 export const ITEM_FLAG_POISONED = 0x20;
 /** vischar_FLAGS_PICKING_LOCK / _CUTTING_WIRE ($B4A7 / $B47B). */
@@ -83,6 +84,27 @@ export const MESSAGE_YOU_OPEN_THE_BOX = 0x0c; // $B3A0
  * Passed in rather than imported so `actions.ts` owns no state of its own --
  * the item bytes, the player and the vischars each keep their single owner.
  */
+/**
+ * The jeopardy bytes the action handlers set and P6 reads back.
+ *
+ *   $A145 player_locked_out_until   the lockpick/wirecut timers
+ *   $AF8E bribed_character          who took the bribe, for SAW_BRIBE
+ *   $A143 ptr_to_door_being_lockpicked
+ */
+export interface JeopardyState {
+  playerLockedOutUntil: number;
+  bribedCharacter: number;
+  doorBeingLockpicked: number;
+}
+
+export function createJeopardy(): JeopardyState {
+  return {
+    playerLockedOutUntil: 0,
+    bribedCharacter: 0xff, // character_NONE
+    doorBeingLockpicked: -1,
+  };
+}
+
 export interface ActionContext {
   items: ItemState;
   player: PlayerState;
@@ -101,12 +123,15 @@ export interface ActionContext {
   lockedDoors: Uint8Array;
   /** red_cross_parcel_current_contents ($A263). */
   redCrossParcelContents: number;
-  /** player_locked_out_until ($A145). */
-  playerLockedOutUntil: number;
-  /** bribed_character ($AF8E). */
-  bribedCharacter: number;
-  /** ptr_to_door_being_lockpicked ($A143), as a locked_doors index. */
-  doorBeingLockpicked: number;
+  /**
+   * The three bytes the handlers WRITE.
+   *
+   * Grouped into one mutable object because a handler that assigns to a field
+   * of a context rebuilt per call is assigning to nothing -- action_bribe sets
+   * $AF8E and SAW_BRIBE reads it a frame later, so the write has to outlive
+   * the call.
+   */
+  readonly jeopardy: JeopardyState;
 
   queueMessage(index: number, c?: number): void;
   /** drop_item_tail ($7BB5). */
@@ -164,7 +189,7 @@ export function actionBribe(ctx: ActionContext): void {
     if (!v) continue;
     if (v.character === 0xff) continue; // $B3AE character_NONE
     if (v.character < CHARACTER_PRISONER_1) continue; // $B3B4 JR NC to found
-    ctx.bribedCharacter = v.character; // $B3BD
+    ctx.jeopardy.bribedCharacter = v.character; // $B3BD
     v.flags = PURSUIT_PURSUE; // $B3C1
     return;
   }
@@ -293,7 +318,7 @@ function snipsTail(ctx: ActionContext, direction: number): number {
   ctx.hero.flags = FLAGS_CUTTING_WIRE; // $B47B
   ctx.hero.pos.height = 12; // $B47F
   ctx.setHeroSprite('prisoner'); // $B485
-  ctx.playerLockedOutUntil = (ctx.player.gameCounter + 0x60) & 0xff; // $B48B
+  ctx.jeopardy.playerLockedOutUntil = (ctx.player.gameCounter + 0x60) & 0xff; // $B48B
   ctx.queueMessage(MESSAGE_CUTTING_THE_WIRE); // $B490
   return direction;
 }
@@ -356,8 +381,8 @@ export function getNearestDoor(ctx: ActionContext): number {
 export function actionLockpick(ctx: ActionContext): void {
   const door = getNearestDoor(ctx);
   if (door < 0) return; // $B498
-  ctx.doorBeingLockpicked = door; // $B499
-  ctx.playerLockedOutUntil = (ctx.player.gameCounter + 0xff) & 0xff; // $B49F
+  ctx.jeopardy.doorBeingLockpicked = door; // $B499
+  ctx.jeopardy.playerLockedOutUntil = (ctx.player.gameCounter + 0xff) & 0xff; // $B49F
   ctx.hero.flags = FLAGS_PICKING_LOCK; // $B4A7
   ctx.queueMessage(MESSAGE_PICKING_THE_LOCK); // $B4A9
 }

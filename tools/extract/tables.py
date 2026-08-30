@@ -543,6 +543,29 @@ def _resolve_roomdef_bound(sk: Skool, addr: int) -> dict[str, Any]:
     raise ValueError(f"${addr:04X} is not a roomdef bounds byte")
 
 
+def _route_to_permitted(sk: Skool) -> list[dict[str, Any]]:
+    img = sk.image
+    lo, hi = sk.extent_of("route_to_permitted")
+    out = []
+    for i in range(7):  # $9F98 LD B,$07
+        a = lo + i * 3
+        route = img[a]
+        ptr = word_at(img, a + 1)
+        assert lo <= ptr < hi, f"route_to_permitted[{i}] points outside its own table"
+        places = []
+        j = ptr
+        while img[j] != 0xFF:
+            places.append(img[j])
+            j += 1
+        out.append({
+            "route": route,
+            "addr": f"${ptr:04X}",
+            "offset": ptr - lo,
+            "places": places,
+        })
+    return out
+
+
 def extract_geography(sk: Skool) -> dict[str, Any]:
     """Doors, locations, walls, beds and the solitary position."""
     img = sk.image
@@ -586,6 +609,17 @@ def extract_geography(sk: Skool) -> dict[str, Any]:
         },
         "lockedDoors": raw("locked_doors"),
         "solitaryPos": raw("solitary_pos"),
+        # solitary_commandant_data ($CC31): six bytes copied over the
+        # COMMANDANT's characterstruct starting at its room field ($CBF6
+        # targets $7613, and character_structs is $7612). It sends him on
+        # routeindex_36_GO_TO_SOLITARY to come and collect the hero.
+        "solitaryCommandant": {
+            **provenance(sk, "solitary_commandant_data"),
+            "values": list(sk.slice("solitary_commandant_data")),
+            "fields": ["room", "x", "y", "height", "routeIndex", "routeStep"],
+            "targetCharacter": 0,
+            "targetOffset": 1,
+        },
         "locations": {
             **provenance(sk, "locations"),
             "values": words(img, sk.addr_of("locations"),
@@ -651,9 +685,22 @@ def extract_geography(sk: Skool) -> dict[str, Any]:
                 )
             ],
         },
+        # route_to_permitted ($9EE4): SEVEN 3-byte entries {route index,
+        # pointer} followed by the $FF-terminated sub-lists they point at
+        # ($9F98 LD B,$07). in_permitted_area indexes a sub-list by route step
+        # and asks in_permitted_area_end_bit about each place.
+        #
+        # A place with bit 7 set is a ROOM index ($A00A BIT 7); otherwise it is
+        # an index 0..2 into permitted_bounds. Resolved here so the engine
+        # never chases an address.
         "routeToPermitted": {
             **provenance(sk, "route_to_permitted"),
             "values": list(sk.slice("route_to_permitted")),
+            "entries": _route_to_permitted(sk),
+            "note": (
+                "place & $80 means a room index (mask with $7F); otherwise it "
+                "is a permitted_bounds index"
+            ),
         },
     }
 

@@ -282,7 +282,23 @@ export function setHeroRoute(
   step: number,
 ): void {
   if (ctx.inSolitary) return; // $A343
+  setHeroRouteForce(ctx, index, step);
+}
 
+/**
+ * set_hero_route_force ($A344): the same thing, WITHOUT the solitary check.
+ *
+ * A separate entry point in the original, and the distinction is load-bearing:
+ * charevnt_hero_release jumps straight to $A344 ($C859) precisely because the
+ * hero IS in solitary at that moment and the whole point is to give him a
+ * route out of it. Route it through $A33F instead and the release silently
+ * does nothing -- he sits in the cell for the rest of the game.
+ */
+export function setHeroRouteForce(
+  ctx: ScheduleContext,
+  index: number,
+  step: number,
+): void {
   ctx.hero.flags &= ~FLAGS_TARGET_IS_DOOR & 0xff; // $A347
   ctx.hero.route = { index, step }; // $A34A
   getTargetAssignPos(ctx.hero, {
@@ -574,4 +590,43 @@ export function dispatchTimedEvent(
 /** The event that will fire at a given clock value, for the demo's controls. */
 export function eventAt(clock: number): TimedEvent | undefined {
   return timedEvents.find((e) => e.clock === clock);
+}
+
+/**
+ * What an event actually DOES, for the demo's readouts.
+ *
+ * Four of the fifteen labels in timed_events say the opposite of what the
+ * handler does, and they are the disassembly's own names, so stripping
+ * `event_` off the label advertises the wrong thing:
+ *
+ *   $A202 event_breakfast_time   JP $A2E2  -> END of breakfast
+ *   $A215 event_exercise_time    JP $A4B7  -> END of exercise
+ *   $A1F0 event_go_to_roll_call            -> the roll call CALL
+ *   $A264 event_time_for_bed               -> the GUARDS go to bed
+ *
+ * The "go to X" event is the one that raises X's message and sets the routes;
+ * the plain "X" event fifteen clock steps later is the one that ends it.
+ */
+export const EVENT_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  $A1D3: 'another day dawns',
+  $A1E7: 'wake up',
+  $A228: 'red cross parcel',
+  $A1F0: 'go to roll call',
+  $EF9A: 'roll call check',
+  $A1F9: 'breakfast starts',
+  $A202: 'breakfast ENDS',
+  $A206: 'exercise starts',
+  $A215: 'exercise ENDS',
+  $A219: 'go to bed',
+  $A264: 'guards to bed',
+  $A1C3: 'night falls',
+  $A26A: 'searchlight',
+};
+
+/** A human description of an event, falling back to its label. */
+export function describeEvent(entry: TimedEvent): string {
+  return (
+    EVENT_DESCRIPTIONS[entry.handler] ??
+    (entry.labels[0] ?? entry.handler).replace(/^event_/, '').replace(/_/g, ' ')
+  );
 }

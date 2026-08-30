@@ -78,6 +78,40 @@ If the game has one byte, model one owner. Where the demo genuinely must keep he
 0 — *before* looking at the character index. His vischar carries character **0**, which is also
 the **commandant's** index. Going by index sends the hero down the commandant's branch.
 
+### Verify that an edit actually landed
+
+The solitary lock-up survived three rounds of fixes because the line that
+cleared `in_solitary` was never in the file. A scripted `str.replace` whose
+anchor does not match silently changes nothing, and the surrounding work --
+typecheck, tests, a browser run -- all still pass, because the missing line is
+one the tests do not reach.
+
+After any scripted edit, grep for the thing you just added. Better: use the
+editing tools, which fail loudly on a missed anchor.
+
+### Two entry points to one routine mean two different behaviours
+
+`set_hero_route` ($A33F) tests `in_solitary` and returns; **`set_hero_route_force`
+($A344)** is the same routine one instruction later, without that test.
+`charevnt_hero_release` jumps to `$A344` ($C859) precisely BECAUSE the hero is
+in solitary at that moment — the whole point is to give him a route out.
+
+Route the release through `$A33F` and it silently does nothing: `in_solitary`
+is never cleared, `automatics` forces CPU control forever, and the hero presses
+into a corner of the cell alternating direction, with no player input accepted.
+
+The release is a CHAIN, and every link is in a different routine:
+
+    commandant finishes route 36  ->  charevnt_hero_release ($C84C)
+      ...which forces the HERO onto route 37 ($C856/$C859)
+      ...and zeroes automatic_player_counter ($C853)
+    hero finishes route 37        ->  charevnt_solitary_ends ($C83F)
+      ...which is the ONLY thing that ever clears in_solitary
+
+Two of those three effects are on global state rather than on the character
+whose route ended, which is why they were dropped: `applyCharacterEvent` only
+had the character's own route to write to.
+
 ### The hero has his own copy of almost everything
 
 Sitting and sleeping are implemented TWICE, and finding one does not mean you

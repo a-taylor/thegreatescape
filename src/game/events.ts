@@ -77,6 +77,15 @@ export type CharacterEventKind =
   | 'solitaryEnds'
   | 'commandantToYard';
 
+/**
+ * The route charevnt_hero_release forces onto the HERO ($C856 LD BC,$2500).
+ *
+ * Route 37 is the walk out of the cell; finishing it fires
+ * charevnt_solitary_ends ($C83F), which is the only thing that ever clears
+ * in_solitary. Miss this and the hero never leaves solitary.
+ */
+export const HERO_RELEASE_ROUTE = { index: 0x25, step: 0x00 };
+
 export interface CharacterEvent {
   readonly kind: CharacterEventKind;
   /** For 'wander': the route step, which picks the block of eight locations. */
@@ -114,7 +123,12 @@ function handlerEffect(index: number): CharacterEvent {
       return { kind: 'heroSleeps' };
     case 9: // $C889 charevnt_hero_sits
       return { kind: 'heroSits' };
-    case 10: // $C84C charevnt_hero_release -- route ($A4, 3), then route $25
+    // $C84C charevnt_hero_release. It sets THIS character's route to
+    // ($A4, 3) and then does two things to the HERO: zeroes the automatic
+    // player counter ($C853) and FORCES his route to (37, 0) via $A344
+    // ($C859). Those two are side effects on global state, so the caller
+    // applies them -- see HERO_RELEASE_ROUTE.
+    case 10:
       return { kind: 'heroRelease', route: { index: 0xa4, step: 0x03 } };
     default:
       return { kind: 'halt' };

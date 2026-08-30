@@ -18,6 +18,8 @@ import {
   setCharacterRoute,
   setGuardsRoute,
   setHeroRoute,
+  EVENT_DESCRIPTIONS,
+  describeEvent,
   timedEvents,
   type ScheduleContext,
 } from '../src/game/schedule.js';
@@ -482,5 +484,39 @@ describe('the events that reposition the hero', () => {
     expect(c.heroPos.x & 0x00ff).toBe(0x34);
     expect(c.heroPos.y & 0x00ff).toBe(0x3e);
     expect(c.heroPos.x & 0xff00).toBe(100 * 8 & 0xff00);
+  });
+});
+
+describe('the timed_events labels do not all say what the handler does', () => {
+  it('event_breakfast_time at clock 36 is END of breakfast ($A203)', () => {
+    // The two breakfast events are easy to read backwards, and the labels are
+    // the disassembly's own:
+    //   clock 21  event_go_to_breakfast_time  raises "BREAKFAST TIME" and
+    //                                         sets the routes to the halls
+    //   clock 36  event_breakfast_time        JP $A2E2 -> end_of_breakfast
+    // So seeing the hero sit down at 21 while the readout says "breakfast
+    // time at 36" is correct, not a timing fault.
+    const start = timedEvents.find((e) => e.clock === 21)!;
+    const end = timedEvents.find((e) => e.clock === 36)!;
+    expect(start.handler).toBe('$A1F9');
+    expect(end.handler).toBe('$A202');
+    expect(describeEvent(start)).toBe('breakfast starts');
+    expect(describeEvent(end)).toBe('breakfast ENDS');
+  });
+
+  it('describes every event in the table', () => {
+    // A missing description silently falls back to the misleading label.
+    for (const e of timedEvents) {
+      expect({ clock: e.clock, described: describeEvent(e) }).toEqual({
+        clock: e.clock,
+        described: EVENT_DESCRIPTIONS[e.handler],
+      });
+    }
+  });
+
+  it('the same reversal applies to exercise ($A215)', () => {
+    const end = timedEvents.find((e) => e.clock === 64)!;
+    expect(end.handler).toBe('$A215'); // set_route_go_to_yard_reversed
+    expect(describeEvent(end)).toBe('exercise ENDS');
   });
 });

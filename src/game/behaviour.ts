@@ -21,6 +21,7 @@
 
 import type { CharacterStruct } from './characters.js';
 import { calcIsoPos } from './coords.js';
+import { posToTinypos } from './math.js';
 import { halfDoors, resolveDoor, transitionPosition } from './doors.js';
 import { applyCharacterEvent, characterEvent } from './events.js';
 import type { CharacterEventKind } from './events.js';
@@ -34,6 +35,12 @@ import {
 import { BYTE7_Y_DOMINANT, type Vischar } from './vischar.js';
 import { resetVisibleCharacter } from './spawn.js';
 import { characterSits, characterSleeps, type RoomPokeState } from './parcels.js';
+import {
+  PURSUIT_DOG_FOOD,
+  PURSUIT_HASSLE,
+  PURSUIT_PURSUE,
+  PURSUIT_SAW_BRIBE,
+} from './pursuit.js';
 
 /** vischar_FLAGS_MASK ($CA85). "$0F would be sufficient." */
 export const FLAGS_MASK = 0x3f;
@@ -43,10 +50,15 @@ export const FLAGS_TARGET_IS_DOOR = 1 << 6;
 export const FLAGS_NO_COLLIDE = 0x80;
 
 /** The pursuit modes, from the header's vischar byte 1 commentary. */
-export const PURSUIT_PURSUE = 1;
-export const PURSUIT_HASSLE = 2;
-export const PURSUIT_DOG_FOOD = 3;
-export const PURSUIT_SAW_BRIBE = 4;
+// The pursuit modes live in pursuit.ts, which is where they are decided.
+// Re-exported here because this is where they are ACTED on, and because
+// keeping a second copy is how they drifted apart in the first place.
+export {
+  PURSUIT_DOG_FOOD,
+  PURSUIT_HASSLE,
+  PURSUIT_PURSUE,
+  PURSUIT_SAW_BRIBE,
+} from './pursuit.js';
 
 /** input_KICK ($C9F9): restart the animation from its first frame. */
 export const INPUT_KICK = 0x80;
@@ -136,6 +148,19 @@ export interface BehaviourContext {
    * poked -- the route still halts, which is what the movement depends on.
    */
   readonly pokes?: RoomPokeState;
+
+  /** hero_map_position ($81B8), which PURSUE and HASSLE steer by. */
+  readonly heroMapPosition?: { x: number; y: number };
+  /** automatic_player_counter ($A139), which HASSLE gives up on. */
+  readonly automaticPlayerCounter?: number;
+  /** item_structs[item_FOOD] ($76F9), which DOG_FOOD steers by. */
+  readonly foodItem?: { nearby: boolean; x: number; y: number };
+  /** bribed_character ($AF8E), which SAW_BRIBE steers by. */
+  readonly bribedCharacter?: number;
+  /** The vischar array, to find the bribed character's slot ($C988). */
+  readonly vischars?: Vischar[];
+  /** charevnt_hero_release's effects on the HERO ($C852 / $C859). */
+  readonly onHeroRelease?: () => void;
 }
 
 export interface BehaviourResult {
@@ -249,6 +274,8 @@ export function routeEnded(v: Vischar, ctx: BehaviourContext): boolean {
     }
 
     const changed = applyCharacterEvent(event, v.route, v.character);
+    // $C852..$C859, as in move.ts: the hero-side half of hero_release.
+    if (event.kind === 'heroRelease') ctx.onHeroRelease?.();
     if (changed && v.route.index !== 0) {
       // $CB4E: a non-halt result re-enters get_target_assign_pos so the
       // character starts on its new route immediately.
@@ -286,8 +313,24 @@ export function targetReached(
 
   // $CAB6: arriving at a door means going through it.
   if (v.flags & FLAGS_TARGET_IS_DOOR) {
+    // enterDoor runs route_ended for the HERO ($CB05), so a route whose last
+    // waypoint IS a door raises its character event in HERE. Surface it, the
+    // same as the non-door path below does.
+    //
+    // Discarding it is the same hazard CLAUDE.md already records for
+    // get_target_assign_pos, in a second costume: route 37 -- the walk out of
+    // the solitary cell -- ends at a door, so charevnt_solitary_ends fired,
+    // set the hero wandering, and the caller never learned in_solitary should
+    // be cleared. He wandered the courtyard forever, unrouteable by the day
+    // schedule ($A343) and unsteerable by the player ($9E0A).
+    lastEventKind = undefined;
     const room = enterDoor(v, ctx);
-    return { targetReached: true, enterRoom: room, routeEnded: false };
+    return {
+      targetReached: true,
+      enterRoom: room,
+      routeEnded: false,
+      ...(lastEventKind ? { event: lastEventKind } : {}),
+    };
   }
 
   // $CB13 tr_set_route: step the route on, then take the next target.
@@ -399,10 +442,24 @@ export function characterBehaviour(
     return IDLE;
   }
 
-  // $C92A: a non-zero flags byte means a pursuit mode. Those need bribes,
-  // solitary and dog food, none of which exist yet, so they are left alone --
-  // NOT quietly treated as ordinary movement.
-  if ((v.flags & FLAGS_MASK) !== 0) return IDLE;
+  // $C92A: a non-zero flags byte is a PURSUIT MODE, and each of the four
+  // picks its own target before falling into the same movement code. The
+  // route is ignored entirely while one is set.
+  if (v.flags !== 0) {
+    const pursued = pursuitTarget(v, ctx);
+    if (pursued === 'give-up') {
+      // $C950 / $C976 / $C999: the mode is over. Clear it and take the next
+      // waypoint of whatever route the character still has.
+      const { routeEnded: ended } = getTargetAssignPos(v, ctx);
+      if (ended) routeEnded(v, ctx);
+      return IDLE;
+    }
+    // 'move' ($C940 / $C96A / $C9B8) falls through with the target set.
+    // 'route' is a flags byte that is not one of the four modes -- $C97B
+    // jumps to $C9BA, the ordinary route path. TARGET_IS_DOOR ($40) and
+    // NO_COLLIDE ($80) both land here, so this is the common case, not an
+    // error one.
+  }
 
   // $C9BA: routeindex_0_HALT means stand still, with input 0.
   if (v.route.index === ROUTE_HALT) {
@@ -428,6 +485,81 @@ export function characterBehaviour(
 
   setInput(v, input);
   return IDLE;
+}
+
+/**
+ * The four pursuit modes' target selection ($C92E..$C9B8).
+ *
+ * Each mode either picks a target and falls through to the ordinary movement
+ * code ('move'), or decides the mode is finished ('give-up') and hands back to
+ * the route. Nothing here moves the character itself.
+ */
+function pursuitTarget(v: Vischar, ctx: BehaviourContext): 'move' | 'give-up' | 'route' {
+  switch (v.flags) {
+    case PURSUIT_PURSUE: {
+      // $C938: the target IS the hero's map position, copied every frame, so a
+      // pursuer tracks him rather than heading where he was.
+      const hero = ctx.heroMapPosition;
+      if (!hero) return 'give-up';
+      v.target = { x: hero.x, y: hero.y, height: v.target.height };
+      return 'move';
+    }
+
+    case PURSUIT_HASSLE:
+      // $C947: hassling only continues while the CPU is driving the hero. The
+      // moment the player takes control the guard loses interest -- which is
+      // why walking about deliberately shakes off a guard who is merely
+      // curious, but not one who is pursuing.
+      if ((ctx.automaticPlayerCounter ?? 0) !== 0) {
+        const hero = ctx.heroMapPosition;
+        if (!hero) return 'give-up';
+        v.target = { x: hero.x, y: hero.y, height: v.target.height };
+        return 'move';
+      }
+      v.flags = 0; // $C94D
+      return 'give-up';
+
+    case PURSUIT_DOG_FOOD: {
+      // $C95C: only while the food is still flagged nearby.
+      const food = ctx.foodItem;
+      if (food && food.nearby) {
+        v.target = { x: food.x, y: food.y, height: v.target.height }; // $C965
+        return 'move';
+      }
+      // $C96C: otherwise the dog gives up and goes back to wandering -- and it
+      // is WANDER specifically ($C970), not the route it had before.
+      v.flags = 0;
+      v.route = { index: 0xff, step: 0 };
+      return 'give-up';
+    }
+
+    case PURSUIT_SAW_BRIBE: {
+      // $C97E: head for the character who took the bribe, wherever he is.
+      const bribed = ctx.bribedCharacter ?? 0xff;
+      const target =
+        bribed === 0xff
+          ? undefined
+          : ctx.vischars?.slice(1).find((o) => o.character === bribed);
+      if (!target) {
+        v.flags = 0; // $C996
+        return 'give-up';
+      }
+      // $C9A6: scaled down outdoors, low bytes copied indoors -- the same
+      // split as everywhere else a world position becomes a tinypos.
+      const pos =
+        ctx.room === 0
+          ? posToTinypos(target.pos)
+          : { x: target.pos.x & 0xff, y: target.pos.y & 0xff, height: 0 };
+      v.target = { x: pos.x, y: pos.y, height: v.target.height };
+      return 'move';
+    }
+
+    default:
+      // $C97B: not one of the four modes, so carry on with the route. The
+      // comparisons are on the WHOLE flags byte, so PURSUE combined with any
+      // other bit is not PURSUE.
+      return 'route';
+  }
 }
 
 /**

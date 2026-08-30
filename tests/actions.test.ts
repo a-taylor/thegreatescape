@@ -37,6 +37,7 @@ import {
   FIRST_VERTICAL_FENCE,
   actionWiresnips,
   walls,
+  createJeopardy,
   createLockedDoors,
   getNearestDoor,
   redCrossParcelContentsList,
@@ -76,9 +77,7 @@ function makeContext(over: Partial<ActionContext> = {}): TestContext {
     interiorDoors: [],
     lockedDoors: createLockedDoors(),
     redCrossParcelContents: redCrossParcelContentsList[0]!,
-    playerLockedOutUntil: 0,
-    bribedCharacter: 0xff,
-    doorBeingLockpicked: -1,
+    jeopardy: createJeopardy(),
 
     messages: [],
     dropped: [],
@@ -146,7 +145,7 @@ describe('action_bribe', () => {
     ctx.vischars[2]!.character = CHARACTER_PRISONER_1 + 1;
     actionBribe(ctx);
 
-    expect(ctx.bribedCharacter).toBe(CHARACTER_PRISONER_1 + 1);
+    expect(ctx.jeopardy.bribedCharacter).toBe(CHARACTER_PRISONER_1 + 1);
     expect(ctx.vischars[2]!.flags).toBe(PURSUIT_PURSUE);
     expect(ctx.vischars[1]!.flags).not.toBe(PURSUIT_PURSUE);
   });
@@ -156,7 +155,7 @@ describe('action_bribe', () => {
     ctx.hero.character = CHARACTER_PRISONER_1 + 2;
     for (let i = 1; i < 8; i++) ctx.vischars[i]!.character = 0xff;
     actionBribe(ctx);
-    expect(ctx.bribedCharacter).toBe(0xff);
+    expect(ctx.jeopardy.bribedCharacter).toBe(0xff);
   });
 });
 
@@ -252,7 +251,7 @@ describe('action_wiresnips', () => {
     expect(ctx.hero.flags).toBe(FLAGS_CUTTING_WIRE);
     expect(ctx.hero.pos.height).toBe(12);
     expect(ctx.sprite).toBe('prisoner'); // $B482 -- the disguise is lost
-    expect(ctx.playerLockedOutUntil).toBe((10 + 0x60) & 0xff);
+    expect(ctx.jeopardy.playerLockedOutUntil).toBe((10 + 0x60) & 0xff);
     expect(ctx.messages).toEqual([MESSAGE_CUTTING_THE_WIRE]);
   });
 
@@ -367,16 +366,16 @@ describe('action_lockpick', () => {
     ctx.player.gameCounter = 4;
     actionLockpick(ctx);
 
-    expect(ctx.doorBeingLockpicked).toBe(0);
+    expect(ctx.jeopardy.doorBeingLockpicked).toBe(0);
     expect(ctx.hero.flags).toBe(FLAGS_PICKING_LOCK);
-    expect(ctx.playerLockedOutUntil).toBe((4 + 0xff) & 0xff);
+    expect(ctx.jeopardy.playerLockedOutUntil).toBe((4 + 0xff) & 0xff);
     expect(ctx.messages).toEqual([MESSAGE_PICKING_THE_LOCK]);
   });
 
   it('does nothing when no door is near', () => {
     const ctx = makeContext({ room: 0, savedPos: { x: 0, y: 0, height: 0 } });
     actionLockpick(ctx);
-    expect(ctx.doorBeingLockpicked).toBe(-1);
+    expect(ctx.jeopardy.doorBeingLockpicked).toBe(-1);
     expect(ctx.messages).toEqual([]);
   });
 });
@@ -410,5 +409,33 @@ describe('action_papers', () => {
         p, solitary: 0, out: 0,
       });
     }
+  });
+});
+
+describe('the jeopardy bytes outlive the call that sets them', () => {
+  it('keeps action_bribe\'s character for the next frame to read ($AF8E)', () => {
+    // The handlers write $A145, $AF8E and $A143, and P6 reads them back a
+    // frame later. Assigning to a field of a context object that is rebuilt
+    // per call assigns to nothing -- the bribe would be forgotten before
+    // PURSUIT_SAW_BRIBE could steer by it.
+    const jeopardy = createJeopardy();
+    const ctx = makeContext({ jeopardy });
+    ctx.vischars[2]!.character = CHARACTER_PRISONER_1;
+
+    actionBribe(ctx);
+
+    // Read through the SHARED object, not through the context we passed in.
+    expect(jeopardy.bribedCharacter).toBe(CHARACTER_PRISONER_1);
+  });
+
+  it('keeps the lockout deadline the wirecutters set ($A145)', () => {
+    const jeopardy = createJeopardy();
+    const fence = walls[FIRST_VERTICAL_FENCE]!;
+    const ctx = makeContext({ jeopardy, mapPosition: { x: fence.maxx, y: fence.miny } });
+    ctx.player.gameCounter = 10;
+
+    actionWiresnips(ctx);
+
+    expect(jeopardy.playerLockedOutUntil).toBe((10 + 0x60) & 0xff);
   });
 });

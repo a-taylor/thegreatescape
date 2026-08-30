@@ -72,6 +72,8 @@ export interface MoveContext {
   readonly random: () => number;
   /** The roomdef poke overlay, for character_sits / character_sleeps. */
   readonly pokes?: RoomPokeState;
+  /** charevnt_hero_release's effects on the HERO ($C852 / $C859). */
+  readonly onHeroRelease?: () => void;
 }
 
 export interface MoveResult {
@@ -112,7 +114,7 @@ export function moveCharacter(
   const target = getTarget(struct.route, ctx.random);
 
   if (target.kind === 'ended') {
-    return { ...idle, routeEnded: true, ...endRoute(struct, ctx.pokes) };
+    return { ...idle, routeEnded: true, ...endRoute(struct, ctx.pokes, ctx.onHeroRelease) };
   }
 
   // $C723 / $C727: indoors characters move three times as far per turn.
@@ -219,6 +221,7 @@ export const ROUTE_GO_TO_SOLITARY = 36;
 function endRoute(
   struct: CharacterStruct,
   pokes?: RoomPokeState,
+  pokesHeroRelease?: () => void,
 ): { changedRoom: number | null } {
   const c = struct.character;
   const reverses =
@@ -257,6 +260,10 @@ function endRoute(
   }
 
   applyCharacterEvent(event, struct.route, struct.character);
+  // $C852..$C859: charevnt_hero_release also zeroes the automatic player
+  // counter and FORCES the hero onto route 37. Those touch global state, so
+  // the caller applies them.
+  if (event.kind === 'heroRelease') pokesHeroRelease?.();
   return { changedRoom: null };
 }
 

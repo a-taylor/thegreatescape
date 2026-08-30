@@ -42,6 +42,21 @@
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
 import { heroMapPosition, tinyposStash, toTinyPos } from './game/coords.js';
+import { createPermitted, inPermittedArea } from './game/permitted.js';
+import { followSuspiciousCharacter } from './game/pursuit.js';
+import {
+  BLOCKED_TUNNEL_BOUND,
+  INTERIOR_OBJECT_COLLAPSED_TUNNEL,
+  ROOM_SOLITARY,
+  acceptBribe,
+  collision,
+  resetMapAndCharacters,
+  solitary,
+  solitaryPos,
+} from './game/jeopardy.js';
+import { isItemDiscoverable, itemDiscovered } from './game/discovery.js';
+import { HERO_RELEASE_ROUTE } from './game/events.js';
+import { calcIsoPos } from './game/coords.js';
 import { INTERIOR_MAP_POSITION } from './game/doors.js';
 import { itemDefinitions, type ItemStruct } from './game/items.js';
 import {
@@ -50,16 +65,30 @@ import {
   createItemState,
   dropItemTail,
   markNearbyItems,
+  readItemStruct,
   processPlayerInputFire,
 } from './game/inventory.js';
-import { type ActionContext, createLockedDoors, itemActions } from './game/actions.js';
+import {
+  type ActionContext,
+  createJeopardy,
+  createLockedDoors,
+  itemActions,
+} from './game/actions.js';
 import { interiorDoorsForRoom } from './game/doors.js';
 import { MORALE_MAX, checkMorale, createPlayer, scoreValue } from './game/player.js';
 import {
+  INTERIOR_OBJECT_OCCUPIED_BED,
+  bedObjects,
+  blockedTunnelBoundary,
+  blockedTunnelObject,
+  clearAllBenches,
   clearTunnelBlockage,
   createParcels,
   createRoomPokes,
+  heroBedObject,
   isTunnelBlockageCleared,
+  pokeBound,
+  pokeObject,
 } from './game/parcels.js';
 import {
   createMessages,
@@ -97,9 +126,12 @@ import {
   CLOCK_WRAP,
   TICKS_PER_CLOCK,
   createSchedule,
+  describeEvent,
   dispatchTimedEvent,
   heroGetsUp,
   heroStandsFromBreakfast,
+  setHeroRoute,
+  setHeroRouteForce,
   heroSits,
   heroSleeps,
   timedEvents,
@@ -258,14 +290,6 @@ const queueGameMessage = (index: number, c = 0) => queueMessage(messages, index,
 const panelScreen = new SpectrumScreen();
 
 /**
- * attribute_BRIGHT_GREEN_OVER_BLACK ($F16A), which reset_game sets the flag to.
- *
- * in_permitted_area swaps it for red ($9FDA) when the hero strays; that is P6,
- * so the demo shows the starting colour.
- */
-const MORALE_FLAG_ATTRIBUTE_GREEN = 0x44;
-
-/**
  * The demo's "fire" key.
  *
  * Debug scaffolding: the real game has no fixed key here at all -- choose_keys
@@ -276,6 +300,21 @@ const FIRE_KEY = ' ';
 
 /** saved_pos ($81A4), which use_item fills before dispatching ($7B0A). */
 const savedPos = { x: 0, y: 0, height: 0 };
+
+/**
+ * The jeopardy bytes ($A145, $AF8E, $A143), with ONE owner.
+ *
+ * The action handlers write them and P6 reads them back a frame later, so
+ * they cannot live on a context object rebuilt per call.
+ */
+const jeopardy = createJeopardy();
+
+/** item_structs[item_FOOD] ($76F9), as the dog-food pursuit reads it. */
+const ITEM_FOOD_INDEX = 7;
+function foodItemState() {
+  const s = readItemStruct(itemState, ITEM_FOOD_INDEX);
+  return { nearby: s.nearby, x: s.pos.x, y: s.pos.y };
+}
 
 /** locked_doors ($F05D), mutable: action_key clears bit 7 in it. */
 const lockedDoors = createLockedDoors();
@@ -302,9 +341,7 @@ function actionContext(): ActionContext {
     interiorDoors: hero.room === 0 ? [] : interiorDoorsForRoom(hero.room),
     lockedDoors,
     redCrossParcelContents: parcels.contents,
-    playerLockedOutUntil: 0,
-    bribedCharacter: 0xff,
-    doorBeingLockpicked: -1,
+    jeopardy,
     queueMessage: queueGameMessage,
     dropItemTail: (item) => dropItemTail(itemState, item, hero.room, hero.pos),
     setHeroSprite: (sprite) => { heroSprite = sprite; },
@@ -320,6 +357,93 @@ function actionContext(): ActionContext {
 
 /** attribute_WHITE_OVER_BLACK, what the screen clear leaves ($F266 LD (HL),$07). */
 const PANEL_ATTRIBUTE = 0x07;
+
+/**
+ * in_permitted_area's state ($A138 red_flag, plus the flag's own colour).
+ *
+ * The colour is not decoration: red_flag is what P6's guards read to decide
+ * whether to chase the hero. It is kept here rather than derived from the
+ * screen because the original reads the attribute back out of the display file
+ * ($9FFA) and this demo repaints attributes every frame.
+ */
+const permitted = createPermitted();
+
+/**
+ * follow_suspicious_character's own state: the poisoned-food countdown
+ * ($C891) and whether the bell is ringing perpetually ($A130 == 0).
+ */
+const pursuitState = { foodDiscoveredCounter: 0, bellRingingPerpetually: false };
+
+/** in_solitary ($A13A) and the global current door ($68A1). */
+const solitaryState = { inSolitary: false, currentDoor: -1 };
+
+/** solitary ($CB98): everything the arrest writes, in one place. */
+/**
+ * charevnt_hero_release's effects on the HERO ($C852 / $C859).
+ *
+ * Forced, not the ordinary set_hero_route: he is in solitary at this moment,
+ * and $A33F would refuse. Without this he never gets route 37, so
+ * charevnt_solitary_ends never fires and in_solitary is never cleared.
+ */
+function releaseHero(): void {
+  automatic.counter = 0; // $C853 -- $A139, the byte heroIsAutomatic reads
+  setHeroRouteForce(
+    { structs, vischars, random: () => prng.next(), room: hero.room, hero: heroSlot, heroPos: hero.pos },
+    HERO_RELEASE_ROUTE.index,
+    HERO_RELEASE_ROUTE.step,
+  );
+  lastEvent = 'the commandant lets him out';
+}
+
+function arrestHero(): void {
+  solitary(solitaryState, {
+    hero: heroSlot,
+    items: itemState,
+    player,
+    vischars,
+    structs,
+    queueMessage: queueGameMessage,
+    discoverItem: (item) => {
+      if (item !== 0xff) itemDiscovered(itemState, player, item, queueGameMessage);
+    },
+    silenceBell: () => { pursuitState.bellRingingPerpetually = false; },
+    // $CBF3 -> reset_map_and_characters ($B79B), which is far more than
+    // resetting the cast -- see resetMapAndCharacters.
+    resetCast: () => {
+      resetMapAndCharacters({
+        vischars,
+        structs,
+        hero: heroSlot,
+        schedule,
+        lockedDoors,
+        resetVisible: (v) => resetVisibleCharacter(v, structs),
+        restoreRoomObjects: () => {
+          for (const bed of bedObjects) {
+            pokeObject(roomPokes, bed, INTERIOR_OBJECT_OCCUPIED_BED); // $B7D4
+          }
+          pokeObject(roomPokes, heroBedObject, INTERIOR_OBJECT_OCCUPIED_BED);
+          clearAllBenches(roomPokes); // $B7DD
+          pokeObject(roomPokes, blockedTunnelObject, INTERIOR_OBJECT_COLLAPSED_TUNNEL); // $B7B9
+          pokeBound(roomPokes, blockedTunnelBoundary, BLOCKED_TUNNEL_BOUND); // $B7BE
+        },
+      });
+    },
+    forceAutomatic: () => { automatic.counter = 0; }, // $CC16
+    transitionToSolitary: () => {
+      // $CC2E transitions to solitary_pos. The demo's view follows the room.
+      hero.room = ROOM_SOLITARY;
+      hero.pos = {
+        x: solitaryPos[0]!,
+        y: solitaryPos[1]!,
+        height: solitaryPos[2]!,
+      };
+      setViewForRoom(ROOM_SOLITARY, hero.pos);
+    },
+  });
+  lastEvent = 'ARRESTED -- solitary';
+}
+/** hero_map_position ($81B8), maintained by in_permitted_area. */
+const heroMapPos = { x: 0, y: 0, height: 0 };
 
 /**
  * The hero's own vischar, slot 0.
@@ -665,7 +789,7 @@ function render(): void {
   // being part of the persistent panel: the score digits change in place and
   // the attributes are cleared by screen.clear.
   plotScore(screen, player);
-  setMoraleFlagScreenAttributes(screen, MORALE_FLAG_ATTRIBUTE_GREEN);
+  setMoraleFlagScreenAttributes(screen, permitted.flagAttribute);
   presenter.present(screen);
 
   const tiny = toTinyPos(hero.pos);
@@ -680,9 +804,17 @@ function render(): void {
   // Which slots are occupied, and by whom -- the whole point of this
   // checkpoint is watching these fill and empty as the hero moves.
   const occupied = npcSlots(vischars).filter((v) => !isEmpty(v));
+  // P6 debug scaffolding: the pursuit mode each slot is in, which is the
+  // thing to watch when the camp is meant to be reacting.
+  const modeName = (f: number) =>
+    f === 1 ? '!' : f === 2 ? '?' : f === 3 ? 'f' : f === 4 ? 'b' : '';
   const roster = occupied.length
     ? occupied
-        .map((v) => `${v.slot}:${characterClass(v.character)[0]}${v.character}`)
+        .map(
+          (v) =>
+            `${v.slot}:${characterClass(v.character)[0]}${v.character}` +
+            modeName(v.flags),
+        )
         .join(' ')
     : '—';
 
@@ -692,7 +824,10 @@ function render(): void {
   clockEl.textContent =
     `clock ${schedule.clock}/${CLOCK_WRAP} · ` +
     `${schedule.night ? 'night' : 'day'} · ` +
-    `next: ${(next.labels[0] ?? '').replace(/^event_/, '').replace(/_/g, ' ')} at ${next.clock}`;
+    // describeEvent, not the raw label: four of the fifteen timed_events
+    // labels name the opposite of what the handler does. $A202 is called
+    // event_breakfast_time and is end_of_breakfast.
+    `next: ${describeEvent(next)} at ${next.clock}`;
 
   statusEl.innerHTML =
     `pos <b>(${hero.pos.x}, ${hero.pos.y})</b> · tiny (${tiny.x}, ${tiny.y}) · ` +
@@ -703,6 +838,14 @@ function render(): void {
     // P5: morale, the flag's lagging copy, the score, and what is on the
     // message line. Debug scaffolding -- the game shows all four graphically.
     `morale <b>${player.morale}</b>/${MORALE_MAX} (flag ${player.displayedMorale}) · ` +
+    `<b>${permitted.redFlag ? 'RED' : 'green'}</b> flag · ` +
+    // Who is driving the hero. $A139 counts down while idle and the CPU takes
+    // over at zero; solitary and the red flag override it. Shown because a
+    // hero the player cannot steer is otherwise indistinguishable from a hero
+    // who is stuck.
+    `<b>${heroIsAutomatic(automatic) ? 'CPU' : 'player'}</b>` +
+    `(${automatic.counter}${solitaryState.inSolitary ? ',solitary' : ''}` +
+    `${pursuitState.bellRingingPerpetually ? ',BELL' : ''}) · ` +
     `score <b>${String(scoreValue(player)).padStart(5, '0')}</b> · ` +
     `held ${heldLabel()}` +
     (messageOnScreen(messages) ? ` · msg "<b>${messageTable[messages.messageIndex]!.text}</b>"` : '') +
@@ -749,7 +892,7 @@ function tick(): void {
   if (paused && !stepOnce) return;
   stepOnce = false;
 
-  const input = encodeInput(
+  let input = encodeInput(
     keys.has('ArrowUp'),
     keys.has('ArrowDown'),
     keys.has('ArrowLeft'),
@@ -758,6 +901,15 @@ function tick(): void {
   );
 
   const random = () => prng.next();
+
+  // $9E07..$9E0D: process_player_input returns IMMEDIATELY when in_solitary
+  // or morale_exhausted is set -- the original loads both bytes at once
+  // ($A13A/$A13B are adjacent) and bails on either. That inhibits the WHOLE
+  // input path: no movement, no getting out of bed, no item commands. Without
+  // it the player steers himself out of the solitary cell and the release
+  // chain never completes.
+  const inputInhibited = solitaryState.inSolitary || player.moraleExhausted;
+  if (inputInhibited) input = 0;
 
   // $9E86: `CP $09 / JR C` -- anything below 9 has no fire and takes the
   // ordinary movement path. With fire, the item commands run and the input
@@ -830,6 +982,16 @@ function tick(): void {
     hero.counterAndFlags = heroSlot.counterAndFlags;
     effectiveInput = heroSlot.input & 0x0f;
 
+    // $C83F charevnt_solitary_ends: the ONLY thing that ever clears
+    // in_solitary ($A13A). Without it the hero is released from the cell,
+    // wanders off on the WANDER route the event gave him, and stays there --
+    // the day schedule cannot reroute him ($A343) and the player cannot steer
+    // him ($9E0A), so he circles the courtyard forever.
+    if (behaviour.event === 'solitaryEnds') {
+      solitaryState.inSolitary = false;
+      lastEvent = 'released from solitary';
+    }
+
     // hero_sits / hero_sleeps ($A47F / $A489) halt the route and zero the
     // position so he is inside the bench or bed. The caller owns his position,
     // so this half happens here.
@@ -871,13 +1033,25 @@ function tick(): void {
   // $9D8D: one off-screen character walks its route.
   moveIndex = nextCharacterIndex(moveIndex);
   const mover = structs[moveIndex];
-  if (mover) moveCharacter(mover, { random, pokes: roomPokes });
+  if (mover) moveCharacter(mover, { random, pokes: roomPokes, onHeroRelease: releaseHero });
 
   // $9D90: follow_suspicious_character loops the seven NPC slots and runs
   // character_behaviour on each, which synthesises an input.
   for (const v of npcSlots(vischars)) {
     if (isEmpty(v)) continue;
-    characterBehaviour(v, { random, structs, room: hero.room, pokes: roomPokes });
+    characterBehaviour(v, {
+      random,
+      structs,
+      room: hero.room,
+      pokes: roomPokes,
+      onHeroRelease: releaseHero,
+      // The pursuit modes steer by these rather than by a route.
+      heroMapPosition: heroMapPos,
+      automaticPlayerCounter: automatic.counter,
+      foodItem: foodItemState(),
+      bribedCharacter: jeopardy.bribedCharacter,
+      vischars,
+    });
   }
 
   purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
@@ -946,6 +1120,93 @@ function tick(): void {
     lastEvent = '';
   }
 
+  // $9F21: in_permitted_area, which maintains hero_map_position, decides the
+  // morale flag's colour and can put the hero back on his route. Runs before
+  // the panel because wave_morale_flag draws the flag it just recoloured.
+  heroSlot.pos = { ...hero.pos };
+  // The escape check reads vischar.iso_pos ($8018/$801A), which is
+  // calc_vischar_iso_pos_from_state -- not the item projection.
+  heroSlot.isoPos = calcIsoPos(hero.pos);
+  inPermittedArea(permitted, {
+    room: hero.room,
+    clock: schedule.clock,
+    inSolitary: solitaryState.inSolitary, // $A13A
+    hero: heroSlot,
+    mapPosition: heroMapPos,
+    setHeroRoute: (index, step) => {
+      setHeroRoute(
+        {
+          structs,
+          vischars,
+          random,
+          room: hero.room,
+          hero: heroSlot,
+          heroPos: hero.pos,
+          // $A343: set_hero_route does nothing in solitary. Omit this and the
+          // day schedule walks him straight back out of the cell.
+          inSolitary: solitaryState.inSolitary,
+        },
+        index,
+        step,
+      );
+    },
+    onEscaped: () => { lastEvent = 'ESCAPED (P6)'; },
+    silenceBell: () => { /* the bell arrives with P7's audio */ },
+  });
+
+  // $A138 is ONE game byte. in_permitted_area writes it and automatics reads
+  // it; copied across explicitly here rather than left as two fields that
+  // drift, per CLAUDE.md's "one game field, one owner".
+  automatic.redFlag = permitted.redFlag;
+  // $A13A likewise: solitary writes it, automatics and set_hero_route read it.
+  automatic.inSolitary = solitaryState.inSolitary;
+
+  // $9D90: follow_suspicious_character. Sets the pursuit flags that
+  // character_behaviour then acts on, so it runs BEFORE the NPC behaviour
+  // pass below.
+  const followed = followSuspiciousCharacter(
+    vischars,
+    {
+      room: hero.room,
+      redFlag: permitted.redFlag,
+      automaticPlayerCounter: automatic.counter,
+      heroMapPosition: heroMapPos,
+      heroInUniform: heroSprite === 'guard',
+      items: itemState,
+    },
+    pursuitState,
+    {
+      checkItemDiscoverable: () => {
+        const found = isItemDiscoverable(itemState, hero.room);
+        if (found >= 0) itemDiscovered(itemState, player, found, queueGameMessage);
+      },
+      foodExpired: () => {
+        itemDiscovered(itemState, player, ITEM_FOOD_INDEX, queueGameMessage);
+      },
+    },
+  );
+  if (followed.ringBell) pursuitState.bellRingingPerpetually = true;
+
+  // $AFC0: collision, for each moving NPC against the hero. A PURSUING
+  // character that reaches him is the arrest ($B06E); the one who took the
+  // bribe becomes a decoy instead ($B063).
+  if (!solitaryState.inSolitary) {
+    for (const v of npcSlots(vischars)) {
+      if (isEmpty(v)) continue;
+      const outcome = collision(v, { ...v.pos }, vischars, jeopardy.bribedCharacter);
+      if (outcome.kind === 'arrest') {
+        arrestHero();
+        break;
+      }
+      if (outcome.kind === 'bribe') {
+        acceptBribe(v, vischars, itemState, player, queueGameMessage);
+        jeopardy.bribedCharacter = 0xff;
+        lastEvent = 'took the bribe';
+        break;
+      }
+    }
+  }
+
   // $DB9E: recompute which items are near enough to draw and to pick up. Runs
   // every iteration in the main loop, and reads map_position ($81BB) -- the
   // view scroll -- unlike the pick-up range check, which reads the hero's own
@@ -961,7 +1222,7 @@ function tick(): void {
   // redrawn from render() as well. Only the STATE advances here.
   waveMoraleFlag(panelScreen, player);
   messageDisplay(messages, panelScreen);
-  checkMorale(player, queueGameMessage);
+  checkMorale(player, queueGameMessage, () => { automatic.counter = 0; }); // $9DE1
 
   // $9DC5..$9DCA: dispatch a timed event once every 64 iterations. The counter
   // is the game counter's low six bits, not a timer of its own.
@@ -974,6 +1235,7 @@ function tick(): void {
       room: hero.room,
       hero: heroSlot,
       heroPos: hero.pos,
+      inSolitary: solitaryState.inSolitary, // $A343
       player,
       items: itemState,
       parcels,
@@ -1079,6 +1341,7 @@ eventSelect.addEventListener('change', () => {
       room: hero.room,
       hero: heroSlot,
       heroPos: hero.pos,
+      inSolitary: solitaryState.inSolitary, // $A343
       player,
       items: itemState,
       parcels,

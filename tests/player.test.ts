@@ -258,10 +258,20 @@ describe('check_morale', () => {
   });
 
   it('hands the hero to the CPU immediately, not after the usual idle wait', () => {
+    // $9DE1 zeroes automatic_player_counter ($A139). That byte lives on
+    // AutomaticState -- the copy heroIsAutomatic reads -- so this arrives as
+    // a callback. A second copy on PlayerState would be a byte the game
+    // never consults.
     const p = createPlayer();
     p.morale = 0;
-    p.automaticPlayerCounter = 31;
-    checkMorale(p, () => {});
-    expect(p.automaticPlayerCounter).toBe(0);
+    let forced = 0;
+    checkMorale(p, () => {}, () => { forced++; });
+    expect(forced).toBe(1);
+
+    const calm = createPlayer();
+    calm.morale = 50;
+    let notForced = 0;
+    checkMorale(calm, () => {}, () => { notForced++; });
+    expect(notForced).toBe(0);
   });
 });

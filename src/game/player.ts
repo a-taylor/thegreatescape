@@ -38,8 +38,6 @@ export interface PlayerState {
   score: Uint8Array;
   /** game_counter ($A12F), incremented by wave_morale_flag. */
   gameCounter: number;
-  /** automatic_player_counter ($A139). */
-  automaticPlayerCounter: number;
 }
 
 export function createPlayer(): PlayerState {
@@ -50,7 +48,6 @@ export function createPlayer(): PlayerState {
     moraleExhausted: false, // $A13B DEFB $00
     score: new Uint8Array(SCORE_DIGITS), // $A132 DEFB $00 x5
     gameCounter: 0, // $A12F DEFB $00
-    automaticPlayerCounter: 0, // $A139 DEFB $00
   };
 }
 
@@ -138,9 +135,17 @@ export const MESSAGE_MORALE_IS_ZERO = 0x0f;
  *
  * `src/game/` does not import `src/ui/`, so the queue arrives as a callback.
  */
-export function checkMorale(p: PlayerState, queue: (index: number, c?: number) => void): void {
+export function checkMorale(
+  p: PlayerState,
+  queue: (index: number, c?: number) => void,
+  forceAutomatic?: () => void,
+): void {
   if (p.morale >= 2) return; // $9DD4 RET NC
   queue(MESSAGE_MORALE_IS_ZERO, 0);
   p.moraleExhausted = true; // $A13B <- $FF
-  p.automaticPlayerCounter = 0; // $9DE1
+  // $9DE1 zeroes automatic_player_counter ($A139) to hand the hero to the CPU
+  // AT ONCE. That byte has exactly one owner -- AutomaticState.counter, the
+  // one heroIsAutomatic reads -- so this is a callback rather than a field
+  // here. A second copy is not a copy; it is a byte the game never sees.
+  forceAutomatic?.();
 }
