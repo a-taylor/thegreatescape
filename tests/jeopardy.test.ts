@@ -24,11 +24,13 @@ import {
   acceptBribe,
   collides,
   collision,
+  resetMapAndCharacters,
   solitary,
   solitaryCommandant,
 } from '../src/game/jeopardy.js';
 import { PURSUIT_PURSUE, PURSUIT_SAW_BRIBE } from '../src/game/pursuit.js';
 import { createVischars } from '../src/game/vischar.js';
+import { resetVisibleCharacter } from '../src/game/spawn.js';
 import {
   ITEMSTRUCT_STRIDE,
   ITEM_NONE,
@@ -38,7 +40,12 @@ import {
 } from '../src/game/inventory.js';
 import { ITEM_COUNT } from '../src/game/items.js';
 import { createPlayer, scoreValue } from '../src/game/player.js';
-import { characterStructs } from '../src/game/characters.js';
+import {
+  CHARACTER_RESET_HEIGHT,
+  characterResetData,
+  characterStructs,
+} from '../src/game/characters.js';
+import { createSchedule } from '../src/game/schedule.js';
 import { permittedBounds } from '../src/game/permitted.js';
 import { HERO_RELEASE_ROUTE, applyCharacterEvent, characterEvent } from '../src/game/events.js';
 import { setHeroRoute, setHeroRouteForce } from '../src/game/schedule.js';
@@ -154,6 +161,75 @@ describe('accept_bribe', () => {
     expect(prisoner.flags).toBe(0);
 
     expect(queued).toEqual([MESSAGE_HE_TAKES_THE_BRIBE, MESSAGE_AND_ACTS_AS_DECOY]);
+  });
+});
+
+describe('reset_map_and_characters ($B79B)', () => {
+  function stageReset() {
+    const vischars = createVischars();
+    const hero = vischars[0]!;
+    const structs = characterStructs();
+    const schedule = createSchedule();
+    schedule.clock = 99;
+    schedule.night = true;
+    hero.flags = 0xff;
+    const lockedDoors = new Uint8Array(9); // none locked
+    const resetVisibleCalls: number[] = [];
+    const restoreCalls = { count: 0 };
+    resetMapAndCharacters({
+      vischars,
+      structs,
+      hero,
+      schedule,
+      lockedDoors,
+      resetVisible: (v) => { resetVisibleCalls.push(v.slot); resetVisibleCharacter(v, structs); },
+      restoreRoomObjects: () => { restoreCalls.count++; },
+    });
+    return { vischars, structs, schedule, hero, lockedDoors, resetVisibleCalls, restoreCalls };
+  }
+
+  it('resets the clock, night flag, hero flags, doors and room objects', () => {
+    const { schedule, hero, lockedDoors, resetVisibleCalls, restoreCalls } = stageReset();
+    expect(schedule.clock).toBe(7); // $B7AD
+    expect(schedule.night).toBe(false); // $B7B2
+    expect(hero.flags).toBe(0); // $B7B6
+    expect(resetVisibleCalls).toEqual([1, 2, 3, 4, 5, 6, 7]); // $B7A2, every NPC slot
+    expect([...lockedDoors]).toEqual(new Array(9).fill(0x80)); // $B7C8
+    expect(restoreCalls.count).toBe(1);
+  });
+
+  it('puts the four guards and six prisoners back at their spawn points ($B7F2)', () => {
+    const { structs } = stageReset();
+
+    // Moved out of place beforehand, so a no-op implementation would show up
+    // as "still moved" rather than accidentally passing.
+    for (const entry of characterResetData) {
+      expect(structs[entry.character]!.room).toBe(entry.room);
+      expect(structs[entry.character]!.pos).toEqual({
+        x: entry.x,
+        y: entry.y,
+        height: CHARACTER_RESET_HEIGHT,
+      });
+      expect(structs[entry.character]!.route).toEqual({ index: 0, step: 0 });
+    }
+
+    // Sanity-check two entries against the disassembly's own comments at
+    // $B819/$B834, so a transposed extraction is caught here rather than only
+    // by golden pixels.
+    expect(structs[12]!.room).toBe(3); // room_3_HUT2RIGHT
+    expect(structs[12]!.pos).toEqual({ x: 40, y: 60, height: CHARACTER_RESET_HEIGHT });
+    expect(structs[25]!.room).toBe(0xff); // room_NONE
+    expect(structs[25]!.pos).toEqual({ x: 52, y: 28, height: CHARACTER_RESET_HEIGHT });
+  });
+
+  it('leaves every other character struct untouched', () => {
+    const before = characterStructs();
+    const { structs } = stageReset();
+    const resetIndices = new Set(characterResetData.map((e) => e.character));
+    for (let i = 0; i < structs.length; i++) {
+      if (resetIndices.has(i)) continue;
+      expect(structs[i]).toEqual(before[i]);
+    }
   });
 });
 

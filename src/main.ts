@@ -42,7 +42,13 @@
 
 import { exteriorTiles, interiorTiles, roomsData, spritesData, decodeBase64 } from './data/load.js';
 import { heroMapPosition, tinyposStash, toTinyPos } from './game/coords.js';
-import { createPermitted, inPermittedArea } from './game/permitted.js';
+import { HOME_ROOM, createPermitted, inPermittedArea } from './game/permitted.js';
+import {
+  MSG_PRESS_ANY_KEY,
+  computeEscapeOutcome,
+  drawEscapeString,
+  type EscapeOutcome,
+} from './ui/ending.js';
 import { followSuspiciousCharacter } from './game/pursuit.js';
 import {
   BLOCKED_TUNNEL_BOUND,
@@ -240,6 +246,36 @@ let paused = false;
 let stepOnce = false;
 
 /**
+ * escaped ($A51C): set the instant the hero walks off the map edge.
+ *
+ * The original never returns to the main loop from here -- it waits for a
+ * keypress and then jumps straight to reset_game or solitary. `tick()`
+ * mirrors that by returning immediately once this is set, so nothing else in
+ * the frame runs until `resolveEnding` clears it.
+ */
+let ending: EscapeOutcome | null = null;
+
+/**
+ * Indirection so `tick()`'s early-return guard doesn't narrow `ending` to
+ * `null` for the rest of the function -- TypeScript cannot see that
+ * `inPermittedArea`'s `onEscaped` callback, several statements later,
+ * reassigns it.
+ */
+function hasEnding(): boolean {
+  return ending !== null;
+}
+
+/** escaped_press_any_key ($A56E)/keyscan_all ($A58C): resolve the ending screen. */
+function resolveEnding(): void {
+  if (!ending) return;
+  const outcome = ending;
+  ending = null;
+  if (outcome.resetsGame) resetGame(); // $A581/$A586
+  else arrestHero(); // $A589 JP $CB98
+  render();
+}
+
+/**
  * The eight visible-character slots and the 26 character structs behind them.
  *
  * The structs are live state, not a constant table: spawn_character copies a
@@ -418,6 +454,17 @@ function releaseHero(): void {
   lastEvent = 'the commandant lets him out';
 }
 
+/** $B7B9, $B7D4, $B7DD: the part of reset_map_and_characters shared by every caller. */
+function restoreRoomObjects(): void {
+  for (const bed of bedObjects) {
+    pokeObject(roomPokes, bed, INTERIOR_OBJECT_OCCUPIED_BED); // $B7D4
+  }
+  pokeObject(roomPokes, heroBedObject, INTERIOR_OBJECT_OCCUPIED_BED);
+  clearAllBenches(roomPokes); // $B7DD
+  pokeObject(roomPokes, blockedTunnelObject, INTERIOR_OBJECT_COLLAPSED_TUNNEL); // $B7B9
+  pokeBound(roomPokes, blockedTunnelBoundary, BLOCKED_TUNNEL_BOUND); // $B7BE
+}
+
 function arrestHero(): void {
   solitary(solitaryState, {
     hero: heroSlot,
@@ -440,15 +487,7 @@ function arrestHero(): void {
         schedule,
         lockedDoors,
         resetVisible: (v) => resetVisibleCharacter(v, structs),
-        restoreRoomObjects: () => {
-          for (const bed of bedObjects) {
-            pokeObject(roomPokes, bed, INTERIOR_OBJECT_OCCUPIED_BED); // $B7D4
-          }
-          pokeObject(roomPokes, heroBedObject, INTERIOR_OBJECT_OCCUPIED_BED);
-          clearAllBenches(roomPokes); // $B7DD
-          pokeObject(roomPokes, blockedTunnelObject, INTERIOR_OBJECT_COLLAPSED_TUNNEL); // $B7B9
-          pokeBound(roomPokes, blockedTunnelBoundary, BLOCKED_TUNNEL_BOUND); // $B7BE
-        },
+        restoreRoomObjects,
       });
     },
     forceAutomatic: () => { automatic.counter = 0; }, // $CC16
@@ -465,6 +504,66 @@ function arrestHero(): void {
   });
   lastEvent = 'ARRESTED -- solitary';
 }
+
+/**
+ * reset_game ($B75A): the routine that also boots the game from the menu
+ * ($F163) and restarts it after morale runs out ($9DE5).
+ *
+ * The sixteen item_discovered calls and the message-queue reset at the top
+ * ($B75D/$B765) have no OBSERVABLE effect of their own here: every message
+ * they queue is discarded three lines later when the queue pointer is reset
+ * again, and every morale point they cost is overwritten by the unconditional
+ * $70 two lines after that. What survives is item_discovered's other job --
+ * putting each item back at its default location -- so this recreates item
+ * state from scratch rather than replaying calls whose visible effects never
+ * reach the screen.
+ */
+function resetGame(): void {
+  const freshItems = createItemState();
+  itemState.structs.set(freshItems.structs);
+  itemState.held[0] = freshItems.held[0]!;
+  itemState.held[1] = freshItems.held[1]!;
+
+  const freshMessages = createMessages();
+  messages.queue.set(freshMessages.queue);
+  messages.pointer = freshMessages.pointer;
+  messages.delay = freshMessages.delay;
+  messages.displayIndex = freshMessages.displayIndex;
+  messages.messageIndex = freshMessages.messageIndex;
+  messages.charIndex = freshMessages.charIndex;
+
+  // $B76B: everyone back at spawn, clock to 7, night off, hero flags clear,
+  // doors re-locked, beds/benches/tunnel restored.
+  resetMapAndCharacters({
+    vischars,
+    structs,
+    hero: heroSlot,
+    schedule,
+    lockedDoors,
+    resetVisible: (v) => resetVisibleCharacter(v, structs),
+    restoreRoomObjects,
+  });
+
+  // $B772..$B77B: score, hero_in_breakfast, red_flag, automatic_player_counter,
+  // in_solitary and morale_exhausted are one contiguous ten-byte region in the
+  // original; here they are five separate owners, all zeroed together.
+  player.score.fill(0);
+  schedule.heroInBreakfast = false;
+  permitted.redFlag = false;
+  automatic.counter = 0;
+  solitaryState.inSolitary = false;
+  player.moraleExhausted = false;
+  player.morale = MORALE_MAX; // $B77B
+
+  heroSprite = 'prisoner'; // $B789
+  hero.room = HOME_ROOM; // $B78F
+  heroSlot.room = HOME_ROOM;
+  heroSleeps(schedule, heroSlot, hero.pos, roomPokes); // $B794
+  setViewForRoom(HOME_ROOM, hero.pos); // $B797 enter_room
+
+  lastEvent = '';
+}
+
 /** hero_map_position ($81B8), maintained by in_permitted_area. */
 const heroMapPos = { x: 0, y: 0, height: 0 };
 
@@ -967,6 +1066,7 @@ function spawnInRoom(room: number): { x: number; y: number; height: number } {
 function tick(): void {
   if (paused && !stepOnce) return;
   stepOnce = false;
+  if (hasEnding()) return; // frozen on the escape screen; see resolveEnding.
 
   let input = encodeInput(
     keys.has('ArrowUp'),
@@ -1259,9 +1359,25 @@ function tick(): void {
         step,
       );
     },
-    onEscaped: () => { lastEvent = 'ESCAPED (P6)'; },
+    onEscaped: () => {
+      ending = computeEscapeOutcome(itemState.held); // $A51C escaped
+      lastEvent = ending.won ? 'ESCAPED' : 'RECAPTURED';
+    },
     silenceBell: () => { /* the bell arrives with P7's audio */ },
   });
+
+  if (ending) {
+    // $A51F..$A571: print every line, then wait for a key. The original does
+    // this over a freshly zoomboxed scene ($A50B screen_reset); this demo
+    // renders the current one instead of reproducing that transition.
+    render();
+    for (const line of ending.lines) drawEscapeString(screen, line);
+    drawEscapeString(screen, MSG_PRESS_ANY_KEY);
+    // render() already presented this frame; the text drawn since needs its
+    // own present, or it never reaches the canvas.
+    presenter.present(screen);
+    return;
+  }
 
   // $A138 is ONE game byte. in_permitted_area writes it and automatics reads
   // it; copied across explicitly here rather than left as two fields that
@@ -1385,6 +1501,17 @@ setInterval(() => {
 }, TICK_MS);
 
 window.addEventListener('keydown', (e) => {
+  // keyscan_all ($A58C): the escape screen reads the whole keyboard, not just
+  // the game's own move/fire keys. Simplified to "any keydown resolves it" --
+  // the original's separate wait for the key to be RELEASED exists so a key
+  // already held at the moment of escape cannot dismiss the screen before the
+  // player has read it, which cannot happen here since tick() is frozen the
+  // instant `ending` is set.
+  if (hasEnding()) {
+    resolveEnding();
+    e.preventDefault();
+    return;
+  }
   // Debug keys. Deliberately not arrow keys or anything the game reads, so
   // they cannot be confused with player input.
   if (e.key === 'p' || e.key === 'P') {
@@ -1534,11 +1661,14 @@ roomSelect.addEventListener('change', () => {
  * somewhere the day schedule does not expect: route 42's target is the hut
  * door, whose stored position is an INDOOR one, and reading it with the
  * outdoor scale sends him into a fence.
+ *
+ * reset_game ($B75A) is this demo's boot routine too, as it is the original's
+ * ($F163 calls it from the menu) -- every piece of state it touches is
+ * already at that value from the `create*()` calls above, so this is
+ * idempotent, and it is one fewer place for the boot state to drift from what
+ * a mid-game reset produces.
  */
-const START_ROOM = 2;
-hero.room = START_ROOM;
-setViewForRoom(START_ROOM, hero.pos);
-heroSleeps(schedule, heroSlot, hero.pos, roomPokes);
+resetGame();
 
 function fit(): void {
   presenter.resize(window.innerWidth - 48, window.innerHeight - 260);

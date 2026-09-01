@@ -11,6 +11,7 @@
  */
 
 import charactersJson from '../../data/characters.json';
+import { decodeBase64 } from '../data/load.js';
 
 /** vischars_LENGTH aside, there are 26 characters ($C430 sets B to $1A). */
 export const CHARACTER_COUNT = 26;
@@ -42,9 +43,58 @@ const data = charactersJson as unknown as {
   structStride: number;
   structs: number[][];
   metaData: CharacterMeta[];
+  resetData: { data: string };
 };
 
 export const characterMeta: readonly CharacterMeta[] = data.metaData;
+
+/**
+ * character_reset_data ($B819): ten {room, x, y} records, one per character.
+ * Used only by reset_map_and_characters ($B79B), which reset_game ($B75A)
+ * and solitary ($CBF3) both call to put the cast back at their spawn points.
+ *
+ * The character order is two runs, not a table of its own: $B7F2 starts DE at
+ * character_structs[12].room and just walks forward, then $B80D-$B811 swaps
+ * DE to character_structs[20].room with three iterations left -- four guards
+ * (12..15), six prisoners (20..25). Expressed as the two runs the code
+ * actually is, rather than the ten numbers they produce, which is what a
+ * hand-typed table would look like.
+ */
+function characterRange(first: number, count: number): number[] {
+  return Array.from({ length: count }, (_, i) => first + i);
+}
+export const CHARACTER_RESET_ORDER: readonly number[] = [
+  ...characterRange(12, 4), // $7667 = character_structs[12].room
+  ...characterRange(FIRST_PRISONER, 6), // $769F = character_structs[20].room
+];
+
+export interface CharacterResetEntry {
+  readonly character: number;
+  readonly room: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+function parseCharacterResetData(): CharacterResetEntry[] {
+  const bytes = decodeBase64(data.resetData.data);
+  return CHARACTER_RESET_ORDER.map((character, i) => ({
+    character,
+    room: bytes[i * 3]!,
+    x: bytes[i * 3 + 1]!,
+    y: bytes[i * 3 + 2]!,
+  }));
+}
+
+export const characterResetData: readonly CharacterResetEntry[] = parseCharacterResetData();
+
+/**
+ * The height reset_map_and_characters forces on every reset character
+ * ($B803 LD (HL),$12). REPRODUCED BUG: the disassembly notes this is 18, not
+ * the class's actual initial height of 24 -- so a freshly reset guard or
+ * prisoner is briefly shorter than one freshly spawned, until animation
+ * corrects it.
+ */
+export const CHARACTER_RESET_HEIGHT = 0x12;
 
 /**
  * Which metadata a character gets ($C537..$C54B).

@@ -158,6 +158,19 @@ flagged by the disassembly:
 All five text blocks use `DEFB` in the game's own glyph codes, in a charset where digit zero
 doubles as the letter O. Reproduced as-is; no substitution at extract time.
 
+### `$B803` — a reset character is briefly the wrong height
+
+`reset_map_and_characters` ($B79B) puts the ten off-screen guards and prisoners back at their
+`character_reset_data` spawn points after an arrest or a full reset, and sets their height to
+18 (`LD (HL),$12`). Every other spawn path uses 24, and the disassembly flags the mismatch
+directly: "This is reset to 18 here but the initial value is 24." A character reset this way is
+therefore six units shorter than one freshly spawned, until the next animation frame corrects
+it.
+
+**Reproduced** (`src/game/characters.ts`'s `CHARACTER_RESET_HEIGHT`, used by
+`resetMapAndCharacters` in `src/game/jeopardy.ts`). Six units for a handful of frames on an
+already-brief transition is not worth diverging from the disassembly's own literal value over.
+
 ---
 
 ## Harmless-looking things that are genuinely harmless

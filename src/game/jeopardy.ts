@@ -13,6 +13,7 @@
  */
 
 import geographyJson from '../../data/geography.json';
+import { CHARACTER_RESET_HEIGHT, characterResetData, type CharacterStruct } from './characters.js';
 import {
   ITEMSTRUCT_STRIDE,
   ITEM_NONE,
@@ -272,7 +273,8 @@ export function solitary(s: SolitaryState, ctx: SolitaryContext): void {
 
 export interface ResetMapContext {
   readonly vischars: Vischar[];
-  readonly structs: unknown[];
+  /** character_structs, so the ten guards and prisoners can be put back at spawn. */
+  readonly structs: CharacterStruct[];
   /** The hero's vischar, whose flags are cleared ($B7B6). */
   readonly hero: Vischar;
   /** The schedule, for the clock and night flag ($B7AD / $B7B2). */
@@ -299,10 +301,18 @@ export interface ResetMapContext {
  *   $B7C8  all nine locked doors re-locked
  *   $B7D4  the six beds re-occupied
  *   $B7DD  all seven benches emptied
+ *   $B7F2  the four guards (12..15) and six prisoners (20..25) put back at
+ *          their character_reset_data spawn points, height forced to 18 (a
+ *          reproduced bug -- see CHARACTER_RESET_HEIGHT) and route halted
  *
  * Implementing only the first is what left a commandant stuck in a pursuit
  * mode after an arrest: a character in a pursuit mode ignores its route
  * entirely ($C92A), so route 36 never ended and the hero was never released.
+ * The last step (character_reset_data) was the same shape of gap: `structs`
+ * was already threaded through every caller but never read here, so an
+ * arrest put the cast's VISCHARS back without ever moving the underlying
+ * character_structs they get re-spawned from -- invisible until the next
+ * spawn pulled a stale position.
  */
 export function resetMapAndCharacters(ctx: ResetMapContext): void {
   for (const v of ctx.vischars.slice(1)) ctx.resetVisible(v); // $B7A2
@@ -313,4 +323,11 @@ export function resetMapAndCharacters(ctx: ResetMapContext): void {
     ctx.lockedDoors[i] = ctx.lockedDoors[i]! | 0x80; // $B7C8
   }
   ctx.restoreRoomObjects(); // $B7B9, $B7D4, $B7DD
+  for (const entry of characterResetData) { // $B7F2
+    const s = ctx.structs[entry.character];
+    if (!s) continue;
+    s.room = entry.room;
+    s.pos = { x: entry.x, y: entry.y, height: CHARACTER_RESET_HEIGHT };
+    s.route = { index: 0, step: 0 }; // $B806, routeindex_0_HALT
+  }
 }
