@@ -52,6 +52,17 @@ import { ExteriorView } from '../src/render/exterior.js';
 import { isoPlacement, resetOutdoorPosition } from '../src/render/place.js';
 import { vischarVisible } from '../src/render/clip.js';
 import { decodeBase64, roomsData } from '../src/data/load.js';
+import { createJeopardy, createLockedDoors } from '../src/game/actions.js';
+import { runWorkingTimers } from '../src/game/timers.js';
+import {
+  STATE_SEARCHING,
+  createSearchlights,
+  nighttime,
+  searchlightMaskTest,
+} from '../src/game/searchlight.js';
+import { renderMaskBuffer, interiorMasksForRoom } from '../src/render/maskbuffer.js';
+import { tinyposStash } from '../src/game/coords.js';
+import { MASK_BUFFER_SIZE } from '../src/render/sprites.js';
 import routesData from '../data/routes.json';
 import { INTERIOR_MAP_POSITION, halfDoors } from '../src/game/doors.js';
 import { getTarget } from '../src/game/routes.js';
@@ -153,6 +164,14 @@ interface Sample {
   benchesAtBreakfast: Array<number | undefined>;
   /** True once the hero's own bench shows him sitting at it. */
   heroSeated: boolean;
+  /** Frames with schedule.night true -- proves the run actually reaches night. */
+  nightTicks: number;
+  /** Frames searchlightMaskTest actually ran (state !== SEARCHING, hero plotted). */
+  maskTestRuns: number;
+  /** Times searchlightMaskTest returned true, i.e. the light gave up. */
+  searchlightEscapes: number;
+  /** searchlight_state ever seen outside its documented 0..255 range. */
+  searchlightStateInvalid: boolean;
   player: PlayerState;
   parcels: ParcelState;
   pokes: RoomPokeState;
@@ -201,6 +220,11 @@ function runIdle(ticks: number): Sample {
   const parcels = createParcels();
   const pokes = createRoomPokes();
   const messages = createMessages();
+  const jeopardy = createJeopardy();
+  const lockedDoors = createLockedDoors();
+  const searchlights = createSearchlights();
+  const foreground = new Uint8Array(MASK_BUFFER_SIZE);
+  const heroForeground = new Uint8Array(MASK_BUFFER_SIZE);
 
   // reset_game leaves him asleep in hut 2 ($B794), which pokes his bed to
   // OCCUPIED -- so the poke state has to exist first.
@@ -222,6 +246,10 @@ function runIdle(ticks: number): Sample {
     bedsEmptied: false,
     benchesAtBreakfast: [],
     heroSeated: false,
+    nightTicks: 0,
+    maskTestRuns: 0,
+    searchlightEscapes: 0,
+    searchlightStateInvalid: false,
     player,
     parcels,
     pokes,
@@ -235,9 +263,38 @@ function runIdle(ticks: number): Sample {
   let jamRun = 0;
 
   for (let t = 0; t < ticks; t++) {
+    // $9DB4..$9DB8: the searchlights only run at night, mirroring main.ts's
+    // tick before any input handling.
+    if (schedule.night) {
+      out.nightTicks++;
+      nighttime(searchlights, {
+        room: hero.room,
+        mapPosition: view.position,
+        player,
+        ringBell: () => {}, // pursuit/jeopardy is not modelled by this loop
+      });
+    }
+    if (searchlights.state < 0 || searchlights.state > 0xff) {
+      out.searchlightStateInvalid = true;
+    }
+
     noteInput(automatic, 0);
 
     let input = 0;
+    // $9E0E..$9E1F: idle autopilot never fires an item action, so
+    // vischar.flags never carries PICKING_LOCK/CUTTING_WIRE and this is
+    // always a no-op here -- kept for order fidelity with main.ts's tick.
+    runWorkingTimers(
+      {
+        gameCounter: player.gameCounter,
+        lockedOutUntil: jeopardy.playerLockedOutUntil,
+        hero: heroSlot,
+        lockedDoors,
+        doorBeingLockpicked: jeopardy.doorBeingLockpicked,
+        queueMessage,
+      },
+      () => {},
+    );
     // Mirrors src/main.ts's tick. It has to: the whole value of this file is
     // that it exercises the same order the demo does, and a hero who never
     // sits down or never takes the automatic door path walks a different
@@ -422,6 +479,29 @@ function runIdle(ticks: number): Sample {
       view.position,
     ).visible;
 
+    // $B876..$B87B: the render product a paused/resized frame must not
+    // re-consume -- see CLAUDE.md's "the renderer may run more than once per
+    // frame". This loop renders exactly once per tick, so building the mask
+    // buffer here and testing it immediately after is equivalent to main.ts's
+    // render()-then-tick() split without needing the pixel renderer at all.
+    if (visible) {
+      const tiny = tinyposStash(hero.pos, hero.room === 0);
+      renderMaskBuffer(
+        foreground,
+        { isoX: iso.column, isoY: iso.pixelRow >> 3, tinyX: tiny.x, tinyY: tiny.y, tinyHeight: tiny.height },
+        hero.room === 0
+          ? undefined
+          : interiorMasksForRoom(
+              roomsData.roomdefs[roomsData.rooms[hero.room - 1]!.roomdefIndex]!.masks,
+            ),
+      );
+      heroForeground.set(foreground);
+    }
+    if (schedule.night && visible && searchlights.state !== STATE_SEARCHING) {
+      out.maskTestRuns++;
+      if (searchlightMaskTest(searchlights, heroForeground)) out.searchlightEscapes++;
+    }
+
     // While he is in bed OR at breakfast his position is zeroed and he is
     // inside the furniture, so not being drawn is correct: hero_sits ($A47F)
     // and hero_sleeps ($A489) both fall into hero_sit_sleep_common ($A491),
@@ -441,7 +521,12 @@ function runIdle(ticks: number): Sample {
 }
 
 describe('the hero on autopilot', () => {
-  const run = runIdle(6000);
+  // Long enough to cross a full day (DAY_LENGTH_TICKS = clockWrap * ticksPerClock
+  // = 140 * 64 = 8960) and into the next, so nighttime() and
+  // searchlightMaskTest() are actually exercised rather than merely wired in.
+  // CLAUDE.md: "a routine can be implemented, tested, and still unreachable" --
+  // this run has to prove reachability, not just avoid crashing.
+  const run = runIdle(10000);
 
   it('never leaves the game window', () => {
     // Two faults produced this, both invisible to per-routine tests:
@@ -465,6 +550,16 @@ describe('the hero on autopilot', () => {
     // The routes the day schedule gives him lead indoors, so a run this long
     // should take him through several doorways.
     expect(run.roomChanges).toBeGreaterThan(0);
+  });
+
+  it('actually reaches night', () => {
+    // Without this the searchlight mirror below would pass trivially by never
+    // running -- the exact shape of the item-logic bug from P5.
+    expect(run.nightTicks).toBeGreaterThan(0);
+  });
+
+  it('keeps searchlight_state within its documented 0..255 range', () => {
+    expect(run.searchlightStateInvalid).toBe(false);
   });
 });
 

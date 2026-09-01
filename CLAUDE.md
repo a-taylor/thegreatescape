@@ -400,19 +400,36 @@ happily passed on behaviour the demo never exhibited. If you add a step to the d
 it here in the same place. Every "fit" bug — the teleport, the double step, the gate, the mess hall — was
 invisible to per-routine tests and obvious there. Extend it when adding systems.
 
-**As of P6 part 2 the mirror is BROKEN, and this is the first thing to fix next session.**
-Three steps are in `src/main.ts`'s tick and not in the test's:
+**As of the mirror repair after P6 part 2, `runWorkingTimers`, `nighttime` and
+`searchlightMaskTest` are wired into `runIdle`'s tick, in the same order `src/main.ts` calls
+them.** The searchlight one was the interesting case, because it is the only step that reads a
+*rendering* product (the mask buffer) back into game state, and the demoloop test does not run
+the pixel renderer at all. It gets its mask buffer by calling `renderMaskBuffer` directly for the
+hero — the same clip test the test already ran for the `offWindow` assertion tells it whether the
+hero would have been plotted, which is all `plot_sprites` needs to decide whether to sample the
+buffer at all.
 
-- `runWorkingTimers` — the lockpick and wire-cutting timers, which take the whole frame
-  instead of the ordinary input path and feed the hero inputs of their own
-- `nighttime` — the searchlight sweep and capture
-- `searchlightMaskTest` after `render()` — the escape countdown
+`runWorkingTimers` is a true no-op in this scenario — the idle hero never fires an item action, so
+`vischar.flags` never carries `PICKING_LOCK`/`CUTTING_WIRE` — but it is called anyway, for order
+fidelity, with its own `createJeopardy()`/`createLockedDoors()` state.
 
-The searchlight one matters most, because it is the only step that reads a *rendering* product
-(the mask buffer) back into game state. The demoloop test does not render at all, so mirroring
-it needs a decision about how the test obtains a mask buffer — probably by calling
-`renderMaskBuffer` for the hero directly, which is what `plot_sprites` effectively does. Until
-that is done, nothing exercises the timers or the searchlights across a full day.
+**Reachability was checked, not assumed** (`tests/demoloop.test.ts`'s `'actually reaches night'`
+test): the run length had to go from 6000 to 10000 ticks, past `DAY_LENGTH_TICKS` (8960), or
+`nighttime` would silently never run — the exact shape of P5's item-logic bug. Even at 10000
+ticks the mask test itself (`maskTestRuns`) never fires: the day schedule has the hero in bed
+before night falls, so he is never outdoors and exposed to a light in this idle scenario. That is
+not a bug — the escape mechanic is for a player caught outdoors after curfew, which idle autopilot
+never attempts — and `searchlightMaskTest`'s own polarity, countdown and reset logic already have
+direct coverage in `tests/searchlight.test.ts`. What the demoloop integration adds is proof that
+wiring the three calls into the real tick, against the real day schedule, doesn't crash, doesn't
+put `searchlight_state` outside its documented 0..255 range, and doesn't disturb the existing
+route/room/message assertions across a full day-night cycle.
+
+Two systems from `src/main.ts`'s tick are still outside the mirror: `inPermittedArea` /
+`followSuspiciousCharacter` / `collision` (the pursuit and jeopardy chain) and
+`processPlayerInputFire` (item actions). Both need state this test does not yet construct
+(`pursuitState`, wired item actions) and neither was named in the note this replaces — worth
+scoping as its own session rather than folding in here.
 
 ---
 
