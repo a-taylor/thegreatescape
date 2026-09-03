@@ -74,7 +74,11 @@ import {
   createLockedDoors,
   itemActions,
 } from '../../src/game/actions.js';
-import { FLAGS_PICKING_LOCK, runWorkingTimers } from '../../src/game/timers.js';
+import {
+  FLAGS_CUTTING_WIRE,
+  FLAGS_PICKING_LOCK,
+  runWorkingTimers,
+} from '../../src/game/timers.js';
 import {
   STATE_SEARCHING,
   createSearchlights,
@@ -183,6 +187,18 @@ export interface GameState {
   frame: number;
   /** Ticks run so far, for diagnostics. */
   ticks: number;
+  /**
+   * Cumulative counts of the things that can happen without the caller
+   * looking.
+   *
+   * A scenario that only inspects the TickResult of the ticks it drives
+   * directly misses everything that happens inside a walk -- and being
+   * arrested halfway across the camp, which empties the hero's hands and puts
+   * him in a cell, is exactly the kind of event a walk does not report. These
+   * are here so "he arrived with nothing" cannot be mistaken for a bug in the
+   * item code.
+   */
+  totals: { arrests: number; bribes: number; escapes: number; gateTransitions: number };
 }
 
 /** What one tick did, for a scenario to instrument. */
@@ -190,6 +206,8 @@ export interface TickResult {
   /** The input that actually reached step(), after inhibition and autopilot. */
   effectiveInput: number;
   moved: boolean;
+  /** bounds_check refused the move ($B1AF). */
+  blocked: boolean;
   enteredRoom: number | null;
   /** Steps the reveal ran; the loop is frozen for all of them. */
   zoomboxSteps: number;
@@ -212,8 +230,16 @@ export interface TickResult {
   messageIndexBefore: number;
 }
 
-export function createGameState(): GameState {
-  const prng = new Prng();
+/**
+ * @param seed the PRNG pointer's low byte ($C41A, $9000 on load).
+ *
+ * game_counter is deliberately NOT reset on a new game (Fact:randomness), so
+ * the original seeds itself from however long the menu was on screen. A test
+ * wants the opposite: the same seed every run. This is the same knob the demo
+ * exposes as `?seed=`.
+ */
+export function createGameState(seed = 0): GameState {
+  const prng = new Prng(seed);
   const structs = characterStructs();
   const vischars = createVischars();
   const heroSlot = vischars[0]!;
@@ -262,6 +288,7 @@ export function createGameState(): GameState {
     moveIndex: 0,
     frame: 0,
     ticks: 0,
+    totals: { arrests: 0, bribes: 0, escapes: 0, gateTransitions: 0 },
   };
 }
 
@@ -271,6 +298,7 @@ export function tickGame(g: GameState, playerInput = 0): TickResult {
   const r: TickResult = {
     effectiveInput: 0,
     moved: false,
+    blocked: false,
     enteredRoom: null,
     zoomboxSteps: 0,
     command: null,
@@ -397,6 +425,8 @@ export function tickGame(g: GameState, playerInput = 0): TickResult {
   }
 
   let input = playerInput;
+  /** Whether a wire cut was already running when this tick began ($B47B). */
+  const wasCutting = (g.heroSlot.flags & FLAGS_CUTTING_WIRE) !== 0;
 
   // -- $9E07..$9E0D: solitary or exhausted morale inhibits the WHOLE input
   // path -- no movement, no getting out of bed, no item commands.
@@ -414,7 +444,18 @@ export function tickGame(g: GameState, playerInput = 0): TickResult {
     },
     (turns) => { g.automatic.counter = turns; }, // $9E18
   );
-  if (r.working) input = 0;
+  // $9ECC: cutting_wire feeds the hero inputs of its OWN over the last three
+  // turns of a cut, to walk him THROUGH the gap he has just made. It writes
+  // them to vischar 0's input byte, which in the original is exactly the byte
+  // `animate` reads -- so the hero moves. Here his movement comes from step()
+  // against a separate HeroState, so that byte has to be carried across or the
+  // wire is cut and never crossed. It is the only way out of the camp: without
+  // this the game cannot be completed at all.
+  let workingInput = 0;
+  if (r.working) {
+    workingInput = g.heroSlot.input & 0x0f;
+    input = 0;
+  }
 
   // -- $9E86 process_player_input_fire ($7AC9). ----------------------------
   r.command = processPlayerInputFire(g.items, input, {
@@ -430,6 +471,22 @@ export function tickGame(g: GameState, playerInput = 0): TickResult {
   // input_KICK ($9E8D): a sprite refresh with no direction bits.
   const moveInput = input >= INPUT_FIRE ? 0 : input;
 
+  // The same hazard as the input above, for the other two bytes those handlers
+  // write. snips_tail ($B474/$B47F) sets the hero's DIRECTION and drops his
+  // HEIGHT to 12 so he crawls through; cutting_wire ($9ED5/$9EDB) stands him
+  // back up at 24 and faces him top-left. All four writes go to vischar 0, and
+  // the automatic branch below rebinds `heroSlot.pos` from `hero.pos` -- so
+  // without this they are overwritten before anything reads them.
+  //
+  // Copied back only while a cut is actually in progress. The vischar's own
+  // height and direction are stale at every other moment -- they are written
+  // FROM the hero, not to him -- and copying them unconditionally drags his
+  // height to whatever the vischar last held and pins him in the hut.
+  if (wasCutting || (g.heroSlot.flags & FLAGS_CUTTING_WIRE) !== 0) {
+    g.hero.pos.height = g.heroSlot.pos.height;
+    g.hero.direction = g.heroSlot.direction;
+  }
+
   // -- $9E37..$9E5C: the first keypress gets him out of bed or off the bench.
   if (input !== 0 && g.schedule.heroInBed) {
     heroGetsUp(g.schedule, g.heroSlot, g.hero.pos, g.pokes);
@@ -442,7 +499,7 @@ export function tickGame(g: GameState, playerInput = 0): TickResult {
   noteInput(g.automatic, input);
 
   // -- $C910: at zero, character_behaviour supplies the input instead. -----
-  let effectiveInput = moveInput;
+  let effectiveInput = r.working ? workingInput : moveInput;
   let autoEnteredRoom: number | null = null;
   if (heroIsAutomatic(g.automatic)) {
     g.heroSlot.pos = { ...g.hero.pos };
@@ -483,6 +540,7 @@ export function tickGame(g: GameState, playerInput = 0): TickResult {
     doorHandling: !heroIsAutomatic(g.automatic),
   });
   r.moved = outcome.moved;
+  r.blocked = outcome.blocked;
 
   // -- main_loop order: move_a_character ($9D8D), purge ($9D93), spawn ($9D96).
   g.moveIndex = nextCharacterIndex(g.moveIndex);
@@ -659,6 +717,10 @@ export function tickGame(g: GameState, playerInput = 0): TickResult {
   }
 
   g.ticks++;
+  if (r.arrested) g.totals.arrests++;
+  if (r.bribed) g.totals.bribes++;
+  if (r.escaped) g.totals.escapes++;
+  if (r.gateTransition) g.totals.gateTransitions++;
   return r;
 }
 

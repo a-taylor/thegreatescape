@@ -61,7 +61,7 @@ import {
   solitaryPos,
 } from './game/jeopardy.js';
 import { isItemDiscoverable, itemDiscovered } from './game/discovery.js';
-import { FLAGS_PICKING_LOCK, runWorkingTimers } from './game/timers.js';
+import { FLAGS_CUTTING_WIRE, FLAGS_PICKING_LOCK, runWorkingTimers } from './game/timers.js';
 import {
   STATE_CAUGHT,
   STATE_SEARCHING,
@@ -209,6 +209,21 @@ const btnStep = document.querySelector<HTMLButtonElement>('#stepframe')!;
 const roomSelect = document.querySelector<HTMLSelectElement>('#room')!;
 
 const presenter = new CanvasPresenter(canvas);
+
+/**
+ * ?seed=N: pin prng_pointer's low byte ($C41A), for a reproducible run.
+ *
+ * game_counter is deliberately NOT reset on a new game (Fact:randomness) --
+ * the original seeds itself from however long the player left the menu on
+ * screen, which is why two plays diverge. PLAN.md §4 asks for this override so
+ * a run can be replayed; `tests/harness/loop.ts` takes the same value.
+ */
+{
+  const seed = new URLSearchParams(location.search).get('seed');
+  if (seed !== null && seed !== '' && Number.isFinite(Number(seed))) {
+    prng.pointer = Number(seed) & 0xff;
+  }
+}
 const screen = new SpectrumScreen();
 const buffers = new GameWindowBuffers();
 
@@ -1214,6 +1229,9 @@ function tick(): void {
   // input path: no movement, no getting out of bed, no item commands. Without
   // it the player steers himself out of the solitary cell and the release
   // chain never completes.
+  /** Whether a wire cut was already running when this tick began ($B47B). */
+  const wasCutting = (heroSlot.flags & FLAGS_CUTTING_WIRE) !== 0;
+
   const inputInhibited = solitaryState.inSolitary || player.moraleExhausted;
   if (inputInhibited) input = 0;
 
@@ -1232,7 +1250,15 @@ function tick(): void {
     },
     (turns) => { automatic.counter = turns; }, // $9E18
   );
+  // $9ECC: cutting_wire feeds the hero inputs of its OWN over the last three
+  // turns of a cut, to walk him THROUGH the gap he has just made. It writes
+  // them to vischar 0's input byte, which in the original is exactly the byte
+  // `animate` reads -- so the hero moves. Here his movement comes from step()
+  // against a separate HeroState, so the byte has to be carried across or the
+  // wire is cut and never crossed.
+  let workingInput = 0;
   if (working) {
+    workingInput = heroSlot.input & 0x0f;
     input = 0;
     lastEvent = heroSlot.flags & FLAGS_PICKING_LOCK ? 'picking the lock' : 'cutting the wire';
   }
@@ -1261,6 +1287,22 @@ function tick(): void {
   // input_KICK ($9E8D): a sprite refresh with no direction bits.
   const moveInput = input >= INPUT_FIRE ? 0 : input;
 
+  // The same hazard, for the other two bytes those handlers write.
+  // snips_tail ($B474/$B47F) sets the hero's DIRECTION and drops his HEIGHT to
+  // 12 so he crawls through; cutting_wire ($9ED5/$9EDB) stands him back up at
+  // 24 and faces him top-left. All of them go to vischar 0, and the automatic
+  // branch below rebinds heroSlot.pos from hero.pos -- so without this they are
+  // overwritten before anything reads them. CLAUDE.md's "one game field, two
+  // objects", in its sixth costume.
+  //
+  // Only while a cut is running: at every other moment the vischar's height and
+  // direction are written FROM the hero, and copying them back unconditionally
+  // drags his height to a stale value and pins him where he stands.
+  if (wasCutting || (heroSlot.flags & FLAGS_CUTTING_WIRE) !== 0) {
+    hero.pos.height = heroSlot.pos.height;
+    hero.direction = heroSlot.direction;
+  }
+
   // $9E37..$9E5C: the first keypress gets the hero out of bed, or up off the
   // breakfast bench, rather than being treated as movement. Both branches poke
   // the furniture back to its empty graphic ($9E78 / $9E55) -- skip that and
@@ -1283,7 +1325,7 @@ function tick(): void {
   // move_map still scrolls once, so he walks straight out of the window and
   // the scroll phase desynchronises, which is the whole class of bug P3 spent
   // its time on.
-  let effectiveInput = moveInput;
+  let effectiveInput = working ? workingInput : moveInput;
   /** Set when target_reached took the automatic hero through a door. */
   let autoEnteredRoom: number | null = null;
   if (heroIsAutomatic(automatic)) {

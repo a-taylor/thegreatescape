@@ -218,6 +218,61 @@ renderer happens to run.
 Before porting anything called from `plot_sprites` or `render_mask_buffer`, ask what it writes.
 If the answer is anything at all, it does not belong in `render()`.
 
+### The wire cut writes to the VISCHAR, and the hero is a different object
+
+The sixth costume of "one game field, two objects", and the worst one, because it made the
+game **uncompletable** rather than merely wrong.
+
+`snips_tail` ($B474/$B47F) and `cutting_wire` ($9ED5/$9EDB) between them write four things: the
+hero's `direction`, his `pos.height` (12 to crawl through, back to 24 after), and his `input` —
+four scripted values from `cutting_wire_new_inputs` ($9EE0) fed over the last three turns of a
+cut, whose entire job is to **walk him through the gap he has just made**. Every one of those
+writes goes to vischar 0, which in the original is exactly where those bytes live: `animate`
+reads `vischar.input` and moves him.
+
+This port keeps the hero's position in its own `HeroState` and rebuilds vischar 0 from it every
+frame. So all four writes were overwritten before anything read them. He snipped the wire, stood
+exactly where he was, and stayed in the camp — and since the fence is the only way out, no game
+could ever be finished.
+
+The fix is a both-ways copy, and it has to be **scoped to the cut**: at every other moment the
+vischar's height and direction are written FROM the hero, so copying them back unconditionally
+drags his height to a stale value and pins him where he stands. `src/main.ts` and
+`tests/harness/loop.ts` both carry it, keyed on `FLAGS_CUTTING_WIRE` being set at either end of
+the tick.
+
+**Nothing in 774 other tests noticed**, because no test had ever driven a cut to completion
+inside the real loop. `tests/walkthrough.test.ts` does, and both of its wire-cut assertions were
+shown to fail on the old behaviour.
+
+### The camp is sealed: you cannot walk off the map
+
+Measured, not assumed. Breadth-first search over `outdoorBoundsCheck` — the game's own wall test
+— reaches **34,532 outdoor squares** from the hut door, and not one satisfies `in_permitted_area`'s
+escape test at $9F31. So "run off-screen and you've escaped" is the last step of a route that has
+already got the hero out: through the cut wire, through the tunnel, or out of the main gate on
+forged papers in a stolen uniform (`action_papers` $EFCB, whose `outside_main_gate` destination
+$EFF9 is far past the line). The test that pins this is worth more than an escape assertion,
+because it is the fact that makes those routes necessary.
+
+### A pathfinding grid must be the hero's FINEST step, not his usual one
+
+Wall 12 is a **two-unit sliver** at x=562. A four-unit search grid steps clean over it and reports
+a clear straight corridor east of hut 2 — which the hero then walks into and stops dead against,
+looking exactly like a navigator bug. The animation frames carry deltas of two as well as four, so
+two is the finest step he takes, and only a grid at his finest step cannot invent a gap.
+`tests/harness/path.ts` uses two, and says why.
+
+### A pile of dropped items hands you the lowest index
+
+Already noted above that `find_nearby_item` ($7C91) returns the first item **by index**, not the
+nearest. The consequence only bites when something drops items repeatedly in one place:
+`action_red_cross_parcel` ($B387) drops the contents at the hero's feet, which is the square the
+NEXT parcel lands on, so tomorrow's parcel (index 12) under yesterday's wiresnips (index 0) hands
+you the wiresnips. And `drop` ($7B8B) always drops slot **zero** and shifts slot 1 down — the held
+pair is a queue, not two slots to choose between, so "keep this, discard that" is not a thing the
+player can express in one command.
+
 ### Item state has one owner, and it is not `itemStructs()`
 
 `itemStructs()` in `src/game/items.ts` decodes the **shipped** table. `createItemState()` in
@@ -391,6 +446,23 @@ positions pushed through `renderMaskBuffer` with the real `isoPlacement`/`tinypo
 which 192 fully occlude the sampled rows. **Build the subject with the same functions
 `plotSpriteAt` uses.** A hand-rolled iso projection reported zero occluded positions out of
 4,096 — a confident, wrong answer that looked exactly like "the feature is unreachable".
+
+**The tick now lives in `tests/harness/loop.ts`, and both scenarios drive it.** `runIdle` in
+`tests/demoloop.test.ts` and `playThrough` in `tests/walkthrough.test.ts` are instrumentation
+only. The harness is four files:
+
+| file | what it is |
+|---|---|
+| `harness/loop.ts` | one iteration of `main_loop` ($9D7B) in `src/main.ts`'s order, plus the state it needs |
+| `harness/navigate.ts` | a pair of hands: walk toward a target, press the five keys |
+| `harness/path.ts` | route-finding over `outdoorBoundsCheck`, the game's OWN wall test |
+| `harness/hash.ts` | the §8 state hash, for the determinism replay |
+
+Only `loop.ts` may know a rule. The other three are scaffolding, and if a fact about how the game
+behaves ends up in them it is in the wrong file. `path.ts` borrows the game's obstacle test rather
+than modelling the map a second time, for the same reason the searchlight sweep had to be built
+with the real `isoPlacement`: a hand-rolled second model gives a confident wrong answer that looks
+exactly like a working one.
 
 **`tests/demoloop.test.ts` is the integration net, and it must MIRROR `src/main.ts`'s tick.**
 It runs thousands of frames of the whole main loop in order. When the two drifted apart -- the

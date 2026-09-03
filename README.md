@@ -149,17 +149,27 @@ than to the game.
   Still to come with P6: the readers of what the handlers set — pursuit after a bribe,
   the wire-cutting and lock-picking timers, line of sight, arrest and solitary.
 
-- **P6 — rules and jeopardy** 🚧 in progress. Done: `in_permitted_area` and the
-  red flag, the four pursuit modes with line of sight, `collision`, `accept_bribe`,
-  arrest and `solitary` (including the release chain), the lockpick and
-  wire-cutting timers, and the three searchlights — the sweep and its bounce, the
-  attribute beam, capture, and `searchlight_mask_test`, which is what lets a
-  caught hero escape by staying behind scenery for 32 consecutive frames.
-  `searchlight_state` is a counter, not a tri-state; the Night button drives
-  `day_or_night` itself rather than a parallel flag, so the lights can be driven
-  from the demo without winding the clock.
-  Remaining: night/day beyond the searchlights, the escape conditions and both
-  endings, and the `Completion:solutionOne` walkthrough as the acceptance test.
+- **P6 — rules and jeopardy** ✅ `in_permitted_area` and the red flag, the four pursuit
+  modes with line of sight, `collision`, `accept_bribe`, arrest and `solitary` (including
+  the release chain), the lockpick and wire-cutting timers, the three searchlights — the
+  sweep and its bounce, the attribute beam, capture, and `searchlight_mask_test`, which is
+  what lets a caught hero escape by staying behind scenery for 32 consecutive frames — and
+  both endings.
+  `searchlight_state` is a counter, not a tri-state; the Night button drives `day_or_night`
+  itself rather than a parallel flag.
+  `zoombox` ($ABA0) landed here too: `enter_room`, `reset_outdoors` and `screen_reset` all
+  end by revealing the window they have just built, and none of it existed.
+
+  The acceptance run is `tests/walkthrough.test.ts`, which plays a real game through the
+  same tick and the same five keys a person uses — out of bed, across the camp, four red
+  cross parcels over four in-game days, and the winning `escaped` ending. It found a bug
+  that made the game **uncompletable**: the wire cut writes the hero's height, direction
+  and walk-through inputs to vischar 0, which the demo overwrote from its own `HeroState`
+  every frame, so he snipped the fence and never crossed it. See `CLAUDE.md`.
+
+  It also settled a question by measuring rather than assuming: **the camp is sealed.**
+  34,532 walkable outdoor squares, none of them past `in_permitted_area`'s escape line, so
+  "run off-screen" is always the last step of a route that has already got the hero out.
 
 See `PLAN.md` §6 for the phase breakdown, `FIDELITY.md` for what happens at each bug site,
 and `OPEN_QUESTIONS.md` for ambiguities and their resolutions.
