@@ -7,9 +7,24 @@
 
 name: Deploy to Pages
 
+# MANUAL ONLY -- deliberately not on push. Two reasons, and the second is the
+# one that matters.
+#
+# 1. Pages is not enabled on this repository, so an automatic run just paints
+#    every push red.
+#
+# 2. Publishing is not a neutral act here. data/ holds graphics extracted from
+#    the original game, and the README says so: "derived from the copyrighted
+#    work ... not original to this repository". The repo is private precisely
+#    because of that -- CLAUDE.md: "making it public would publish extracted
+#    copyrighted data". A Pages site built from a private repository is still
+#    served publicly unless access control is configured, so switching Pages on
+#    would put that data on a public URL.
+#
+# So this is a decision, not a build step. Run it from the Actions tab once
+# you have settled the question and enabled Pages.
+
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

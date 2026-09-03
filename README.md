@@ -219,8 +219,14 @@ than to the game.
 
 - **P8 — packaging** ✅ CI (typecheck, tests, build) and a Pages deploy workflow that passes
   the repository's own name as the base path. The production build is verified serving at
-  `/thegreatescape/` and playing end to end. Publishing needs Pages enabled on the repository,
-  which is a setting rather than a commit.
+  `/thegreatescape/` and playing end to end.
+
+  **The deploy is manual, and stays that way until a question is answered.** `data/` holds
+  graphics extracted from the original game; this repository is private for exactly that
+  reason. A Pages site built from a private repository is still served publicly unless access
+  control is configured, so enabling Pages would put that data on a public URL — which is the
+  thing `CLAUDE.md`'s first rule guards against. The workflow is therefore
+  `workflow_dispatch` only: run it deliberately, once that is settled.
 
 Two known gaps, both stated where they live rather than smoothed over:
 
