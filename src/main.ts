@@ -187,6 +187,12 @@ import {
   plotGameWindow,
   setWindowAttributes,
 } from './render/window.js';
+import {
+  advanceZoombox,
+  createZoombox,
+  drawZoombox,
+  type ZoomboxState,
+} from './render/zoombox.js';
 import { CanvasPresenter } from './spectrum/canvas.js';
 import { SpectrumScreen } from './spectrum/display.js';
 
@@ -256,6 +262,61 @@ let stepOnce = false;
 let ending: EscapeOutcome | null = null;
 
 /**
+ * zoombox ($ABA0): the reveal that enter_room ($6912), reset_outdoors ($B329)
+ * and screen_reset ($A511) all end with.
+ *
+ * The original BLOCKS inside the call, so no game logic and no
+ * plot_game_window runs while the box grows. `tick()` reproduces that by
+ * advancing the box and returning, exactly as it does for `ending`.
+ */
+let zoombox: ZoomboxState | null = null;
+/**
+ * screen_reset ($A50B): wipe the visible tiles ($A50B), render that empty
+ * buffer ($A50E), zoombox it ($A511), plot it ($A514) and set attribute $07
+ * ($A517).
+ *
+ * escaped ($A51C) calls it before printing anything, so the ending's messages
+ * land on a blank window -- and it STAYS blank until the keypress resets the
+ * game or sends the hero to solitary, because nothing refills the tile buffer
+ * in between. enter_room and reset_outdoors reveal their live scene instead,
+ * which is why this is a separate flag from the box itself.
+ */
+let screenWiped = false;
+
+function startZoombox(): void {
+  zoombox = createZoombox();
+}
+
+/**
+ * One frame of the reveal. Returns true while it is still running.
+ *
+ * The box is drawn on every frame that advances, including the last; the
+ * following frame is the one that hands rendering back to plot_game_window.
+ */
+function stepZoombox(): boolean {
+  if (!zoombox) return false;
+  if (!advanceZoombox(zoombox)) {
+    zoombox = null;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * $ABE6/$ABE9: advance the box, then draw it -- the loop's own order, and the
+ * reason createZoombox's degenerate zero-size point is never on screen. The
+ * original only seeds that state's four corner ATTRIBUTES ($ABAF/$ABB2)
+ * before the first advance.
+ *
+ * With no reveal running this degrades to a plain render, so every caller can
+ * use it.
+ */
+function zoomboxFrame(): void {
+  stepZoombox();
+  render();
+}
+
+/**
  * Indirection so `tick()`'s early-return guard doesn't narrow `ending` to
  * `null` for the rest of the function -- TypeScript cannot see that
  * `inPermittedArea`'s `onEscaped` callback, several statements later,
@@ -265,14 +326,34 @@ function hasEnding(): boolean {
   return ending !== null;
 }
 
+/**
+ * $A51F..$A571: print every escape message, then "PRESS ANY KEY".
+ *
+ * Held back until the reveal is over. escaped calls screen_reset before it
+ * prints, so the text lands on an uncovered blank window rather than being
+ * painted over by the growing box.
+ */
+function presentEndingText(): void {
+  if (!ending || zoombox) return;
+  for (const line of ending.lines) drawEscapeString(screen, line);
+  drawEscapeString(screen, MSG_PRESS_ANY_KEY);
+  // render() already presented this frame; the text drawn since needs its own
+  // present, or it never reaches the canvas.
+  presenter.present(screen);
+}
+
 /** escaped_press_any_key ($A56E)/keyscan_all ($A58C): resolve the ending screen. */
 function resolveEnding(): void {
   if (!ending) return;
   const outcome = ending;
   ending = null;
+  // $A581/$A586/$A589 all leave via a routine that rebuilds the scene, so the
+  // wiped window goes away with the ending screen.
+  screenWiped = false;
   if (outcome.resetsGame) resetGame(); // $A581/$A586
   else arrestHero(); // $A589 JP $CB98
-  render();
+  // Both paths end at enter_room / transition, so both start a fresh reveal.
+  zoomboxFrame();
 }
 
 /**
@@ -623,6 +704,11 @@ function setViewForRoom(room: number, pos: { x: number; y: number; height: numbe
   const item = movableForRoom(room);
   if (item) installMovable(vischars[1]!, item, room);
   roomSelect.value = String(room);
+
+  // $6912 and $B329: both paths finish by zoomboxing the scene they have just
+  // built onto the screen. This function stands in for both, so it is the one
+  // place the reveal has to start.
+  startZoombox();
 }
 
 /**
@@ -906,7 +992,9 @@ function render(): void {
   const itemsHeld: [number, number] = torch ? [4, 0xff] : [0xff, 0xff];
   const { attribute, wipeTiles } = chooseGameWindowAttributes(hero.room, schedule.night, itemsHeld);
 
-  if (wipeTiles) {
+  if (wipeTiles || screenWiped) {
+    // $A50E: screen_reset wipes the visible tiles and renders that -- an empty
+    // window -- into the buffer before the box uncovers it.
     buffers.wipeTiles();
   } else if (hero.room === 0) {
     view.render(buffers);
@@ -925,7 +1013,10 @@ function render(): void {
   // reads again this frame.
   // The hero is drawn in rooms as well as outdoors -- only an unlit tunnel
   // suppresses everything.
-  if (!wipeTiles) plotVischars();
+  // screen_reset ($A50B) is not the main loop: it wipes, zoomboxes and plots,
+  // and never reaches plot_sprites. Leaving the hero in would composite him
+  // over the escape messages.
+  if (!wipeTiles && !screenWiped) plotVischars();
 
   // The panel is PERSISTENT screen memory in the original: the score, the
   // morale flag and the message line are poked into the display file and stay
@@ -940,8 +1031,14 @@ function render(): void {
   // which draws the score and the message line perfectly and invisibly.
   screen.clear(0x00, PANEL_ATTRIBUTE);
   screen.display.set(panelScreen.display);
-  plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);
-  setWindowAttributes(screen, attribute);
+  if (zoombox) {
+    // While the box is growing there is no blit at all: $ABA0 paints the
+    // window itself, cell by cell, and writes the attributes as it goes.
+    drawZoombox(screen, buffers, zoombox, attribute);
+  } else {
+    plotGameWindow(screen, buffers, hero.room === 0 ? windowOffset : NO_OFFSET);
+    setWindowAttributes(screen, attribute);
+  }
 
   // $AE69: the searchlights paint OVER the window attributes, so they go on
   // after set_game_window_attributes rather than before it.
@@ -1073,6 +1170,19 @@ function spawnInRoom(room: number): { x: number; y: number; height: number } {
 function tick(): void {
   if (paused && !stepOnce) return;
   stepOnce = false;
+
+  // $ABA0 runs to completion inside enter_room/reset_outdoors/screen_reset
+  // before control reaches the main loop again, so nothing else happens while
+  // the box grows. advanceZoombox is the mutation; drawing it is render()'s
+  // job, which keeps a re-render on pause or resize from stepping it.
+  if (zoombox) {
+    zoomboxFrame();
+    // The ending's own reveal ($A50B, called first thing by escaped) finishes
+    // before its messages are printed; render() draws them once it is over.
+    if (hasEnding()) presentEndingText();
+    return;
+  }
+
   if (hasEnding()) return; // frozen on the escape screen; see resolveEnding.
 
   let input = encodeInput(
@@ -1369,20 +1479,22 @@ function tick(): void {
     onEscaped: () => {
       ending = computeEscapeOutcome(itemState.held); // $A51C escaped
       lastEvent = ending.won ? 'ESCAPED' : 'RECAPTURED';
+      // $A51C's first instruction is CALL $A50B -- screen_reset -- so the
+      // messages below are printed onto a wiped, freshly revealed window.
+      screenWiped = true;
+      startZoombox();
     },
     silenceBell: () => { /* the bell arrives with P7's audio */ },
   });
 
   if (ending) {
-    // $A51F..$A571: print every line, then wait for a key. The original does
-    // this over a freshly zoomboxed scene ($A50B screen_reset); this demo
-    // renders the current one instead of reproducing that transition.
-    render();
-    for (const line of ending.lines) drawEscapeString(screen, line);
-    drawEscapeString(screen, MSG_PRESS_ANY_KEY);
-    // render() already presented this frame; the text drawn since needs its
-    // own present, or it never reaches the canvas.
-    presenter.present(screen);
+    // onEscaped has just wiped the window and started the reveal, reproducing
+    // screen_reset ($A50B), which is escaped's own first act ($A51C). Step it
+    // here so this frame draws a real box rather than the degenerate point
+    // createZoombox starts from; tick()'s zoombox guard carries it from the
+    // next frame onwards.
+    zoomboxFrame();
+    presentEndingText();
     return;
   }
 

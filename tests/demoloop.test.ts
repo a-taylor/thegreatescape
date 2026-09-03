@@ -63,6 +63,7 @@ import {
 import { renderMaskBuffer, interiorMasksForRoom } from '../src/render/maskbuffer.js';
 import { tinyposStash } from '../src/game/coords.js';
 import { MASK_BUFFER_SIZE } from '../src/render/sprites.js';
+import { advanceZoombox, createZoombox } from '../src/render/zoombox.js';
 import routesData from '../data/routes.json';
 import { INTERIOR_MAP_POSITION, halfDoors } from '../src/game/doors.js';
 import { getTarget } from '../src/game/routes.js';
@@ -166,6 +167,8 @@ interface Sample {
   heroSeated: boolean;
   /** Frames with schedule.night true -- proves the run actually reaches night. */
   nightTicks: number;
+  /** Frames spent frozen inside a zoombox reveal ($ABA0 blocks the main loop). */
+  zoomboxTicks: number;
   /** Frames searchlightMaskTest actually ran (state !== SEARCHING, hero plotted). */
   maskTestRuns: number;
   /** Times searchlightMaskTest returned true, i.e. the light gave up. */
@@ -247,6 +250,7 @@ function runIdle(ticks: number): Sample {
     benchesAtBreakfast: [],
     heroSeated: false,
     nightTicks: 0,
+    zoomboxTicks: 0,
     maskTestRuns: 0,
     searchlightEscapes: 0,
     searchlightStateInvalid: false,
@@ -261,7 +265,6 @@ function runIdle(ticks: number): Sample {
   let frame = 0;
   let jamKey = '';
   let jamRun = 0;
-
   for (let t = 0; t < ticks; t++) {
     // $9DB4..$9DB8: the searchlights only run at night, mirroring main.ts's
     // tick before any input handling.
@@ -360,6 +363,17 @@ function runIdle(ticks: number): Sample {
       }
       view.moveMapY = 0;
       view.refresh();
+
+      // zoombox ($ABA0), which enter_room ($6912) and reset_outdoors ($B329)
+      // both end with. Run out inline because the original's CALL BLOCKS: no
+      // main-loop iteration happens until the box is complete, so the reveal
+      // costs wall-clock time and not a single game tick. src/main.ts spreads
+      // the same eleven steps over eleven intervals -- a browser cannot block
+      // -- but returns early from tick() for every one of them, so neither
+      // loop advances game_counter or anything else while it runs. Counted
+      // here to prove a real day actually reaches the reveal.
+      const box = createZoombox();
+      while (advanceZoombox(box)) out.zoomboxTicks++;
     } else if (hero.room === 0 && outcome.moved) {
       view.moveMap(animations[hero.animation]?.header[3] ?? 0xff, hero.reverse);
     }
@@ -880,6 +894,26 @@ describe('P5 over a full day', () => {
     // A hundred more frames is fifty steps, more than the 25 it has to fall.
     const longer = runIdle(8960 + 100);
     expect(longer.player.displayedMorale).toBe(longer.player.morale);
+  });
+
+  it('zoomboxes every room change, eleven steps each', () => {
+    // Reachability, not correctness -- zoombox's own geometry is covered in
+    // tests/zoombox.test.ts. The question this answers is the one that P5's
+    // item logic and P6's searchlight escape both turned on: does a real day
+    // ever GET here? Eleven is what $ABA0's loop arithmetic works out to; if
+    // it changed, the ratio below would stop being a whole number.
+    expect(run.roomChanges).toBeGreaterThan(0);
+    expect(run.zoomboxTicks).toBe(run.roomChanges * 11);
+  });
+
+  it('does not let the reveal cost a single game tick', () => {
+    // The reveal BLOCKS the main loop rather than running inside it, so a day
+    // is still 8,960 iterations however many doors the hero walks through.
+    // Spending loop iterations on it instead shortens the day by roomChanges
+    // * 11 and the night event never fires -- which is exactly what happened
+    // when this was first wired in.
+    expect(run.player.gameCounter).toBe(8960 & 0xff);
+    expect(run.nightTicks).toBeGreaterThan(0);
   });
 
   it('advances the game counter once per tick, from wave_morale_flag', () => {
