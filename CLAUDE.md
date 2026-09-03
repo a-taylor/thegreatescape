@@ -273,6 +273,76 @@ you the wiresnips. And `drop` ($7B8B) always drops slot **zero** and shifts slot
 pair is a queue, not two slots to choose between, so "keep this, discard that" is not a thing the
 player can express in one command.
 
+### An asset with a reference render and no golden test is a bug waiting
+
+`static_tiles` ($7F00) is the ONE tile set in the game whose stride is not eight. It is nine:
+eight pixel rows and a trailing attribute byte that `plot_static_tiles` writes to the cell
+($F219 multiplies the index by nine, $F23E reads the ninth). The block comment says so outright
+— *"9 bytes each: 8x8 bitmap + 1 byte attribute. 75 tiles."*
+
+It was extracted at stride eight for four phases. That put 84 tiles where there are 75, read
+every tile after the first from the wrong offset, and dropped three bytes. Nothing noticed,
+because nothing draws a static tile until P7 — and, more to the point, because
+`images/udgs/static-tiles.png` was sitting in the reference build the whole time and
+`goldens.py` never looked at it. **The oracle existed and was not wired in.** If the reference
+build ships a render of something, compare against it; the cost is twenty lines and it is the
+difference between finding this in P0 and finding it in P7.
+
+### A table's extent is decided by its readers, not by its label
+
+Two cases in one phase, and both would have silently truncated:
+
+- **`static_tiles` runs PAST its own block.** `statics_medals_row1` indexes tile $4E = 78, and
+  75 tiles end at $81A3. Tiles 75–78 lie in the RAM variable block that follows — over
+  `saved_pos`, `bitmap_pointer`, `iso_pos`, `hero_map_position`, `map_position` — and they are
+  not noise: each is a structured 8×8 bitmap with a sensible attribute. The medals are drawn
+  once by `main` before any of those variables is live and never redrawn, so artwork and
+  variables share the bytes quite happily. The count therefore comes from the highest index the
+  18 definitions actually reference.
+- **`define_key_prompts` runs one byte past its label.** $F2E1 is the "." that finishes "FIRE."
+  and is *also* labelled `byte_F2E1`, because `choose_keys` takes its address before walking
+  `keyboard_port_hi_bytes` at $F2E2 — the disassembly says "nothing uses this byte for storage".
+  Slice on the label and the last prompt decodes as "FIRE" with a truncated glyph.
+
+`extent_of_block` covers the first shape. The second needs an explicit end label. Either way:
+when a slice looks one record short, ask what READS it before assuming the count is right.
+
+### Do not tidy 8-bit arithmetic into 16-bit
+
+`set_menu_item_attributes` ($F408) advances by `LD A,L / ADD A,$40 / LD L,A` and fills by
+`INC L` — L alone, never carrying into H. That looks like something to clean up, and it is
+load-bearing: `main` passes index $44 where the disassembly says "it ought to be zero", and 68
+rows of $40 is 4352, which is **0 mod 256**, so L comes back where it started and item 0 is
+highlighted exactly as intended. Carry the addition properly and the boot highlight lands at
+$6A0D, outside the attribute file. **The bug is harmless BECAUSE the arithmetic is 8-bit.**
+
+### A plausible misreading of a counter is worse than an obvious one
+
+`frequency_for_semitone` ($F52C) loads the table word into B (low) and C (high), increments
+both, and increments C again if B wrapped. B is what `DJNZ` counts down and C is only touched
+when B reaches zero, so the iterations before a speaker toggle are `B + 256 * (C - 1)`.
+
+`C * 256 + B` reads perfectly naturally, is out by 256, and produces frequencies that are
+neither musical nor obviously wrong — the kind of mistake that survives a listen. The test that
+pins it asserts that adjacent semitones differ by 2^(1/12), which nothing but the right formula
+satisfies. **When a value has a structure the data must have — a scale, a ratio, a monotonic
+ramp — assert the structure, not a sample.**
+
+### Driving the UI in a browser finds what no unit test can
+
+Two P7 faults, both invisible to 847 passing tests:
+
+- the harness's `P` and `.` shortcuts swallowed those keys before `choose_keys` saw them, so
+  binding P produced **one silently missing key definition** and nothing else. Front-end input
+  now runs before any debug key, and the debug keys only exist under `?debug=1`.
+- the menu ignored a quick tap. `menu_keyscan` polls the hardware and `menu_screen` polls it
+  thousands of times a second; this demo polls on a 25 Hz tick, where a tap lands between two
+  polls and vanishes. Latching the keydown until the next poll restores the original's
+  behaviour rather than changing it.
+
+Neither is a rule misread. Both are what happens when a routine that assumes it is polling
+faster than a human can move is put on a frame clock, and only a hand on a keyboard shows it.
+
 ### Item state has one owner, and it is not `itemStructs()`
 
 `itemStructs()` in `src/game/items.ts` decodes the **shipped** table. `createItemState()` in
