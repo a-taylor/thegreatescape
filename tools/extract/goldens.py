@@ -218,6 +218,41 @@ def test_panel(sk: Skool, r: Results) -> None:
         r.check(name, mine == ref, f"{_diff(mine, ref)}/{len(ref)} differ")
 
 
+def test_static_tiles(sk: Skool, r: Results) -> None:
+    """static_tiles ($7F00) against images/udgs/static-tiles.png.
+
+    The oracle that was missing, and the reason a real bug lived here: static
+    tiles are NINE bytes each -- eight pixel rows and a trailing attribute byte
+    that plot_static_tiles writes to the cell ($F219 multiplies the index by
+    nine, $F23E reads the ninth byte). They were extracted at stride eight like
+    every other tile set, which put 84 tiles where there are 75 and slid every
+    one after the first out of alignment. Nothing noticed because nothing drew
+    them until P7.
+
+    The reference lays the tiles out in a strip, so its width gives the count
+    and the comparison is bounded by it rather than by the table's extent.
+    """
+    lo, hi = sk.extent_of("static_tiles")
+    stride = 9
+    in_table = (hi - lo) // stride
+    r.check("static_tiles divides by 9", (hi - lo) % stride == 0,
+            f"{hi - lo} bytes")
+
+    path = UDGS / "static-tiles.png"
+    if not path.exists():
+        r.skipped += 1
+        return
+    rw, rh, ref = _bits(path, scale=1)
+    r.check("static tile height", rh == 8, f"{rh} rows")
+    n = rw // 8
+    r.check("static tile count", n <= in_table,
+            f"{n} rendered vs {in_table} in table")
+    mine = [(sk.image[lo + g * stride + row] >> (7 - col)) & 1
+            for row in range(8) for g in range(n) for col in range(8)]
+    r.check("static tile pixels", mine == ref,
+            f"{_diff(mine, ref)}/{len(ref)} differ")
+
+
 TIERS: list[tuple[str, str, Callable[[Skool, Results], None]]] = [
     ("TIER 1  (pixel-exact; these gate the build)", "exterior map", test_map),
     ("TIER 1  (pixel-exact; these gate the build)", "individual 8x8 tiles", test_tiles),
@@ -225,6 +260,7 @@ TIERS: list[tuple[str, str, Callable[[Skool, Results], None]]] = [
     ("TIER 1  (pixel-exact; these gate the build)", "interior objects (RLE)", test_objects),
     ("TIER 1  (pixel-exact; these gate the build)", "item sprites", test_items),
     ("TIER 1  (pixel-exact; these gate the build)", "bitmap font", test_font),
+    ("TIER 1  (pixel-exact; these gate the build)", "static tiles", test_static_tiles),
     ("TIER 2  (exact within reference bbox)", "masks", test_masks),
     ("TIER 2  (exact within reference bbox)", "morale flag", test_panel),
 ]

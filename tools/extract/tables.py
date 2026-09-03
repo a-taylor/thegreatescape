@@ -42,6 +42,9 @@ N_ITEMS = 16
 # interior_mask_data_source omits and setup_room supplies.
 INTERIOR_MASK_HEIGHT = 32
 N_CHARACTERS = 26
+# static_tiles ($7F00) alone is nine bytes per tile: eight pixel rows and a
+# trailing attribute byte. See extract_tiles.
+STATIC_TILE_STRIDE = 9
 
 
 def _count(sk: Skool, label: str, stride: int, whole_block: bool = False) -> int:
@@ -108,7 +111,26 @@ def extract_tiles(sk: Skool) -> dict[str, Any]:
             "bytesPerTile": 8,
             "data": b64(img[mask_lo:mask_hi]),
         },
-        "static": sheet("static_tiles"),
+        # static_tiles is the ONE tile set whose stride is not eight.
+        #
+        # plot_static_tiles multiplies the tile index by NINE ($F219: three
+        # ADD HL,HL for x8, then ADD HL,BC for the index again), and after
+        # plotting the eight pixel rows it reads a ninth byte -- "the attribute
+        # byte which follows the tile data" ($F23E) -- and writes it to the
+        # cell's attribute. So a static tile carries its own colour.
+        #
+        # Emitted at stride 8 until now, which put 84 tiles where there are 75,
+        # read every tile after the first from the wrong offset, and dropped
+        # the last three bytes. Nothing noticed because nothing has ever drawn
+        # one: they are used only by plot_statics_and_menu_text, which is P7.
+        # PLAN.md §2.3 says 75, and 675 / 9 is exactly 75.
+        "static": {
+            **provenance(sk, "static_tiles"),
+            "count": _count(sk, "static_tiles", STATIC_TILE_STRIDE),
+            "bytesPerTile": STATIC_TILE_STRIDE,
+            "note": "8 pixel rows then one ATTRIBUTE byte ($F219 / $F23E)",
+            "data": b64(sk.slice("static_tiles")),
+        },
     }
 
 

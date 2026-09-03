@@ -41,13 +41,15 @@ def _blit_tile(px: list[int], sheet_w: int, x: int, y: int,
                 px[base + bit] = 1
 
 
-def tile_sheet(image: bytes, addr: int, count: int, per_row: int = 64
-               ) -> tuple[int, int, list[int]]:
+def tile_sheet(image: bytes, addr: int, count: int, per_row: int = 64,
+               stride: int = 8) -> tuple[int, int, list[int]]:
+    """`stride` is the bytes PER RECORD, which is not always the 8 rows drawn:
+    static_tiles carries a ninth attribute byte after each tile."""
     rows = (count + per_row - 1) // per_row
     w, h = per_row * 8, rows * 8
     px = [0] * (w * h)
     for i in range(count):
-        _blit_tile(px, w, (i % per_row) * 8, (i // per_row) * 8, image, addr + i * 8)
+        _blit_tile(px, w, (i % per_row) * 8, (i // per_row) * 8, image, addr + i * stride)
     return w, h, px
 
 
@@ -186,8 +188,11 @@ def write_sheets(sk: Skool, outdir: Path) -> list[str]:
     mask_lo, mask_hi = sk.addr_of("mask_tiles"), sk.addr_of("exterior_tiles")
     put("tiles-mask", tile_sheet(image, mask_lo, (mask_hi - mask_lo) // 8))
 
+    # Nine bytes per static tile, not eight: the ninth is the attribute byte
+    # plot_static_tiles writes ($F219 / $F23E). At stride 8 the sheet showed 84
+    # tiles sliding progressively out of alignment.
     lo, hi = sk.extent_of("static_tiles")
-    put("tiles-static", tile_sheet(image, lo, (hi - lo) // 8))
+    put("tiles-static", tile_sheet(image, lo, (hi - lo) // 9, stride=9))
 
     put("supertiles", supertile_sheet(sk))
     put("map", map_sheet(sk))
