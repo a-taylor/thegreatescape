@@ -4,8 +4,23 @@
     {
       "name": "dev",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--port", "5199"],
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5199"
+      ],
       "port": 5199
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "5200"
+      ],
+      "port": 5200
     }
   ]
 }

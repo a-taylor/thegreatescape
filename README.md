@@ -55,8 +55,21 @@ python3 -m venv .venv            # SkoolKit, for the extractor only
 ```sh
 npm run dev            # dev server
 npm run build          # typecheck + static build into dist/
+npm run preview        # serve the built site at its Pages subpath
 npm test               # engine tests
 ```
+
+The page is the game: pick an input device with <kbd>1</kbd>–<kbd>4</kbd>, start with
+<kbd>0</kbd>, and the keyboard option then asks you to define five keys, exactly as
+`choose_keys` ($F350) does.
+
+Two query flags, both developer tools and neither part of the game:
+
+| | |
+|---|---|
+| `?debug=1` | skip the menu and show the harness — pause, single-step, clock speed, night, torch, room and event jumps, and a status line carrying the vischar table, routes, targets, morale, the game counter and the current timed event |
+| `?trace=1` | log routine entry by disassembly address; `?trace=N` keeps the last N frames. Read it with `__trace.dump()` |
+| `?seed=N` | pin `prng_pointer` ($C41A) for a reproducible run |
 
 ## The extraction pipeline
 
@@ -73,6 +86,13 @@ npm run assetviewer       # build tools/assetviewer/index.html
 
 The extractor cross-checks every parsed byte against the pristine snapshot, so a parser bug
 fails immediately rather than producing plausible-looking wrong data.
+
+**These two commands cannot run in CI, and that is not an oversight.** Both read
+`The-Great-Escape/`, which holds the disassembly and, beside it,
+`build/TheGreatEscape.pristine.z80` — the original 48K game image. §2 and §10 of the brief are
+explicit that it must not be shipped, so the directory is gitignored and is simply not there for
+a runner to read. They are local pre-commit steps; CI checks the half of the work that lives in
+this repository.
 
 ---
 
@@ -174,6 +194,34 @@ than to the game.
   It also settled a question by measuring rather than assuming: **the camp is sealed.**
   34,532 walkable outdoor squares, none of them past `in_permitted_area`'s escape line, so
   "run off-screen" is always the last step of a route that has already got the hero out.
+
+- **P7 — front end** ✅ the menu screen and its music, key redefinition, and the beeper.
+  `main` ($F163) wipes the screen, paints the morale flag green, draws the static furniture
+  and the menu text, and runs `menu_screen`; the player picks an input device, defines five
+  keys and confirms, and `reset_game` begins.
+
+  Keys are stored the way the game stores them — a PORT and a BIT MASK — so `src/ui/keyboard.ts`
+  models the Spectrum matrix and `keycode_to_glyph` names the keys unchanged, including the
+  four whose names come from `special_key_names` through a byte offset packed into a glyph's
+  high bit.
+
+  Sound is a simulation of the one-bit speaker rather than oscillators, because the two music
+  channels do not mix: each writes its own value with its own `OUT`, and the cone follows
+  whichever toggled last. `ring_bell` ($A09E) turned out never to have been implemented at all.
+
+  The demo harness is not gone — it is behind `?debug=1`, along with the new trace mode.
+
+- **P8 — packaging** ✅ CI (typecheck, tests, build) and a Pages deploy workflow that passes
+  the repository's own name as the base path. The production build is verified serving at
+  `/thegreatescape/` and playing end to end. Publishing needs Pages enabled on the repository,
+  which is a setting rather than a commit.
+
+Two known gaps, both stated where they live rather than smoothed over:
+
+- the walkthrough run ends with the compass and purse in hand and the winning outcome computed
+  from them, but does not walk the hero out of the camp — see the P6 entry above
+- `src/main.ts`'s tick is not in `$9D7B`'s order; `?trace=1` shows it at a glance, and
+  `CLAUDE.md` records why reordering it needs its own measured session
 
 See `PLAN.md` §6 for the phase breakdown, `FIDELITY.md` for what happens at each bug site,
 and `OPEN_QUESTIONS.md` for ambiguities and their resolutions.

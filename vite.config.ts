@@ -6,10 +6,12 @@ import { fileURLToPath, URL } from 'node:url';
 // BUILD_PROMPT.md §2: the output must deploy to GitHub Pages under a repo
 // subpath AND be openable from a local dev server. Pages serves a project site
 // from /<repo>/, so `base` has to match the repo name; anything else and every
-// asset URL 404s. Override with BASE_PATH when the repo is named differently.
+// asset URL 404s.
 //
-// ASSUMPTION: repo name is "thegreatescape" (the working directory name). No
-// git remote exists yet to confirm it.
+// The default matches the remote (github.com/a-taylor/thegreatescape). It was
+// an ASSUMPTION until there was a remote to check it against; now it is not.
+// .github/workflows/pages.yml passes the repository's real name in BASE_PATH
+// anyway, so a rename cannot silently break the deploy.
 const base = process.env.BASE_PATH ?? '/thegreatescape/';
 
 export default defineConfig({
