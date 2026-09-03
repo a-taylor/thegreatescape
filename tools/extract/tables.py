@@ -1336,6 +1336,13 @@ def extract_frontend(sk: Skool) -> dict[str, Any]:
             "note": "the first 8 key_choice_screenlocstrings are the menu ($F1F9 LD B,$08)",
             "count": 8,
         },
+        "confirmQuery": {
+            # confirm_query ($F014), the screenlocstring user_confirm ($EFFC)
+            # prints before it waits. One string, so it is emitted as one
+            # rather than as a list of one.
+            **provenance(sk, "confirm_query"),
+            "strings": _screenlocstrings(sk, "confirm_query"),
+        },
         "keyChoiceScreenlocstrings": {
             **provenance(sk, "key_choice_screenlocstrings"),
             "strings": _screenlocstrings(sk, "key_choice_screenlocstrings"),

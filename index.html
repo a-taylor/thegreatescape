@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>The Great Escape — P2 hero movement</title>
+    <title>The Great Escape</title>
     <style>
       :root {
         --bg: #0b0d0f;
@@ -64,16 +64,16 @@
     </style>
   </head>
   <body>
-    <h1>The Great Escape — walkable hero</h1>
+    <h1>The Great Escape</h1>
     <p class="sub">
-      256&times;192 Spectrum display: a 1-bit pixel buffer plus a 32&times;24 attribute grid.
-      The 192&times;128 game window is blitted from a 24&times;17 tile buffer through the
-      128 row pointers of <span style="color: var(--addr)">game_window_start_addresses</span>.
+      A browser recreation of the 1986 ZX Spectrum game, derived only from David Thomas's
+      SkoolKit disassembly. Press <kbd>1</kbd>&ndash;<kbd>4</kbd> to choose an input device
+      and <kbd>0</kbd> to start; the keyboard then asks you to define five keys.
     </p>
 
     <canvas id="screen" width="256" height="192"></canvas>
 
-    <div class="bar">
+    <div class="bar debug-only">
       <button id="pause" aria-pressed="false" title="Freeze the game loop (P)">Pause</button>
       <button id="stepframe" title="Advance one tick while paused (.)" disabled>Step</button>
       <button id="night" aria-pressed="false">Night</button>
@@ -84,7 +84,7 @@
       </select>
     </div>
 
-    <div class="bar">
+    <div class="bar debug-only">
       <select id="speed" aria-label="Clock speed" title="Multiply the game loop rate">
         <option value="0.125">&#8539;&times;</option>
         <option value="0.25">&#188;&times;</option>
@@ -99,32 +99,35 @@
       <span class="sub" id="clock"></span>
     </div>
 
-    <p class="status" id="status"></p>
-    <p class="sub">
-      <kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd> walk. The four
-      screen directions map onto the four world diagonals, so pressing a direction you are
-      not already facing turns the hero rather than moving him &mdash; exactly as the
+    <p class="status debug-only" id="status"></p>
+    <p class="sub debug-only">
+      <kbd>O</kbd> <kbd>P</kbd> <kbd>Q</kbd> <kbd>A</kbd> walk &mdash; left, right, up, down.
+      Those are only the defaults this harness assumes: the shipped <code>keydefs</code>
+      ($F06B) are all zero, and <code>choose_keys</code> is the only thing that ever fills
+      them in, so skipping the menu means inventing a set.
+      The four screen directions map onto the four world diagonals, so pressing a direction
+      you are not already facing turns the hero rather than moving him &mdash; exactly as the
       <code>animindices</code> table dictates. Walk into a door to change room.
     </p>
-    <p class="sub">
+    <p class="sub debug-only">
       <kbd>Space</kbd> is fire, and fire <em>plus a direction</em> is an item command, exactly
       as <code>process_player_input_fire</code> ($7AC9) reads it:
-      <kbd>Space</kbd>+<kbd>&uarr;</kbd> picks up,
-      <kbd>Space</kbd>+<kbd>&darr;</kbd> drops,
-      <kbd>Space</kbd>+<kbd>&larr;</kbd> uses the first held item and
-      <kbd>Space</kbd>+<kbd>&rarr;</kbd> the second.
+      <kbd>Space</kbd>+<kbd>Q</kbd> picks up,
+      <kbd>Space</kbd>+<kbd>A</kbd> drops,
+      <kbd>Space</kbd>+<kbd>O</kbd> uses the first held item and
+      <kbd>Space</kbd>+<kbd>P</kbd> the second.
       Fire on its own, and fire with two directions at once, do nothing at all &mdash; the
       routine tests only those four values. A fire command never moves the hero.
-      The original has no fixed key here: all five are player-defined via
-      <code>choose_keys</code>, which is P7.
+      All five are player-defined via <code>choose_keys</code> ($F350); load the page
+      without <code>?debug=1</code> to define them yourself.
     </p>
-    <p class="sub">
+    <p class="sub debug-only">
       Pick-up radius is 1 outdoors and 6 indoors, and
       <code>find_nearby_item</code> returns the first item <em>by index</em>, not the nearest
       &mdash; so in a pile you get the lowest-numbered one. Each item scores 5 the first time
       it is picked up and never again.
     </p>
-    <p class="sub">
+    <p class="sub debug-only">
       <kbd>P</kbd> pauses and <kbd>.</kbd> advances a single tick while paused &mdash; debug
       scaffolding for catching a rendering fault mid-motion, not part of the original game.
       The status line records the paused state so a screenshot carries it.

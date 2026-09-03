@@ -1,4 +1,33 @@
 {
+  "confirmQuery": {
+    "_addr": "$F014",
+    "_bytes": 18,
+    "_label": "confirm_query",
+    "strings": [
+      {
+        "addr": "$F014",
+        "glyphs": [
+          12,
+          0,
+          23,
+          15,
+          18,
+          26,
+          22,
+          36,
+          35,
+          33,
+          35,
+          0,
+          26,
+          35,
+          23
+        ],
+        "screenAddress": "$500B",
+        "text": "C0NFIRM. Y 0R N"
+      }
+    ]
+  },
   "defineKeyPrompts": {
     "_addr": "$F2AD",
     "_bytes": 52,

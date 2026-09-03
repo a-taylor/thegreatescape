@@ -187,7 +187,24 @@ import { clippedBufferRow, vischarVisible } from './render/clip.js';
 import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
 import { interiorMasksForRoom, renderMaskBuffer } from './render/maskbuffer.js';
 import { fillRoom } from './render/scene.js';
-import { plotStatics } from './render/statics.js';
+import { plotStatics, plotStaticsAndMenuText } from './render/statics.js';
+import {
+  ATTRIBUTE_BRIGHT_GREEN_OVER_BLACK,
+  ATTRIBUTE_BRIGHT_YELLOW_OVER_BLACK,
+  checkMenuKeys,
+  setMenuItemAttributes,
+  createMenu,
+  devicePicksKeys,
+  drawInitialHighlight,
+} from './ui/menu.js';
+import {
+  chooseKeysConfirm,
+  chooseKeysKeyDown,
+  chooseKeysKeyUp,
+  createChooseKeys,
+  drawChooseKeys,
+} from './ui/keys.js';
+import { type SpectrumKey, keyForCode } from './ui/keyboard.js';
 import { Beeper } from './spectrum/beeper.js';
 import { BELL_RING_PERPETUAL, BELL_STOP, createBell, ringBell } from './game/bell.js';
 import {
@@ -450,7 +467,72 @@ const panelScreen = new SpectrumScreen();
  * ($F2A7) lets the player define all five, which is P7. Space is chosen so
  * that fire + an arrow is reachable one-handed.
  */
-const FIRE_KEY = ' ';
+
+/**
+ * ?debug=1 keeps the demo harness: the pause/step/speed/night/torch controls,
+ * the room and event jumps, and the status line.
+ *
+ * Without it the page is the game -- main ($F163) draws the menu and the
+ * player starts from there, which is BUILD_PROMPT.md §7's P7 bar ("playable
+ * from a cold load with no developer console"). The instrumentation stays
+ * because CLAUDE.md's whole bug-finding method depends on it.
+ */
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+
+/**
+ * Which screen is up: main's menu, choose_keys, or the game.
+ *
+ * The original expresses this as call depth -- menu_screen ($F4B7) does not
+ * return until the player starts, and choose_keys ($F350) loops inside it --
+ * which a browser cannot do, so it becomes a mode the tick switches on.
+ */
+type Mode = 'menu' | 'keys' | 'play';
+let mode: Mode = DEBUG ? 'play' : 'menu';
+
+const menu = createMenu();
+
+/**
+ * Keys pressed since the menu last looked.
+ *
+ * menu_keyscan ($F41C) polls the hardware, and menu_screen ($F4B7) polls it
+ * thousands of times a second, so a human tap is never missed. This demo's
+ * menu polls on the 25 Hz tick, where a quick tap lands entirely between two
+ * polls and is lost. Latching the keydown until the next poll restores the
+ * original's behaviour rather than changing it -- the alternative is a menu
+ * that ignores you unless you hold the key down.
+ */
+const latchedKeys = new Set<string>();
+let chooseKeys = createChooseKeys();
+
+/**
+ * The five keys the player has defined ($F06B keydefs).
+ *
+ * ASSUMPTION: the arrow keys and space, for the debug path and as a starting
+ * point. The shipped keydefs are all zero -- choose_keys is the only thing
+ * that ever fills them in -- so a demo that skips the menu has to invent a
+ * set, and these are the ones the harness has always used.
+ */
+const DEFAULT_KEYS = {
+  left: keyForCode('KeyO'),
+  right: keyForCode('KeyP'),
+  up: keyForCode('KeyQ'),
+  down: keyForCode('KeyA'),
+  fire: keyForCode('Space'),
+};
+let heroKeys: Record<'left' | 'right' | 'up' | 'down' | 'fire', SpectrumKey | null> = {
+  ...DEFAULT_KEYS,
+};
+
+/** Whether one of the player's defined keys is currently held. */
+function keyDown(which: keyof typeof heroKeys): boolean {
+  const want = heroKeys[which];
+  if (!want) return false;
+  for (const code of keys) {
+    const k = keyForCode(code);
+    if (k && k.port === want.port && k.mask === want.mask) return true;
+  }
+  return false;
+}
 
 /** saved_pos ($81A4), which use_item fills before dispatching ($7B0A). */
 const savedPos = { x: 0, y: 0, height: 0 };
@@ -1246,6 +1328,23 @@ function spawnInRoom(room: number): { x: number; y: number; height: number } {
 }
 
 function tick(): void {
+  // menu_screen ($F4B7) is its own loop: check_menu_keys, wave the flag, play
+  // the music. Nothing of the game runs until the player presses 0.
+  if (mode === 'menu') {
+    const held = (code: string) => keys.has(code) || latchedKeys.has(code);
+    const result = checkMenuKeys(menu, screen, held);
+    latchedKeys.clear();
+    if (result === 'start') {
+      startFromMenu();
+    } else {
+      waveMoraleFlag(screen, player); // $F4BA, on every other turn
+      renderFrontEnd();
+    }
+    return;
+  }
+  // choose_keys is driven entirely by key events, not by the clock.
+  if (mode === 'keys') return;
+
   if (paused && !stepOnce) return;
   stepOnce = false;
 
@@ -1263,12 +1362,16 @@ function tick(): void {
 
   if (hasEnding()) return; // frozen on the escape screen; see resolveEnding.
 
+  // The five keys the player defined on the choose_keys screen. The original
+  // reads them through whichever inputroutine was copied to $F075; here they
+  // are matrix positions and `keyDown` asks the browser whether that wire is
+  // being held.
   let input = encodeInput(
-    keys.has('ArrowUp'),
-    keys.has('ArrowDown'),
-    keys.has('ArrowLeft'),
-    keys.has('ArrowRight'),
-    keys.has(FIRE_KEY),
+    keyDown('up'),
+    keyDown('down'),
+    keyDown('left'),
+    keyDown('right'),
+    keyDown('fire'),
   );
 
   const random = () => prng.next();
@@ -1775,14 +1878,30 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  // Debug keys. Deliberately not arrow keys or anything the game reads, so
-  // they cannot be confused with player input.
-  if (e.key === 'p' || e.key === 'P') {
+  // choose_keys ($F350) takes one key per press and will not take another
+  // until it comes up again -- so the front-end screens are driven by the
+  // EVENT, not by the held set.
+  //
+  // This runs BEFORE the debug keys below, and they in turn only exist under
+  // ?debug=1. Both matter: the redefinition screen must be able to bind P and
+  // full stop like any other key, and it could not while a pause shortcut was
+  // eating them. It cost a browser run to notice, because the symptom was one
+  // silently missing definition rather than an error.
+  if (mode === 'keys' && !e.repeat) {
+    chooseKeysKeyDown(chooseKeys, e.code);
+    if (chooseKeysConfirm(chooseKeys, e.code)) startGame();
+    renderFrontEnd();
+    e.preventDefault();
+    return;
+  }
+
+  // Debug scaffolding, and only under ?debug=1 -- see DEBUG.
+  if (DEBUG && (e.key === 'p' || e.key === 'P')) {
     setPaused(!paused);
     e.preventDefault();
     return;
   }
-  if (e.key === '.') {
+  if (DEBUG && e.key === '.') {
     if (paused) {
       stepOnce = true;
       tick();
@@ -1790,14 +1909,22 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  if (e.key.startsWith('Arrow') || e.key === FIRE_KEY) {
-    keys.add(e.key);
+
+  // Anything on the Spectrum's keyboard is held; the matrix decides what it
+  // means. Storing e.code rather than e.key is what lets keyForCode work at
+  // all -- e.key for Q is "q" or "Q" depending on shift.
+  if (keyForCode(e.code)) {
+    keys.add(e.code);
+    if (!e.repeat) latchedKeys.add(e.code);
     // Space scrolls the page otherwise, which moves the canvas out from under
     // whatever the player is looking at.
     e.preventDefault();
   }
 });
-window.addEventListener('keyup', (e) => keys.delete(e.key));
+window.addEventListener('keyup', (e) => {
+  keys.delete(e.code);
+  if (mode === 'keys') chooseKeysKeyUp(chooseKeys);
+});
 window.addEventListener('blur', () => keys.clear());
 
 /** The button reflects day_or_night; it never holds it. */
@@ -1931,11 +2058,92 @@ roomSelect.addEventListener('change', () => {
  * idempotent, and it is one fewer place for the boot state to drift from what
  * a mid-game reset produces.
  */
-resetGame();
+if (mode === 'play') {
+  resetGame();
+} else {
+  // main ($F163) does not reach reset_game until the player has chosen from
+  // the menu, so neither does this -- startGame() is where $F1C3 happens.
+  drawMenuScreen();
+}
+
+/**
+ * main ($F163): the boot screen.
+ *
+ * $F167 wipes the screen to attribute $07, $F16A paints the morale flag green,
+ * $F16F highlights the first menu item, $F174 draws the statics and the menu
+ * text and $F177 draws the score. Then $F17A runs menu_screen, which does not
+ * return until the player presses 0.
+ */
+function drawMenuScreen(): void {
+  screen.clear(0x00, PANEL_ATTRIBUTE); // $F167 wipe_full_screen_and_attributes
+  plotStaticsAndMenuText(screen); // $F174
+  setMoraleFlagScreenAttributes(screen, ATTRIBUTE_BRIGHT_GREEN_OVER_BLACK); // $F16A
+  drawInitialHighlight(screen); // $F16F, index $44 -- see setMenuItemAttributes
+  plotScore(screen, player); // $F177
+}
+
+/** Redraw whichever front-end screen is up, and present it. */
+function renderFrontEnd(): void {
+  if (mode === 'menu') {
+    drawMenuScreen();
+    // The highlight follows the chosen device, which checkMenuKeys moves.
+    setMenuItemAttributes(screen, menu.device, ATTRIBUTE_BRIGHT_YELLOW_OVER_BLACK);
+  } else if (mode === 'keys') {
+    drawMenuScreen();
+    drawChooseKeys(screen, chooseKeys);
+  }
+  presenter.present(screen);
+}
+
+/**
+ * cmk_cpy_rout ($F28E): the player has pressed 0.
+ *
+ * $F2A7 `AND A / CALL Z,$F350` sends only the KEYBOARD to choose_keys; the
+ * three joystick options go straight on. In a browser that is the only
+ * difference between the four, since there is no joystick port to read -- see
+ * OPEN_QUESTIONS.md.
+ */
+function startFromMenu(): void {
+  beeper.stopTune();
+  if (devicePicksKeys(menu.device)) {
+    mode = 'keys';
+    chooseKeys = createChooseKeys();
+    renderFrontEnd();
+    return;
+  }
+  startGame();
+}
+
+/** $F1C3: whatever the player chose, the game begins with reset_game. */
+function startGame(): void {
+  const defined = chooseKeys.keydefs;
+  if (defined.every((k) => k !== null)) {
+    heroKeys = {
+      left: defined[0]!,
+      right: defined[1]!,
+      up: defined[2]!,
+      down: defined[3]!,
+      fire: defined[4]!,
+    };
+  }
+  mode = 'play';
+  // The statics survive into the game -- they are the frame around the window
+  // -- but the menu text does not, and neither do choose_keys' prompts.
+  panelScreen.clear(0x00, PANEL_ATTRIBUTE);
+  plotStatics(panelScreen);
+  resetGame();
+}
 
 function fit(): void {
   presenter.resize(window.innerWidth - 48, window.innerHeight - 260);
-  render();
+  if (mode === 'play') render();
+  else renderFrontEnd();
+}
+
+// The harness is debug scaffolding and says so; without ?debug=1 the page is
+// just the game.
+if (!DEBUG) {
+  for (const el of document.querySelectorAll('.debug-only')) el.remove();
 }
 window.addEventListener('resize', fit);
 fit();

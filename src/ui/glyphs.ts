@@ -37,6 +37,19 @@ export const GLYPH_COUNT = fontBitmaps.length / GLYPH_HEIGHT;
 export const glyphChars: readonly string[] = font.glyphSet.chars;
 
 /**
+ * Glyph indices back to text.
+ *
+ * The charset has no letter "O" -- digit zero doubles for it -- so anything
+ * this returns reads with a zero where an O belongs. That is the game's own
+ * spelling, not a decoding fault: "R0LL CALL" is what the screen says.
+ */
+export function decodeGlyphs(glyphs: ArrayLike<number>): string {
+  let out = '';
+  for (let i = 0; i < glyphs.length; i++) out += glyphChars[glyphs[i]!] ?? '?';
+  return out;
+}
+
+/**
  * plot_single_glyph ($7D30).
  *
  * Draws one glyph at a screen address and returns the address one character to

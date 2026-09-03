@@ -194,6 +194,24 @@ export interface GameWindowOffset {
 
 export const NO_OFFSET: GameWindowOffset = { low: 0, high: 0 };
 
+/**
+ * wipe_game_window ($F335): blank the 128 x 23 bytes the window occupies.
+ *
+ * Used by choose_keys, which needs the window's area as a blank page to draw
+ * its prompts on. Note it clears the DISPLAY only -- the attributes are set
+ * separately by the caller ($F355) -- and that it advances with `INC L`
+ * ($F344), so a row that started near the end of a page would wrap rather than
+ * carry. None does: every row start is column 7.
+ */
+export function wipeGameWindow(screen: SpectrumScreen): void {
+  for (let y = 0; y < VISIBLE_PIXEL_ROWS; y++) {
+    const addr = screenAddress(WINDOW_ORIGIN_COL, WINDOW_ORIGIN_PIXEL_ROW + y);
+    for (let c = 0; c < BLIT_BYTES; c++) {
+      screen.display[((addr & 0xff00) | ((addr + c) & 0x00ff)) - 0x4000] = 0;
+    }
+  }
+}
+
 /** Set the window's attribute block. choose_game_window_attributes picks the value. */
 export function setWindowAttributes(screen: SpectrumScreen, attribute: number): void {
   screen.fillAttributes(

@@ -501,6 +501,37 @@ tune is rendered once and looped rather than re-derived every pass.
 
 ---
 
+## 18. Four input devices, one keyboard — ASSUMPTION taken
+
+`inputroutines` ($F43D) points at four routines that read hardware the browser does not have:
+`inputroutine_kempston` ($FE7E) reads port $1F, `_sinclair` ($FECD) port $EFFE and `_protek`
+($FE47) port $F7FE. Only `inputroutine_keyboard` ($FE00) has any meaning here.
+
+The menu is left exactly as it is — all four are offered, `chosen_input_device` ($F445) records
+the choice, and the highlight moves — because the structure is the game's and the data drives
+it. What changes is only what the choice does, and the original already makes that distinction
+itself: `$F2A7` is `AND A / CALL Z,$F350`, so **only the keyboard runs `choose_keys`**. The three
+joystick options therefore start the game on whatever `keydefs` are already there, which is what
+they do here too.
+
+Two smaller assumptions come with it, both in `src/ui/keyboard.ts`:
+
+- **Which browser key is which Spectrum key.** Dull by design: Q is Q. The only two without an
+  obvious modern equivalent are CAPS SHIFT (mapped to the shift keys) and SYMBOL SHIFT (the
+  control keys). The mapping is laid out as the matrix is, one row per port in bit order, so it
+  can be read straight against `keycode_to_glyph`.
+- **A default set of keys when the menu is skipped.** The shipped `keydefs` ($F06B) are all
+  zero and `choose_keys` is the only thing that ever writes them, so `?debug=1` — which boots
+  past the menu — has to invent a set. It uses O, P, Q, A and Space, the Spectrum's own
+  convention.
+
+What is NOT assumed is how a key is *identified*. `choose_keys` records a PORT and a BIT MASK,
+not a letter, and `keycode_to_glyph` ($F303) is indexed by that pair — so this models the matrix
+and lets the game's own tables name the keys, including the four whose names come from
+`special_key_names` through a byte offset packed into the glyph's high bit.
+
+---
+
 ## Not open, but worth recording
 
 Two things that looked like problems and are not:
