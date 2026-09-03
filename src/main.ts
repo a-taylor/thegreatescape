@@ -578,8 +578,15 @@ const heroSlot = vischars[0]!;
 heroSlot.character = 0;
 heroSlot.flags = 0;
 let frameCounter = 0;
-/** Debug only: how many logic ticks to run per interval. Not in the game. */
+/**
+ * Debug only: how many logic ticks to run per interval, as a multiplier of
+ * TICK_MS. Not in the game -- see TICK_MS for why 1x is a guess rather than
+ * a citation, which is what the fractional options below are compensating
+ * for.
+ */
 let speed = 1;
+/** Carries a fractional tick across intervals when speed < 1. */
+let speedAccumulator = 0;
 
 /**
  * Put the view where the game puts it for a given room.
@@ -1491,13 +1498,28 @@ function tick(): void {
   }
 }
 
-// The original runs its logic on a fixed tick, not on wall-clock time, so the
-// loop is a fixed-step interval rather than requestAnimationFrame chasing.
+/**
+ * The original has no fixed tick rate at all: main_loop ($9D7B) disables
+ * interrupts at boot and just free-runs, paced only by how long each
+ * iteration takes to execute -- unthrottled outdoors, and ($9DBB-$9DBF)
+ * deliberately slowed indoors by a ~4095-iteration busy-wait ($A095) because
+ * indoor scenes are cheap enough to render that the loop would otherwise be
+ * "unplayable" fast, in the disassembly's own words. Getting the real speed
+ * right needs Z80 T-state accounting for the render path, which is not
+ * extracted data; 25 ticks/sec is a placeholder, not a citation, hence the
+ * speed control going below 1x rather than only above it.
+ */
 const TICK_MS = 1000 / 25;
 setInterval(() => {
-  // Debug scaffolding: the game has no speed control, so this runs the logic
-  // tick several times per interval rather than changing anything inside it.
-  for (let i = 0; i < speed; i++) tick();
+  // Debug scaffolding: the game has no speed control, so this fires the
+  // logic tick more or less often than the interval rather than changing
+  // anything inside it. speedAccumulator carries a fractional tick across
+  // intervals so speed < 1 skips ticks instead of running a partial one.
+  speedAccumulator += speed;
+  while (speedAccumulator >= 1) {
+    tick();
+    speedAccumulator -= 1;
+  }
 }, TICK_MS);
 
 window.addEventListener('keydown', (e) => {
