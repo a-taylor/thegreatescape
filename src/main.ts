@@ -181,6 +181,7 @@ import { clippedBufferRow, vischarVisible } from './render/clip.js';
 import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
 import { interiorMasksForRoom, renderMaskBuffer } from './render/maskbuffer.js';
 import { fillRoom } from './render/scene.js';
+import { plotStatics } from './render/statics.js';
 import {
   GameWindowBuffers,
   NO_OFFSET,
@@ -502,6 +503,22 @@ function actionContext(): ActionContext {
 
 /** attribute_WHITE_OVER_BLACK, what the screen clear leaves ($F266 LD (HL),$07). */
 const PANEL_ATTRIBUTE = 0x07;
+
+/**
+ * $F257/$F1E0: wipe the screen to attribute $07, then draw the furniture.
+ *
+ * plot_statics_and_menu_text runs once from main ($F163) and never again --
+ * the flagpole, the game window's borders and corners, the medals and the bell
+ * are persistent screen memory, exactly like the score and the message line.
+ * So they go on the panel screen at boot rather than into render().
+ *
+ * The menu text is deliberately NOT drawn here: it is the other half of the
+ * same routine, and it lands where the game window goes. The demo boots
+ * straight into play, so drawing it would just be overwritten by the first
+ * blit.
+ */
+panelScreen.clear(0x00, PANEL_ATTRIBUTE);
+plotStatics(panelScreen);
 
 /**
  * in_permitted_area's state ($A138 red_flag, plus the flag's own colour).
@@ -1044,8 +1061,12 @@ function render(): void {
   // over black, and only then paints the flag green and the game window its
   // chosen colour. Clearing to zero instead leaves black ink on black paper,
   // which draws the score and the message line perfectly and invisibly.
-  screen.clear(0x00, PANEL_ATTRIBUTE);
+  // The panel screen already holds the $07 wipe and the static furniture, so
+  // this copies BOTH planes rather than clearing and copying only pixels --
+  // static tiles carry their own attribute byte ($F23E), which is what makes
+  // the medals coloured on an otherwise flat $07 screen.
   screen.display.set(panelScreen.display);
+  screen.attributes.set(panelScreen.attributes);
   if (zoombox) {
     // While the box is growing there is no blit at all: $ABA0 paints the
     // window itself, cell by cell, and writes the attributes as it goes.

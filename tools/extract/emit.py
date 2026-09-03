@@ -191,6 +191,11 @@ def write_sheets(sk: Skool, outdir: Path) -> list[str]:
     # Nine bytes per static tile, not eight: the ninth is the attribute byte
     # plot_static_tiles writes ($F219 / $F23E). At stride 8 the sheet showed 84
     # tiles sliding progressively out of alignment.
+    # Nine bytes per static tile, not eight: the ninth is the attribute byte
+    # plot_static_tiles writes ($F219 / $F23E). At stride 8 the sheet showed 84
+    # tiles sliding progressively out of alignment. The sheet shows the 75 the
+    # block comment documents; tiles 75..78 live in the RAM variables that
+    # follow and are drawn from data/tiles.json, not from here.
     lo, hi = sk.extent_of("static_tiles")
     put("tiles-static", tile_sheet(image, lo, (hi - lo) // 9, stride=9))
 

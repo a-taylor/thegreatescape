@@ -81,6 +81,23 @@ def extract_map(sk: Skool) -> dict[str, Any]:
     }
 
 
+def _static_tile_indices(sk: Skool) -> set[int]:
+    """Every static_tiles index the 18 static definitions actually reference.
+
+    The table's usable extent is decided by its readers, not by its label:
+    see extract_tiles on why it runs past its own block.
+    """
+    img = sk.image
+    lo, hi = sk.extent_of_block("static_graphic_defs")
+    used: set[int] = set()
+    at = lo
+    while at < hi:
+        length = img[at + 2] & 0x7F
+        used.update(img[at + 3:at + 3 + length])
+        at += 3 + length
+    return used
+
+
 def extract_tiles(sk: Skool) -> dict[str, Any]:
     """The four 8x8 tile sets, as raw bitmap bytes."""
     img = sk.image
@@ -111,25 +128,47 @@ def extract_tiles(sk: Skool) -> dict[str, Any]:
             "bytesPerTile": 8,
             "data": b64(img[mask_lo:mask_hi]),
         },
-        # static_tiles is the ONE tile set whose stride is not eight.
+        # static_tiles is the ONE tile set whose stride is not eight, and the
+        # one whose data runs past its own label.
         #
         # plot_static_tiles multiplies the tile index by NINE ($F219: three
-        # ADD HL,HL for x8, then ADD HL,BC for the index again), and after
-        # plotting the eight pixel rows it reads a ninth byte -- "the attribute
-        # byte which follows the tile data" ($F23E) -- and writes it to the
-        # cell's attribute. So a static tile carries its own colour.
+        # ADD HL,HL for x8, then ADD HL,BC for the index again) and, after
+        # plotting eight pixel rows, reads a ninth byte -- "the attribute byte
+        # which follows the tile data" ($F23E) -- and writes it to the cell.
+        # The block comment says so outright: "9 bytes each: 8x8 bitmap + 1
+        # byte attribute. 75 tiles."
         #
-        # Emitted at stride 8 until now, which put 84 tiles where there are 75,
-        # read every tile after the first from the wrong offset, and dropped
-        # the last three bytes. Nothing noticed because nothing has ever drawn
-        # one: they are used only by plot_statics_and_menu_text, which is P7.
-        # PLAN.md §2.3 says 75, and 675 / 9 is exactly 75.
+        # But statics_medals_row1 references tile $4E = 78, and 75 tiles end at
+        # $81A3. Tiles 75..78 lie in the RAM variable block that follows --
+        # $81A4 onwards, over saved_pos, bitmap_pointer, iso_pos,
+        # hero_map_position and map_position. They are not noise: each is a
+        # structured 8x8 bitmap with a sensible attribute ($06, $06, $04, $47).
+        # The medals are drawn ONCE by main ($F163) before any of those
+        # variables is live, and never redrawn, so the graphics and the
+        # variables share the same bytes quite happily. 1986 memory economy.
+        #
+        # So the count is derived from the highest index the definitions
+        # actually use, and the documented 75 is kept beside it. Emitted at
+        # stride 8 until now, which put 84 tiles where there are 79 and read
+        # every tile after the first from the wrong offset.
         "static": {
             **provenance(sk, "static_tiles"),
-            "count": _count(sk, "static_tiles", STATIC_TILE_STRIDE),
+            "count": max(_static_tile_indices(sk)) + 1,
+            "documentedCount": _count(sk, "static_tiles", STATIC_TILE_STRIDE),
             "bytesPerTile": STATIC_TILE_STRIDE,
-            "note": "8 pixel rows then one ATTRIBUTE byte ($F219 / $F23E)",
-            "data": b64(sk.slice("static_tiles")),
+            "note": (
+                "8 pixel rows then one ATTRIBUTE byte ($F219 / $F23E). Tiles "
+                "75..78 lie past static_tiles' own extent, sharing bytes with "
+                "the RAM variables at $81A4 onwards; the medals are plotted "
+                "once at boot before those are live."
+            ),
+            "data": b64(
+                img[
+                    sk.addr_of("static_tiles"):
+                    sk.addr_of("static_tiles")
+                    + (max(_static_tile_indices(sk)) + 1) * STATIC_TILE_STRIDE
+                ]
+            ),
         },
     }
 

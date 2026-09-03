@@ -237,6 +237,7 @@ def test_static_tiles(sk: Skool, r: Results) -> None:
     in_table = (hi - lo) // stride
     r.check("static_tiles divides by 9", (hi - lo) % stride == 0,
             f"{hi - lo} bytes")
+    r.check("static_tiles documented count", in_table == 75, f"{in_table} tiles")
 
     path = UDGS / "static-tiles.png"
     if not path.exists():

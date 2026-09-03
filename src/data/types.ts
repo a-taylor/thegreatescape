@@ -47,8 +47,17 @@ export interface MapData extends Provenance {
 export interface TileSet extends Provenance {
   readonly count: number;
   readonly bytesPerTile: number;
-  /** base64 of count*8 bitmap bytes. */
+  /** base64 of count * bytesPerTile bytes. */
   readonly data: string;
+  /**
+   * static_tiles only: the count its own block comment gives ("75 tiles").
+   *
+   * `count` is larger, because statics_medals_row1 indexes tile $4E = 78 and
+   * tiles 75..78 lie past the label, in the RAM variable block at $81A4. See
+   * extract_tiles and FIDELITY.md.
+   */
+  readonly documentedCount?: number;
+  readonly note?: string;
 }
 
 export interface TilesData {
