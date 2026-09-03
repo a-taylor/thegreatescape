@@ -1,0 +1,760 @@
+{
+  "defineKeyPrompts": {
+    "_addr": "$F2AD",
+    "_bytes": 52,
+    "_label": "define_key_prompts",
+    "strings": [
+      {
+        "addr": "$F2AD",
+        "glyphs": [
+          12,
+          17,
+          0,
+          0,
+          27,
+          14,
+          35,
+          20,
+          14,
+          33,
+          27
+        ],
+        "screenAddress": "$406D",
+        "text": "CH00SE KEYS"
+      },
+      {
+        "addr": "$F2BB",
+        "glyphs": [
+          21,
+          14,
+          15,
+          28,
+          36
+        ],
+        "screenAddress": "$40CD",
+        "text": "LEFT."
+      },
+      {
+        "addr": "$F2C3",
+        "glyphs": [
+          26,
+          18,
+          16,
+          17,
+          28,
+          36
+        ],
+        "screenAddress": "$480D",
+        "text": "RIGHT."
+      },
+      {
+        "addr": "$F2CC",
+        "glyphs": [
+          29,
+          24,
+          36
+        ],
+        "screenAddress": "$484D",
+        "text": "UP."
+      },
+      {
+        "addr": "$F2D2",
+        "glyphs": [
+          13,
+          0,
+          31,
+          23,
+          36
+        ],
+        "screenAddress": "$488D",
+        "text": "D0WN."
+      },
+      {
+        "addr": "$F2DA",
+        "glyphs": [
+          15,
+          18,
+          26,
+          14,
+          36
+        ],
+        "screenAddress": "$48CD",
+        "text": "FIRE."
+      }
+    ]
+  },
+  "inputRoutines": {
+    "_addr": "$F43D",
+    "_bytes": 8,
+    "_label": "inputroutines",
+    "devices": [
+      {
+        "addr": "$FE00",
+        "index": 0,
+        "labels": [
+          "inputroutine_keyboard"
+        ]
+      },
+      {
+        "addr": "$FE7E",
+        "index": 1,
+        "labels": [
+          "inputroutine_kempston"
+        ]
+      },
+      {
+        "addr": "$FECD",
+        "index": 2,
+        "labels": [
+          "inputroutine_sinclair"
+        ]
+      },
+      {
+        "addr": "$FE47",
+        "index": 3,
+        "labels": [
+          "inputroutine_protek"
+        ]
+      }
+    ],
+    "note": "chosen_input_device ($F445): 0 keyboard, 1 kempston, 2 sinclair, 3 protek"
+  },
+  "keyChoiceScreenlocstrings": {
+    "_addr": "$F446",
+    "_bytes": 113,
+    "_label": "key_choice_screenlocstrings",
+    "strings": [
+      {
+        "addr": "$F446",
+        "glyphs": [
+          12,
+          0,
+          23,
+          28,
+          26,
+          0,
+          21,
+          27
+        ],
+        "screenAddress": "$408E",
+        "text": "C0NTR0LS"
+      },
+      {
+        "addr": "$F451",
+        "glyphs": [
+          0,
+          35,
+          27,
+          14,
+          21,
+          14,
+          12,
+          28
+        ],
+        "screenAddress": "$40CD",
+        "text": "0 SELECT"
+      },
+      {
+        "addr": "$F45C",
+        "glyphs": [
+          1,
+          35,
+          20,
+          14,
+          33,
+          11,
+          0,
+          10,
+          26,
+          13
+        ],
+        "screenAddress": "$480D",
+        "text": "1 KEYB0ARD"
+      },
+      {
+        "addr": "$F469",
+        "glyphs": [
+          2,
+          35,
+          20,
+          14,
+          22,
+          24,
+          27,
+          28,
+          0,
+          23
+        ],
+        "screenAddress": "$484D",
+        "text": "2 KEMPST0N"
+      },
+      {
+        "addr": "$F476",
+        "glyphs": [
+          3,
+          35,
+          27,
+          18,
+          23,
+          12,
+          21,
+          10,
+          18,
+          26
+        ],
+        "screenAddress": "$488D",
+        "text": "3 SINCLAIR"
+      },
+      {
+        "addr": "$F483",
+        "glyphs": [
+          4,
+          35,
+          24,
+          26,
+          0,
+          28,
+          14,
+          20
+        ],
+        "screenAddress": "$48CD",
+        "text": "4 PR0TEK"
+      },
+      {
+        "addr": "$F48E",
+        "glyphs": [
+          11,
+          26,
+          14,
+          10,
+          20,
+          35,
+          0,
+          26,
+          35,
+          12,
+          10,
+          24,
+          27,
+          35,
+          10,
+          23,
+          13,
+          35,
+          27,
+          24,
+          10,
+          12,
+          14
+        ],
+        "screenAddress": "$5007",
+        "text": "BREAK 0R CAPS AND SPACE"
+      },
+      {
+        "addr": "$F4A8",
+        "glyphs": [
+          15,
+          0,
+          26,
+          35,
+          23,
+          14,
+          31,
+          35,
+          16,
+          10,
+          22,
+          14
+        ],
+        "screenAddress": "$502C",
+        "text": "F0R NEW GAME"
+      }
+    ]
+  },
+  "keyNameScreenAddrs": {
+    "_addr": "$F32B",
+    "_bytes": 10,
+    "_label": "key_name_screen_addrs",
+    "values": [
+      "$40D5",
+      "$4815",
+      "$4855",
+      "$4895",
+      "$48D5"
+    ]
+  },
+  "keyboardPortHiBytes": {
+    "_addr": "$F2E2",
+    "_bytes": 9,
+    "_label": "keyboard_port_hi_bytes",
+    "note": "zero-terminated; the scan walks it until it reads 0",
+    "values": [
+      247,
+      239,
+      251,
+      223,
+      253,
+      191,
+      254,
+      127,
+      0
+    ]
+  },
+  "keydefs": {
+    "_addr": "$F06B",
+    "_bytes": 10,
+    "_label": "keydefs",
+    "entries": [
+      {
+        "mask": 0,
+        "name": "left",
+        "port": 0
+      },
+      {
+        "mask": 0,
+        "name": "right",
+        "port": 0
+      },
+      {
+        "mask": 0,
+        "name": "up",
+        "port": 0
+      },
+      {
+        "mask": 0,
+        "name": "down",
+        "port": 0
+      },
+      {
+        "mask": 0,
+        "name": "fire",
+        "port": 0
+      }
+    ],
+    "note": "zero in the shipped image; choose_keys ($F350) fills them in"
+  },
+  "menuText": {
+    "count": 8,
+    "note": "the first 8 key_choice_screenlocstrings are the menu ($F1F9 LD B,$08)"
+  },
+  "specialKeyNames": {
+    "_addr": "$F2EB",
+    "_bytes": 24,
+    "_label": "special_key_names",
+    "names": [
+      {
+        "glyphs": [
+          14,
+          23,
+          28,
+          14,
+          26
+        ],
+        "text": "ENTER"
+      },
+      {
+        "glyphs": [
+          12,
+          10,
+          24,
+          27
+        ],
+        "text": "CAPS"
+      },
+      {
+        "glyphs": [
+          27,
+          33,
+          22,
+          11,
+          0,
+          21
+        ],
+        "text": "SYMB0L"
+      },
+      {
+        "glyphs": [
+          27,
+          24,
+          10,
+          12,
+          14
+        ],
+        "text": "SPACE"
+      }
+    ]
+  },
+  "statics": {
+    "_addr": "$F076",
+    "_bytes": 23,
+    "_label": "static_graphic_defs",
+    "count": 18,
+    "entries": [
+      {
+        "addr": "$F076",
+        "labels": [
+          "static_graphic_defs",
+          "statics_flagpole"
+        ],
+        "screenAddress": "$4021",
+        "tiles": [
+          24,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          26,
+          26
+        ],
+        "vertical": true
+      },
+      {
+        "addr": "$F08D",
+        "labels": [
+          "statics_game_window_left_border"
+        ],
+        "screenAddress": "$4006",
+        "tiles": [
+          2,
+          4,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          14,
+          16
+        ],
+        "vertical": true
+      },
+      {
+        "addr": "$F0A4",
+        "labels": [
+          "statics_game_window_right_border"
+        ],
+        "screenAddress": "$401E",
+        "tiles": [
+          5,
+          7,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          17,
+          18,
+          9,
+          11
+        ],
+        "vertical": true
+      },
+      {
+        "addr": "$F0BB",
+        "labels": [
+          "statics_game_window_top_border"
+        ],
+        "screenAddress": "$4027",
+        "tiles": [
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          21,
+          22,
+          23,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F0D5",
+        "labels": [
+          "statics_game_window_bottom"
+        ],
+        "screenAddress": "$5047",
+        "tiles": [
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          21,
+          22,
+          23,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20,
+          19,
+          20
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F0EF",
+        "labels": [
+          "statics_flagpole_grass"
+        ],
+        "screenAddress": "$50A0",
+        "tiles": [
+          31,
+          27,
+          28,
+          29,
+          30
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F0F7",
+        "labels": [
+          "statics_medals_row0"
+        ],
+        "screenAddress": "$5073",
+        "tiles": [
+          32,
+          33,
+          34,
+          33,
+          35,
+          33,
+          36,
+          33,
+          34,
+          33,
+          37,
+          11,
+          12
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F107",
+        "labels": [
+          "statics_medals_row1"
+        ],
+        "screenAddress": "$5093",
+        "tiles": [
+          38,
+          78,
+          39,
+          78,
+          40,
+          78,
+          41,
+          78,
+          39,
+          78,
+          42
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F115",
+        "labels": [
+          "statics_medals_row2"
+        ],
+        "screenAddress": "$50B3",
+        "tiles": [
+          43,
+          44,
+          45,
+          44,
+          46,
+          44,
+          47,
+          44,
+          45,
+          44,
+          48
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F123",
+        "labels": [
+          "statics_medals_row3"
+        ],
+        "screenAddress": "$50D3",
+        "tiles": [
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F131",
+        "labels": [
+          "statics_medals_row4"
+        ],
+        "screenAddress": "$50F3",
+        "tiles": [
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F13E",
+        "labels": [
+          "statics_bell_row0"
+        ],
+        "screenAddress": "$506E",
+        "tiles": [
+          70,
+          71,
+          72
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F144",
+        "labels": [
+          "statics_bell_row1"
+        ],
+        "screenAddress": "$508E",
+        "tiles": [
+          73,
+          74,
+          75
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F14A",
+        "labels": [
+          "statics_bell_row2"
+        ],
+        "screenAddress": "$50AE",
+        "tiles": [
+          76,
+          77
+        ],
+        "vertical": false
+      },
+      {
+        "addr": "$F14F",
+        "labels": [
+          "statics_corner_tl"
+        ],
+        "screenAddress": "$4005",
+        "tiles": [
+          1,
+          3
+        ],
+        "vertical": true
+      },
+      {
+        "addr": "$F154",
+        "labels": [
+          "statics_corner_tr"
+        ],
+        "screenAddress": "$401F",
+        "tiles": [
+          6,
+          8
+        ],
+        "vertical": true
+      },
+      {
+        "addr": "$F159",
+        "labels": [
+          "statics_corner_bl"
+        ],
+        "screenAddress": "$5045",
+        "tiles": [
+          13,
+          15
+        ],
+        "vertical": true
+      },
+      {
+        "addr": "$F15E",
+        "labels": [
+          "statics_corner_br"
+        ],
+        "screenAddress": "$505F",
+        "tiles": [
+          10,
+          12
+        ],
+        "vertical": true
+      }
+    ],
+    "note": "flags_and_length: bit 7 is statictiles_VERTICAL ($F1EA), the low seven bits are the tile count ($F20F). Tiles index static_tiles ($7F00)."
+  }
+}

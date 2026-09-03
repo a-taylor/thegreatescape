@@ -1119,6 +1119,202 @@ def extract_audio(sk: Skool) -> dict[str, Any]:
             **provenance(sk, "semitone_to_frequency"),
             "data": b64(sk.slice("semitone_to_frequency")),
         },
+        "channelIndices": {
+            # music_channel0_index ($F541) and music_channel1_index ($F543) are
+            # DEFW $0000 -- working storage menu_screen stashes each channel's
+            # cursor in ($F4C1 LD ($F541),HL), not a table. Recorded as the
+            # initial value rather than emitted as data, because a zero is not
+            # game data and pretending otherwise would put a fake table in the
+            # schema for a reader to trust.
+            "note": "$F541/$F543 are RAM stash, zero on load; not a data table",
+            "initial": 0,
+        },
+    }
+
+
+def _screenlocstrings(
+    sk: Skool, label: str, end_label: str | None = None
+) -> list[dict[str, Any]]:
+    """Walk a screenlocstring table to exhaustion.
+
+    A screenlocstring is {word screen_address; byte count; byte glyphs[count]},
+    packed back to back with no count of its own -- so the table's EXTENT is
+    the only thing that says how many there are, and the walk has to consume it
+    exactly. A short read would silently drop the last prompt; a long one would
+    run into whatever follows and decode noise.
+
+    `end_label` exists for `define_key_prompts`, whose last byte carries a
+    second label. $F2E1 is the "." that finishes "FIRE." and is ALSO labelled
+    `byte_F2E1`, because choose_keys takes its address before walking
+    keyboard_port_hi_bytes at $F2E2 -- the disassembly's own comment says
+    "nothing uses this byte for storage". So the label extent stops one byte
+    short of the table and the last prompt reads as "FIRE" with a truncated
+    glyph. A fifth case of "the label extent is not the table", alongside the
+    four that extent_of_block covers.
+    """
+    lo, hi = sk.extent_of(label)
+    if end_label is not None:
+        hi = sk.addr_of(end_label)
+    data = bytes(sk.image[lo:hi])
+    out: list[dict[str, Any]] = []
+    i = 0
+    while i < len(data):
+        addr = data[i] | (data[i + 1] << 8)
+        count = data[i + 2]
+        glyphs = list(data[i + 3:i + 3 + count])
+        if len(glyphs) != count:
+            raise ValueError(f"{label}: string at +{i} runs past the table")
+        out.append({
+            "addr": f"${lo + i:04X}",
+            "screenAddress": f"${addr:04X}",
+            "glyphs": glyphs,
+            "text": decode_glyphs(bytes(glyphs)),
+        })
+        i += 3 + count
+    return out
+
+
+def extract_frontend(sk: Skool) -> dict[str, Any]:
+    """P7: the menu screen, key redefinition and the static screen furniture.
+
+    Everything here is read by code that runs BEFORE the game does -- main
+    ($F163) plots the statics and the menu text, check_menu_keys ($F271) reads
+    the menu, and choose_keys ($F350) runs the key redefinition screen. None of
+    it was in PLAN.md's first pass because none of it was needed until P7.
+    """
+    img = sk.image
+
+    # ---- static_graphic_defs ($F076), 18 records ($F1E3 LD B,$12) ----------
+    # Each is {screenloc word, flags_and_length, tiles[length]}, where bit 7 of
+    # flags_and_length is statictiles_VERTICAL ($F1EA BIT 7) and the length is
+    # the low seven bits ($F20F AND $7F). The label SHARES its address with
+    # statics_flagpole, and every record after it is labelled too, so the
+    # extent has to come from the BLOCK -- extent_of would stop at the second
+    # record and silently emit one static.
+    n_statics = 18
+    lo, hi = sk.extent_of_block("static_graphic_defs")
+    statics: list[dict[str, Any]] = []
+    at = lo
+    for _ in range(n_statics):
+        screenloc = img[at] | (img[at + 1] << 8)
+        flags_and_length = img[at + 2]
+        length = flags_and_length & 0x7F
+        tiles = list(img[at + 3:at + 3 + length])
+        if len(tiles) != length:
+            raise ValueError(f"static at ${at:04X} runs past the block")
+        statics.append({
+            "addr": f"${at:04X}",
+            "labels": sk.addr_to_labels.get(at, []),
+            "screenAddress": f"${screenloc:04X}",
+            "vertical": bool(flags_and_length & 0x80),
+            "tiles": tiles,
+        })
+        at += 3 + length
+    if at != hi:
+        raise ValueError(
+            f"static_graphic_defs: 18 records end at ${at:04X}, block ends ${hi:04X}"
+        )
+
+    # ---- keydefs ($F06B): five (port, mask) pairs -------------------------
+    # All zero in the shipped image; choose_keys fills them in ($F376 clears
+    # them first). The five are Left, Right, Up, Down, Fire, in that order --
+    # the disassembly names them one per line at $F06B..$F073.
+    keydef_names = ["left", "right", "up", "down", "fire"]
+    kd = sk.slice("keydefs")
+    if len(kd) != len(keydef_names) * 2:
+        raise ValueError(f"keydefs: {len(kd)} bytes, expected {len(keydef_names) * 2}")
+    keydefs = [
+        {"name": name, "port": kd[i * 2], "mask": kd[i * 2 + 1]}
+        for i, name in enumerate(keydef_names)
+    ]
+
+    # ---- special_key_names ($F2EB): counted strings ------------------------
+    # "The strings are prefixed by a length byte" -- no screen address, unlike
+    # the screenlocstrings above.
+    skn = sk.slice("special_key_names")
+    special: list[dict[str, Any]] = []
+    i = 0
+    while i < len(skn):
+        count = skn[i]
+        glyphs = list(skn[i + 1:i + 1 + count])
+        if len(glyphs) != count:
+            raise ValueError("special_key_names: string runs past the table")
+        special.append({"glyphs": glyphs, "text": decode_glyphs(bytes(glyphs))})
+        i += 1 + count
+
+    # ---- inputroutines ($F43D): four pointers ------------------------------
+    # Resolved to the routine labels rather than named by hand, so the order
+    # comes out of the data. chosen_input_device ($F445) documents the index
+    # meanings: 0 keyboard, 1 kempston, 2 sinclair, 3 protek.
+    ir = sk.addr_of("inputroutines")
+    n_devices = _count(sk, "inputroutines", 2)
+    devices = [
+        {
+            "index": i,
+            "addr": f"${p:04X}",
+            "labels": sk.addr_to_labels.get(p, []),
+        }
+        for i, p in enumerate(words(img, ir, n_devices))
+    ]
+
+    return {
+        "statics": {
+            **provenance(sk, "static_graphic_defs"),
+            "count": n_statics,
+            "note": (
+                "flags_and_length: bit 7 is statictiles_VERTICAL ($F1EA), the "
+                "low seven bits are the tile count ($F20F). Tiles index "
+                "static_tiles ($7F00)."
+            ),
+            "entries": statics,
+        },
+        "menuText": {
+            # $F1F9/$F1FB: main plots the FIRST EIGHT of
+            # key_choice_screenlocstrings as the menu, and choose_keys uses the
+            # rest. One table, two readers.
+            "note": "the first 8 key_choice_screenlocstrings are the menu ($F1F9 LD B,$08)",
+            "count": 8,
+        },
+        "keyChoiceScreenlocstrings": {
+            **provenance(sk, "key_choice_screenlocstrings"),
+            "strings": _screenlocstrings(sk, "key_choice_screenlocstrings"),
+        },
+        "defineKeyPrompts": {
+            **provenance(sk, "define_key_prompts"),
+            "strings": _screenlocstrings(
+                sk, "define_key_prompts", end_label="keyboard_port_hi_bytes"
+            ),
+        },
+        "specialKeyNames": {
+            **provenance(sk, "special_key_names"),
+            "names": special,
+        },
+        "keyNameScreenAddrs": {
+            **provenance(sk, "key_name_screen_addrs"),
+            "values": [
+                f"${w:04X}"
+                for w in words(
+                    img,
+                    sk.addr_of("key_name_screen_addrs"),
+                    _count(sk, "key_name_screen_addrs", 2),
+                )
+            ],
+        },
+        "keydefs": {
+            **provenance(sk, "keydefs"),
+            "note": "zero in the shipped image; choose_keys ($F350) fills them in",
+            "entries": keydefs,
+        },
+        "keyboardPortHiBytes": {
+            **provenance(sk, "keyboard_port_hi_bytes"),
+            "note": "zero-terminated; the scan walks it until it reads 0",
+            "values": list(sk.slice("keyboard_port_hi_bytes")),
+        },
+        "inputRoutines": {
+            **provenance(sk, "inputroutines"),
+            "note": "chosen_input_device ($F445): 0 keyboard, 1 kempston, 2 sinclair, 3 protek",
+            "devices": devices,
+        },
     }
 
 
@@ -1163,5 +1359,6 @@ EXTRACTORS = {
     "panel": extract_panel,
     "timing": extract_timing,
     "audio": extract_audio,
+    "frontend": extract_frontend,
     "prng": extract_prng,
 }
