@@ -68,6 +68,31 @@ rather than an out-of-bounds read. The ledger is now closed: nothing is outstand
 
 ---
 
+### Sound: the platform, not the reading
+
+Three deviations, all forced by the browser rather than by anything in the disassembly. The
+arithmetic behind the sound is faithful — see `OPEN_QUESTIONS.md` §17 for the T-state
+assumptions and the counter formula that `tests/beeper.test.ts` pins against a chromatic scale.
+
+- **Nothing sounds before the first key or click.** Browsers refuse to start an `AudioContext`
+  without a user gesture. `menu_screen` starts its music the instant the menu appears; here
+  `Beeper.resume()` is hung off the first `keydown` or `pointerdown` and the intention is
+  remembered until then.
+- **The tune is rendered once and looped.** `menu_screen` re-derives every note from the tables
+  on every pass round its infinite loop ($F529 `JP $F4B7`). Fifty-four seconds of samples is
+  cheaper to hold than to recompute, there is no way to hear the difference, and the render
+  costs 14 ms.
+- **The three `ring_bell` calls run together.** The main loop spaces them across the frame
+  ($9D9C, $9DA8, $9DB1), between `animate`, `move_map` and `plot_sprites`. Nothing in between
+  reads `$A130` or the ringer's graphic, so the only difference is where in the frame the
+  clatter falls — and the frame is not a unit of time the player can hear.
+
+What is NOT a deviation is the two-channel behaviour, which is easy to get wrong by reaching for
+an oscillator. The channels do not mix: each writes its own value to the speaker with its own
+`OUT` ($F50C and $F51D), so the cone follows whichever toggled last. That interference is the
+sound of a Spectrum playing two notes at once, and it only comes out right by simulating the
+one-bit port, which is what `renderTune` does.
+
 ## Reproduced faithfully
 
 ### `get_next_drawable` ($B89C) is not a total order

@@ -114,7 +114,13 @@ import {
   messages as messageTable,
   queueMessage,
 } from './ui/messages.js';
-import { plotScore, setMoraleFlagScreenAttributes, waveMoraleFlag } from './ui/panel.js';
+import {
+  BELL_RINGER_SCREEN_ADDRESS,
+  plotRinger,
+  plotScore,
+  setMoraleFlagScreenAttributes,
+  waveMoraleFlag,
+} from './ui/panel.js';
 import {
   characterClass,
   characterStructs,
@@ -182,6 +188,8 @@ import { MASK_BUFFER_SIZE, plotMaskedSprite } from './render/sprites.js';
 import { interiorMasksForRoom, renderMaskBuffer } from './render/maskbuffer.js';
 import { fillRoom } from './render/scene.js';
 import { plotStatics } from './render/statics.js';
+import { Beeper } from './spectrum/beeper.js';
+import { BELL_RING_PERPETUAL, BELL_STOP, createBell, ringBell } from './game/bell.js';
 import {
   GameWindowBuffers,
   NO_OFFSET,
@@ -534,7 +542,41 @@ const permitted = createPermitted();
  * follow_suspicious_character's own state: the poisoned-food countdown
  * ($C891) and whether the bell is ringing perpetually ($A130 == 0).
  */
-const pursuitState = { foodDiscoveredCounter: 0, bellRingingPerpetually: false };
+const beeper = new Beeper();
+
+/**
+ * bell ($A130), and the view of it the pursuit code wants.
+ *
+ * One game byte, one owner. `follow_suspicious_character` and `automatics`
+ * only ever ask "is it ringing perpetually", which is "$A130 == 0" -- so that
+ * is a getter over the byte rather than a second boolean beside it. The fifth
+ * costume of the stove would have been a `bellRingingPerpetually` flag that
+ * ring_bell never looked at.
+ */
+const bell = createBell();
+const pursuitState = {
+  foodDiscoveredCounter: 0,
+  get bellRingingPerpetually(): boolean {
+    return bell.counter === BELL_RING_PERPETUAL;
+  },
+  set bellRingingPerpetually(v: boolean) {
+    bell.counter = v ? BELL_RING_PERPETUAL : BELL_STOP;
+  },
+};
+
+/** $9D9C, $9DA8, $9DB1: the main loop rings the bell three times a frame. */
+const RING_BELL_CALLS_PER_FRAME = 3;
+function ringBellThisFrame(): void {
+  for (let i = 0; i < RING_BELL_CALLS_PER_FRAME; i++) {
+    ringBell(bell, {
+      // $A0B0 reads the ringer's graphic back off the screen, and the panel
+      // screen is where this demo keeps persistent screen memory.
+      ringerByte: () => panelScreen.readByte(BELL_RINGER_SCREEN_ADDRESS),
+      plotRinger: (on) => plotRinger(panelScreen, on),
+      playBell: () => beeper.ringBell(),
+    });
+  }
+}
 
 /** in_solitary ($A13A) and the global current door ($68A1). */
 const solitaryState = { inSolitary: false, currentDoor: -1 };
@@ -1304,6 +1346,11 @@ function tick(): void {
       command.item < 0
         ? `${command.command}: nothing`
         : `${command.command}: item ${command.item}`;
+    // $7B84 LD BC,$3030 and $7BA8 LD BC,$3040: the two item sounds, played
+    // only when something actually changed hands.
+    if (command.item >= 0) {
+      beeper.play(command.command === 'pick up' ? 'pickUpItem' : 'dropItem');
+    }
   }
   // input_KICK ($9E8D): a sprite refresh with no direction bits.
   const moveInput = input >= INPUT_FIRE ? 0 : input;
@@ -1490,6 +1537,8 @@ function tick(): void {
 
   const enteredRoom = outcome.enteredRoom ?? autoEnteredRoom;
   if (enteredRoom !== null) {
+    // $CB0C LD BC,$2030, played by tr_transition after transition returns.
+    beeper.play('characterEnters1');
     lastEvent = enteredRoom === 0 ? 'stepped outside' : `entered room ${enteredRoom}`;
     // enter_room ($68F4) fixes the map position for interiors;
     // reset_outdoor_position ($B2FC) recentres it on the hero outdoors. Leave
@@ -1620,6 +1669,12 @@ function tick(): void {
   // position.
   markNearbyItems(itemState, view.position, hero.room);
 
+  // $9D9C, $9DA8, $9DB1: ring_bell three times. The original spaces them
+  // between animate, move_map and plot_sprites; nothing in between reads the
+  // bell, so they run together here and the only difference is where in the
+  // frame the clatter falls.
+  ringBellThisFrame();
+
   // $9D7B's own order: wave_morale_flag first -- it is what advances the game
   // counter, so it has to run every tick even when nothing is moving -- then
   // message_display, then check_morale.
@@ -1696,6 +1751,17 @@ setInterval(() => {
     speedAccumulator -= 1;
   }
 }, TICK_MS);
+
+/**
+ * Browsers will not start an AudioContext until the user has interacted with
+ * the page, so nothing can be heard before the first key or click.
+ *
+ * A deviation, and a platform one rather than a reading -- recorded in
+ * FIDELITY.md. The original starts its music the moment the menu appears.
+ */
+for (const event of ['keydown', 'pointerdown'] as const) {
+  window.addEventListener(event, () => beeper.resume(), { passive: true });
+}
 
 window.addEventListener('keydown', (e) => {
   // keyscan_all ($A58C): the escape screen reads the whole keyboard, not just

@@ -461,6 +461,46 @@ defined data in the same block (reproduce), unrelated memory (do not), or a writ
 
 ---
 
+## 17. Sound has no absolute time — ASSUMPTION taken
+
+Every sound in the game is a loop toggling bit 4 of port $FE and counting iterations. The pitch
+is how long the loop waits between toggles and the duration is how many times it does so, both
+measured in **loop iterations** — and `frequency_for_semitone`'s own header says why that is a
+problem:
+
+> "Since there is no absolute time to work from, the value returned is the number of iterations
+> that the speaker routine should idle for between pulses. This will obviously only sound
+> correct on a 'standard' ZX Spectrum."
+
+So iterations → seconds needs a T-state count for the loop, which is a property of the
+instructions rather than of any table and therefore cannot be extracted. Three constants are
+assumed, all in `src/spectrum/beeper.ts` and all marked `ASSUMPTION`:
+
+| Constant | Value | Derivation |
+|---|---|---|
+| Z80 clock | 3,500,000 Hz | the 48K machine; not in the disassembly at all |
+| music inner loop | 48 T-states | counted on the common path: `DJNZ` 13, `EXX` 4, `DJNZ` 13, `EXX` 4, `DEC H` 4, `JP NZ` 10 ($F502..$F521) |
+| `play_speaker` half-period | 16·delay + 31 T-states | the `DEC C`/`JR NZ` delay loop ($A127) plus the `OUT`, `XOR` and `DJNZ` around it |
+
+The music figure is a **lower bound**: the paths that actually toggle the speaker are longer
+than 48, so the real average is a little higher and the tune comes out slightly sharp. Getting
+it exact needs full T-state accounting of a loop whose cost depends on the notes being played.
+
+**What is NOT assumed, and is checked instead:** the counter arithmetic. `frequency_for_semitone`
+loads the table word into B (low) and C (high), increments both, and increments C again if B
+wrapped ($F537..$F53B); B is what `DJNZ` counts down and C is only touched when B reaches zero,
+so the iterations before a toggle are `B + 256 * (C - 1)`. The plausible misreading —
+`C * 256 + B` — is out by 256 and produces frequencies that are neither musical nor obviously
+wrong. `tests/beeper.test.ts` pins it by asserting that adjacent semitones differ by the
+chromatic ratio 2^(1/12), which nothing but the right formula satisfies, and the assertion was
+shown to fail on the wrong one.
+
+Two browser deviations are recorded in `FIDELITY.md` rather than here, because they are about
+the platform and not about a reading: audio cannot start before a user gesture, and the menu
+tune is rendered once and looped rather than re-derived every pass.
+
+---
+
 ## Not open, but worth recording
 
 Two things that looked like problems and are not:
