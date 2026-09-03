@@ -13,88 +13,25 @@
 import { describe, expect, it } from 'vitest';
 
 import { characterStructs } from '../src/game/characters.js';
-import {
-  VISCHAR_DRAWABLE,
-  createVischars,
-  isEmpty,
-  npcSlots,
-} from '../src/game/vischar.js';
-import { purgeInvisibleCharacters, spawnCharacters } from '../src/game/spawn.js';
+import { createVischars, isEmpty, npcSlots } from '../src/game/vischar.js';
 import {
   FLAGS_TARGET_IS_DOOR,
   characterBehaviour,
   getTargetAssignPos,
   targetReached,
 } from '../src/game/behaviour.js';
-import { animateVischar } from '../src/game/animate.js';
-import { moveCharacter, nextCharacterIndex } from '../src/game/move.js';
-import {
-  TICKS_PER_CLOCK,
-  createSchedule,
-  dispatchTimedEvent,
-  heroSits,
-  heroSleeps,
-  setHeroRoute,
-} from '../src/game/schedule.js';
+import { setHeroRoute } from '../src/game/schedule.js';
 import { Prng } from '../src/game/prng.js';
-import {
-  createAutomaticState,
-  heroIsAutomatic,
-  noteInput,
-} from '../src/game/events.js';
-import {
-  HERO_STANDING_HEIGHT,
-  animations,
-  createHero,
-  step,
-} from '../src/game/hero.js';
-import { ExteriorView } from '../src/render/exterior.js';
-import { isoPlacement, resetOutdoorPosition } from '../src/render/place.js';
-import { vischarVisible } from '../src/render/clip.js';
-import { decodeBase64, roomsData } from '../src/data/load.js';
-import { createJeopardy, createLockedDoors } from '../src/game/actions.js';
-import { runWorkingTimers } from '../src/game/timers.js';
-import {
-  STATE_SEARCHING,
-  createSearchlights,
-  nighttime,
-  searchlightMaskTest,
-} from '../src/game/searchlight.js';
-import { renderMaskBuffer, interiorMasksForRoom } from '../src/render/maskbuffer.js';
-import { tinyposStash } from '../src/game/coords.js';
-import { MASK_BUFFER_SIZE } from '../src/render/sprites.js';
-import { advanceZoombox, createZoombox } from '../src/render/zoombox.js';
-import { createPermitted, inPermittedArea } from '../src/game/permitted.js';
-import { followSuspiciousCharacter } from '../src/game/pursuit.js';
-import {
-  BLOCKED_TUNNEL_BOUND,
-  INTERIOR_OBJECT_COLLAPSED_TUNNEL,
-  ROOM_SOLITARY,
-  acceptBribe,
-  collision,
-  resetMapAndCharacters,
-  solitary,
-  solitaryPos,
-} from '../src/game/jeopardy.js';
-import { isItemDiscoverable, itemDiscovered, ITEM_FOOD as ITEM_FOOD_INDEX } from '../src/game/discovery.js';
-import {
-  dropItemTail,
-  markNearbyItems,
-  processPlayerInputFire,
-} from '../src/game/inventory.js';
-import { type ActionContext, itemActions } from '../src/game/actions.js';
-import { interiorDoorsForRoom } from '../src/game/doors.js';
-import { calcIsoPos, heroMapPosition } from '../src/game/coords.js';
-import { resetVisibleCharacter } from '../src/game/spawn.js';
+import { HERO_STANDING_HEIGHT, createHero, step } from '../src/game/hero.js';
+import { decodeBase64 } from '../src/data/load.js';
+import { createGameState, interiorBounds, tickGame } from './harness/loop.js';
 import routesData from '../data/routes.json';
-import { INTERIOR_MAP_POSITION, halfDoors } from '../src/game/doors.js';
+import { halfDoors } from '../src/game/doors.js';
 import { getTarget } from '../src/game/routes.js';
 import { BYTE7_Y_DOMINANT } from '../src/game/vischar.js';
-import { checkMorale, createPlayer, type PlayerState } from '../src/game/player.js';
-import { createItemState, type ItemState } from '../src/game/inventory.js';
+import { type PlayerState } from '../src/game/player.js';
+import { type ItemState } from '../src/game/inventory.js';
 import {
-  createParcels,
-  createRoomPokes,
   bedObjects,
   heroBedObject,
   pokedObject,
@@ -106,34 +43,16 @@ import {
   INTERIOR_OBJECT_PRISONER_SAT,
   INTERIOR_OBJECT_PRISONER_SAT_END,
   heroBench,
-  blockedTunnelBoundary,
-  clearTunnelBlockage,
-  isTunnelBlockageCleared,
-  blockedTunnelObject,
-  clearAllBenches,
-  pokeBound,
-  pokeObject,
   type ParcelState,
   type RoomPokeState,
 } from '../src/game/parcels.js';
 import {
   MESSAGE_NEXT,
   MESSAGE_SCREEN_ADDRESS,
-  createMessages,
-  messageDisplay,
   messages as messageTable,
-  queueMessage as queueMessageState,
 } from '../src/ui/messages.js';
-import { waveMoraleFlag } from '../src/ui/panel.js';
 import { fontBitmaps } from '../src/ui/glyphs.js';
 import { SpectrumScreen, screenAddress, screenCoords } from '../src/spectrum/display.js';
-
-/** The room state interior_bounds_check needs, per room. */
-function interiorBounds(room: number) {
-  if (room === 0) return undefined;
-  const def = roomsData.roomdefs[roomsData.rooms[room - 1]!.roomdefIndex]!;
-  return { boundsIndex: def.dimensionsIndex, objectBounds: def.bounds };
-}
 
 /**
  * How many bytes each route occupies, terminator included.
@@ -242,40 +161,16 @@ function readMessageLine(screen: SpectrumScreen): string {
 
 const GLYPH_CHARS = '0123456789' + 'ABCDEFGHIJKLMN' + 'PQRSTUVWXYZ' + ' .';
 
-/** One run of the demo loop with the player idle throughout. */
+/**
+ * One run of the demo loop with the player idle throughout.
+ *
+ * The tick itself lives in `tests/harness/loop.ts` -- this is only the
+ * instrumentation. Everything below reads state the tick has already advanced,
+ * or a value it hands back in its TickResult.
+ */
 function runIdle(ticks: number): Sample {
-  const prng = new Prng();
-  const random = () => prng.next();
-  const structs = characterStructs();
-  const vischars = createVischars();
-  const heroSlot = vischars[0]!;
-  heroSlot.character = 0;
-  heroSlot.flags = 0;
-
-  const START = { x: 100 * 8, y: 74 * 8, height: HERO_STANDING_HEIGHT };
-  const hero = createHero({ ...START }, 2, 0);
-  const start = resetOutdoorPosition(START);
-  const view = new ExteriorView(start.x, start.y);
-  view.position.x = INTERIOR_MAP_POSITION.x; view.position.y = INTERIOR_MAP_POSITION.y;
-  const automatic = createAutomaticState();
-
-  // P5 state, all with a single owner as CLAUDE.md requires.
-  const player = createPlayer();
-  const items = createItemState();
-  const parcels = createParcels();
-  const pokes = createRoomPokes();
-  const messages = createMessages();
-  const jeopardy = createJeopardy();
-  const lockedDoors = createLockedDoors();
-  const searchlights = createSearchlights();
-  const foreground = new Uint8Array(MASK_BUFFER_SIZE);
-  const heroForeground = new Uint8Array(MASK_BUFFER_SIZE);
-
-  // reset_game leaves him asleep in hut 2 ($B794), which pokes his bed to
-  // OCCUPIED -- so the poke state has to exist first.
-  const schedule = createSchedule();
-  heroSleeps(schedule, heroSlot, hero.pos, pokes);
-  const screen = new SpectrumScreen();
+  const g = createGameState();
+  const { structs, vischars, heroSlot, view, schedule, screen, pokes } = g;
 
   const out: Sample = {
     offWindow: 0,
@@ -303,349 +198,42 @@ function runIdle(ticks: number): Sample {
     maskTestRuns: 0,
     searchlightEscapes: 0,
     searchlightStateInvalid: false,
-    player,
-    parcels,
+    player: g.player,
+    parcels: g.parcels,
     pokes,
-    items,
+    items: g.items,
     screen,
   };
-  const queueMessage = (index: number, c = 0) => queueMessageState(messages, index, c);
 
-  // P6 state, one owner each, exactly as src/main.ts holds it.
-  const permitted = createPermitted();
-  const pursuitState = { foodDiscoveredCounter: 0, bellRingingPerpetually: false }; // $C891/$A130
-  const solitaryState = { inSolitary: false, currentDoor: -1 }; // $A13A
-  const savedPos = { x: 0, y: 0, height: 0 }; // $7B0A
-  // Boxed rather than a plain `let`: it is only ever written from inside a
-  // callback, and TypeScript narrows a local `let` to its initialiser across
-  // that, which would make the uniform test below look statically false.
-  const heroSprite: { current: 'prisoner' | 'guard' } = { current: 'prisoner' };
-  const heroMapPos = { x: 0, y: 0, height: 0 }; // $81B8, NOT map_position ($81BB)
-
-  /** The same context main.ts hands the action_* handlers. */
-  const actionContext = (): ActionContext => ({
-    items,
-    player,
-    room: hero.room,
-    hero: heroSlot,
-    mapPosition: heroMapPosition(hero.pos, hero.room === 0),
-    savedPos,
-    vischars,
-    interiorDoors: hero.room === 0 ? [] : interiorDoorsForRoom(hero.room),
-    lockedDoors,
-    redCrossParcelContents: parcels.contents,
-    jeopardy,
-    queueMessage,
-    dropItemTail: (item) => dropItemTail(items, item, hero.room, hero.pos),
-    setHeroSprite: (sprite) => { heroSprite.current = sprite; },
-    heroSpriteIsGuard: () => heroSprite.current === 'guard',
-    refreshRoom: () => {}, // no renderer in this loop
-    clearTunnelBlockage: () => clearTunnelBlockage(pokes),
-    isTunnelBlockageCleared: () => isTunnelBlockageCleared(pokes),
-    solitary: () => { arrest(); },
-    transitionOutsideMainGate: () => { out.gateTransitions++; },
-  });
-
-  /** $CB98 solitary, as main.ts's arrestHero drives it. */
-  function arrest(): void {
-    out.arrests++;
-    solitary(solitaryState, {
-      hero: heroSlot,
-      items,
-      player,
-      vischars,
-      structs,
-      queueMessage,
-      discoverItem: (item) => {
-        if (item !== 0xff) itemDiscovered(items, player, item, queueMessage);
-      },
-      silenceBell: () => { pursuitState.bellRingingPerpetually = false; },
-      resetCast: () => {
-        resetMapAndCharacters({
-          vischars,
-          structs,
-          hero: heroSlot,
-          schedule,
-          lockedDoors,
-          resetVisible: (v) => resetVisibleCharacter(v, structs),
-          // $B7B9/$B7D4/$B7DD, the part every reset_map_and_characters caller
-          // shares -- beds re-occupied, benches cleared, tunnel re-blocked.
-          restoreRoomObjects: () => {
-            for (const bed of bedObjects) {
-              pokeObject(pokes, bed, INTERIOR_OBJECT_OCCUPIED_BED);
-            }
-            pokeObject(pokes, heroBedObject, INTERIOR_OBJECT_OCCUPIED_BED);
-            clearAllBenches(pokes);
-            pokeObject(pokes, blockedTunnelObject, INTERIOR_OBJECT_COLLAPSED_TUNNEL);
-            pokeBound(pokes, blockedTunnelBoundary, BLOCKED_TUNNEL_BOUND);
-          },
-        });
-      },
-      forceAutomatic: () => { automatic.counter = 0; }, // $CC16
-      transitionToSolitary: () => {
-        hero.room = ROOM_SOLITARY;
-        hero.pos = { x: solitaryPos[0]!, y: solitaryPos[1]!, height: solitaryPos[2]! };
-        view.position.x = INTERIOR_MAP_POSITION.x;
-        view.position.y = INTERIOR_MAP_POSITION.y;
-        view.refresh();
-      },
-    });
-  }
-
-  let moveIndex = 0;
-  let frame = 0;
   let jamKey = '';
   let jamRun = 0;
   for (let t = 0; t < ticks; t++) {
-    // $9DB4..$9DB8: the searchlights only run at night, mirroring main.ts's
-    // tick before any input handling.
-    if (schedule.night) {
-      out.nightTicks++;
-      nighttime(searchlights, {
-        room: hero.room,
-        mapPosition: view.position,
-        player,
-        ringBell: () => {}, // pursuit/jeopardy is not modelled by this loop
-      });
-    }
-    if (searchlights.state < 0 || searchlights.state > 0xff) {
+    if (schedule.night) out.nightTicks++;
+
+    const r = tickGame(g, 0);
+
+    if (g.searchlights.state < 0 || g.searchlights.state > 0xff) {
       out.searchlightStateInvalid = true;
     }
+    if (r.moved) out.heroMoves++;
+    if (r.command) out.itemCommands++;
+    if (r.enteredRoom !== null) out.roomChanges++;
+    out.zoomboxTicks += r.zoomboxSteps;
+    if (r.redFlag) out.redFlagTicks++;
+    out.pursuitTicks += r.pursuingSlots;
+    if (r.arrested) out.arrests++;
+    if (r.bribed) out.bribes++;
+    if (r.gateTransition) out.gateTransitions++;
+    if (r.escaped) out.escapes++;
+    if (r.maskTested) out.maskTestRuns++;
+    if (r.searchlightEscaped) out.searchlightEscapes++;
 
-    noteInput(automatic, 0);
-
-    let input = 0;
-    // $9E0E..$9E1F: idle autopilot never fires an item action, so
-    // vischar.flags never carries PICKING_LOCK/CUTTING_WIRE and this is
-    // always a no-op here -- kept for order fidelity with main.ts's tick.
-    runWorkingTimers(
-      {
-        gameCounter: player.gameCounter,
-        lockedOutUntil: jeopardy.playerLockedOutUntil,
-        hero: heroSlot,
-        lockedDoors,
-        doorBeingLockpicked: jeopardy.doorBeingLockpicked,
-        queueMessage,
-      },
-      () => {},
-    );
-
-    // $9E86 process_player_input_fire ($7AC9), in main.ts's position. The
-    // autopilot's synthesised input never carries fire, so this returns null
-    // every tick here -- but it is wired to the REAL itemActions context
-    // rather than a stub, so the twelve action_* handlers are reachable from
-    // this loop the moment a scenario presses fire. A stub would make that
-    // look covered while covering nothing.
-    const command = processPlayerInputFire(items, input, {
-      player,
-      room: hero.room,
-      mapPosition: heroMapPosition(hero.pos, hero.room === 0),
-      heroPos: hero.pos,
-      savedPos,
-      actions: itemActions(actionContext()),
-      onUniformRemoved: () => { heroSprite.current = 'prisoner'; }, // $7B96
-    });
-    if (command) out.itemCommands++;
-
-    // Mirrors src/main.ts's tick. It has to: the whole value of this file is
-    // that it exercises the same order the demo does, and a hero who never
-    // sits down or never takes the automatic door path walks a different
-    // route through breakfast, which changes what spawns and when.
-    let autoEnteredRoom: number | null = null;
-    if (heroIsAutomatic(automatic)) {
-      heroSlot.pos = { ...hero.pos };
-      heroSlot.room = hero.room;
-      // counter_and_flags is one byte in the game and has to travel both ways.
-      heroSlot.counterAndFlags = hero.counterAndFlags;
-      const behaviour = characterBehaviour(heroSlot, {
-        random,
-        structs,
-        room: hero.room,
-        pokes,
-      });
-      hero.counterAndFlags = heroSlot.counterAndFlags;
-      input = heroSlot.input & 0x0f;
-
-      // hero_sits / hero_sleeps ($A47F / $A489) halt the route and zero the
-      // position so he is inside the bench or bed.
-      if (behaviour.event === 'heroSits') heroSits(schedule, heroSlot, hero.pos, pokes);
-      else if (behaviour.event === 'heroSleeps') heroSleeps(schedule, heroSlot, hero.pos, pokes);
-
-      // target_reached may have walked him through a door ($CAF8 -> transition).
-      if (behaviour.enterRoom !== null) {
-        autoEnteredRoom = behaviour.enterRoom;
-        hero.room = heroSlot.room;
-        hero.pos = { ...heroSlot.pos };
-      }
+    // The message line, sampled either side of message_display.
+    if (r.messageIndexBefore === MESSAGE_NEXT && g.messages.displayIndex === 0) {
+      out.messagesShown.push(g.messages.messageIndex);
     }
-    const outcome = step(hero, input, interiorBounds(hero.room), {
-      doorHandling: !heroIsAutomatic(automatic),
-    });
-    if (outcome.moved) out.heroMoves++;
-
-    moveIndex = nextCharacterIndex(moveIndex);
-    const mover = structs[moveIndex];
-    if (mover) moveCharacter(mover, { random, pokes });
-
-    for (const v of npcSlots(vischars)) {
-      if (!isEmpty(v)) characterBehaviour(v, { random, structs, room: hero.room, pokes });
-    }
-    purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
-    spawnCharacters(vischars, structs, view.position, hero.room, { random });
-    for (const v of npcSlots(vischars)) {
-      v.counterAndFlags &= ~VISCHAR_DRAWABLE & 0xff;
-    }
-    for (const v of npcSlots(vischars)) {
-      if (!isEmpty(v)) animateVischar(v, { interior: interiorBounds(v.room) });
-    }
-
-    const enteredRoom = outcome.enteredRoom ?? autoEnteredRoom;
-    if (enteredRoom !== null) {
-      out.roomChanges++;
-      if (enteredRoom === 0) {
-        const m = resetOutdoorPosition(hero.pos);
-        view.position.x = m.x;
-        view.position.y = m.y;
-      } else {
-        view.position.x = INTERIOR_MAP_POSITION.x;
-        view.position.y = INTERIOR_MAP_POSITION.y;
-      }
-      view.moveMapY = 0;
-      view.refresh();
-
-      // zoombox ($ABA0), which enter_room ($6912) and reset_outdoors ($B329)
-      // both end with. Run out inline because the original's CALL BLOCKS: no
-      // main-loop iteration happens until the box is complete, so the reveal
-      // costs wall-clock time and not a single game tick. src/main.ts spreads
-      // the same eleven steps over eleven intervals -- a browser cannot block
-      // -- but returns early from tick() for every one of them, so neither
-      // loop advances game_counter or anything else while it runs. Counted
-      // here to prove a real day actually reaches the reveal.
-      const box = createZoombox();
-      while (advanceZoombox(box)) out.zoomboxTicks++;
-    } else if (hero.room === 0 && outcome.moved) {
-      view.moveMap(animations[hero.animation]?.header[3] ?? 0xff, hero.reverse);
-    }
-
-    // $9F21 in_permitted_area: maintains hero_map_position, colours the morale
-    // flag, and can put the hero back on his route -- so it runs before the
-    // panel that draws the flag it just recoloured.
-    heroSlot.pos = { ...hero.pos };
-    heroSlot.isoPos = calcIsoPos(hero.pos);
-    inPermittedArea(permitted, {
-      room: hero.room,
-      clock: schedule.clock,
-      inSolitary: solitaryState.inSolitary, // $A13A
-      hero: heroSlot,
-      mapPosition: heroMapPos,
-      setHeroRoute: (index, step2) => {
-        setHeroRoute(
-          {
-            structs,
-            vischars,
-            random,
-            room: hero.room,
-            hero: heroSlot,
-            heroPos: hero.pos,
-            inSolitary: solitaryState.inSolitary, // $A343
-          },
-          index,
-          step2,
-        );
-      },
-      onEscaped: () => { out.escapes++; },
-      silenceBell: () => { pursuitState.bellRingingPerpetually = false; }, // $9FF1
-    });
-    if (permitted.redFlag) out.redFlagTicks++;
-
-    // $A138 and $A13A are each ONE game byte with two readers. Copied both
-    // ways rather than left to drift, per CLAUDE.md.
-    automatic.redFlag = permitted.redFlag;
-    automatic.inSolitary = solitaryState.inSolitary;
-
-    // $9D90 follow_suspicious_character ($C892): sets the pursuit flags that
-    // character_behaviour acts on.
-    const followed = followSuspiciousCharacter(
-      vischars,
-      {
-        room: hero.room,
-        redFlag: permitted.redFlag,
-        automaticPlayerCounter: automatic.counter,
-        heroMapPosition: heroMapPos,
-        heroInUniform: heroSprite.current === 'guard',
-        items,
-      },
-      pursuitState,
-      {
-        checkItemDiscoverable: () => {
-          const found = isItemDiscoverable(items, hero.room);
-          if (found >= 0) itemDiscovered(items, player, found, queueMessage);
-        },
-        foodExpired: () => {
-          itemDiscovered(items, player, ITEM_FOOD_INDEX, queueMessage);
-        },
-      },
-    );
-    if (followed.ringBell) pursuitState.bellRingingPerpetually = true;
-    for (const v of npcSlots(vischars)) if (!isEmpty(v) && v.flags !== 0) out.pursuitTicks++;
-
-    // $AFC0 collision, per moving NPC against the hero.
-    if (!solitaryState.inSolitary) {
-      for (const v of npcSlots(vischars)) {
-        if (isEmpty(v)) continue;
-        const hit = collision(v, { ...v.pos }, vischars, jeopardy.bribedCharacter);
-        if (hit.kind === 'arrest') {
-          arrest();
-          break;
-        }
-        if (hit.kind === 'bribe') {
-          out.bribes++;
-          acceptBribe(v, vischars, items, player, queueMessage);
-          jeopardy.bribedCharacter = 0xff;
-          break;
-        }
-      }
-    }
-
-    // $DB9E mark_nearby_items, against map_position ($81BB) -- the view
-    // scroll, not the hero's own tinypos.
-    markNearbyItems(items, view.position, hero.room);
-
-    // $9DC2 wave_morale_flag, then message_display, then check_morale -- and
-    // only THEN $9DC5's timed event. The flag is what advances the game
-    // counter, so it must run every tick even when nothing else does.
-    const wasIndex = messages.displayIndex;
-    const playing = messages.messageIndex;
-    waveMoraleFlag(screen, player);
-    messageDisplay(messages, screen);
-    checkMorale(player, queueMessage, () => { automatic.counter = 0; }); // $9DE1
-    if (wasIndex === MESSAGE_NEXT && messages.displayIndex === 0) {
-      out.messagesShown.push(messages.messageIndex);
-    }
-    if (wasIndex < MESSAGE_NEXT && messages.displayIndex >= MESSAGE_NEXT) {
+    if (r.messageIndexBefore < MESSAGE_NEXT && g.messages.displayIndex >= MESSAGE_NEXT) {
       out.linesTyped.push(readMessageLine(screen));
-      void playing;
-    }
-
-    // $9DC5..$9DCA: once every 64 ticks of the game counter wave_morale_flag
-    // has just advanced. This used to sit BEFORE the flag, which is neither
-    // the loop's order nor main.ts's.
-    frame = (frame + 1) & 0xff;
-    if ((frame & (TICKS_PER_CLOCK - 1)) === 0) {
-      dispatchTimedEvent(schedule, {
-        structs,
-        vischars,
-        random,
-        room: hero.room,
-        hero: heroSlot,
-        heroPos: hero.pos,
-        inSolitary: solitaryState.inSolitary, // $A343
-        player,
-        items,
-        parcels,
-        roomPokes: pokes,
-        queueMessage,
-      });
     }
 
     // Route overruns and pile-ups. Both are cheap and both are invisible to
@@ -706,51 +294,14 @@ function runIdle(ticks: number): Sample {
     // The hero's own seat, which a different routine pokes with a different
     // graphic ($A482 rather than $A437).
     if (!out.heroSeated) {
-      out.heroSeated =
-        pokedObject(pokes, heroBench) === INTERIOR_OBJECT_PRISONER_SAT_END;
+      out.heroSeated = pokedObject(pokes, heroBench) === INTERIOR_OBJECT_PRISONER_SAT_END;
     }
 
     // Likewise the benches: snapshot them while breakfast is actually running.
     if (schedule.clock >= 25 && schedule.clock <= 35) {
       out.benchesAtBreakfast = [messHallBenchRoom25, messHallBenchRoom23].flatMap((base) =>
-        [0, 1, 2].map((n) =>
-          pokedObject(pokes, { ...base, objectIndex: base.objectIndex + n }),
-        ),
+        [0, 1, 2].map((n) => pokedObject(pokes, { ...base, objectIndex: base.objectIndex + n })),
       );
-    }
-
-    const iso = isoPlacement(hero.pos);
-    const visible = vischarVisible(
-      {
-        isoXBytes: iso.column,
-        isoYPixels: iso.pixelRow,
-        widthBytesPlusOne: 3,
-        height: 27,
-      },
-      view.position,
-    ).visible;
-
-    // $B876..$B87B: the render product a paused/resized frame must not
-    // re-consume -- see CLAUDE.md's "the renderer may run more than once per
-    // frame". This loop renders exactly once per tick, so building the mask
-    // buffer here and testing it immediately after is equivalent to main.ts's
-    // render()-then-tick() split without needing the pixel renderer at all.
-    if (visible) {
-      const tiny = tinyposStash(hero.pos, hero.room === 0);
-      renderMaskBuffer(
-        foreground,
-        { isoX: iso.column, isoY: iso.pixelRow >> 3, tinyX: tiny.x, tinyY: tiny.y, tinyHeight: tiny.height },
-        hero.room === 0
-          ? undefined
-          : interiorMasksForRoom(
-              roomsData.roomdefs[roomsData.rooms[hero.room - 1]!.roomdefIndex]!.masks,
-            ),
-      );
-      heroForeground.set(foreground);
-    }
-    if (schedule.night && visible && searchlights.state !== STATE_SEARCHING) {
-      out.maskTestRuns++;
-      if (searchlightMaskTest(searchlights, heroForeground)) out.searchlightEscapes++;
     }
 
     // While he is in bed OR at breakfast his position is zeroed and he is
@@ -758,12 +309,12 @@ function runIdle(ticks: number): Sample {
     // and hero_sleeps ($A489) both fall into hero_sit_sleep_common ($A491),
     // which zeroes mi.pos ($A498). Only count frames where he is supposed to
     // be on screen.
-    if (!visible && !schedule.heroInBed && !schedule.heroInBreakfast) {
+    if (!r.visible && !schedule.heroInBed && !schedule.heroInBreakfast) {
       out.offWindow++;
       if (!out.firstFailure) {
         out.firstFailure =
-          `t=${t} hero tiny(${hero.pos.x >> 3},${hero.pos.y >> 3}) ` +
-          `room ${hero.room} map(${view.position.x},${view.position.y}) ` +
+          `t=${t} hero tiny(${g.hero.pos.x >> 3},${g.hero.pos.y >> 3}) ` +
+          `room ${g.hero.room} map(${view.position.x},${view.position.y}) ` +
           `clock ${schedule.clock} route(${heroSlot.route.index},${heroSlot.route.step})`;
       }
     }
