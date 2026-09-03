@@ -205,6 +205,14 @@ import {
   drawChooseKeys,
 } from './ui/keys.js';
 import { type SpectrumKey, keyForCode } from './ui/keyboard.js';
+import {
+  enableTrace,
+  trace,
+  traceClear,
+  traceDump,
+  traceEntries,
+  traceFrame,
+} from './debug/trace.js';
 import { Beeper } from './spectrum/beeper.js';
 import { BELL_RING_PERPETUAL, BELL_STOP, createBell, ringBell } from './game/bell.js';
 import {
@@ -478,6 +486,25 @@ const panelScreen = new SpectrumScreen();
  * because CLAUDE.md's whole bug-finding method depends on it.
  */
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+
+/**
+ * ?trace=1 logs routine entry by disassembly address (BUILD_PROMPT.md §8).
+ *
+ * ?trace=N keeps only the last N frames. The log lives on window.__trace
+ * rather than in the console, because a dozen lines a frame at 25 Hz makes
+ * the console unusable in seconds -- read it with __trace.dump().
+ */
+{
+  const value = new URLSearchParams(location.search).get('trace');
+  if (value !== null) {
+    enableTrace(Number(value) > 1 ? Number(value) : 0);
+    (window as unknown as Record<string, unknown>).__trace = {
+      dump: (from = 0) => traceDump(from),
+      entries: () => traceEntries(),
+      clear: () => traceClear(),
+    };
+  }
+}
 
 /**
  * Which screen is up: main's menu, choose_keys, or the game.
@@ -1235,12 +1262,17 @@ function render(): void {
   // thing to watch when the camp is meant to be reacting.
   const modeName = (f: number) =>
     f === 1 ? '!' : f === 2 ? '?' : f === 3 ? 'f' : f === 4 ? 'b' : '';
+  // BUILD_PROMPT.md §8 asks the overlay for "the full vischar table, each
+  // character's route and target". Route and target are what tell a stuck
+  // character from a waiting one, and they are invisible everywhere else.
   const roster = occupied.length
     ? occupied
         .map(
           (v) =>
             `${v.slot}:${characterClass(v.character)[0]}${v.character}` +
-            modeName(v.flags),
+            modeName(v.flags) +
+            ` r${v.route.index}/${v.route.step}` +
+            `@(${v.target.x},${v.target.y})`,
         )
         .join(' ')
     : '—';
@@ -1257,7 +1289,10 @@ function render(): void {
     `next: ${describeEvent(next)} at ${next.clock}`;
 
   statusEl.innerHTML =
+    // §8: pos, tinypos AND isopos -- the three that get confused for each
+    // other, per CLAUDE.md's coordinate table.
     `pos <b>(${hero.pos.x}, ${hero.pos.y})</b> · tiny (${tiny.x}, ${tiny.y}) · ` +
+    `iso (${heroSlot.isoPos.x}, ${heroSlot.isoPos.y}) · ` +
     `facing <b>${dirNames[hero.direction & 3]}</b>${hero.direction & 4 ? ' crawling' : ''} · ` +
     `${where} · gwo (${windowOffset.low},${windowOffset.high}) · ` +
     `attr <span class="a">$${attribute.toString(16).toUpperCase().padStart(2, '0')}</span><br>` +
@@ -1265,6 +1300,9 @@ function render(): void {
     // P5: morale, the flag's lagging copy, the score, and what is on the
     // message line. Debug scaffolding -- the game shows all four graphically.
     `morale <b>${player.morale}</b>/${MORALE_MAX} (flag ${player.displayedMorale}) · ` +
+    // $A12F, which wave_morale_flag advances and the lockpick/wire timers
+    // compare against by EQUALITY -- so its exact value matters.
+    `counter <b>${player.gameCounter}</b> · ` +
     `<b>${permitted.redFlag ? 'RED' : 'green'}</b> flag · ` +
     // Who is driving the hero. $A139 counts down while idle and the CPU takes
     // over at zero; solitary and the red flag override it. Shown because a
@@ -1288,7 +1326,7 @@ function render(): void {
     `score <b>${String(scoreValue(player)).padStart(5, '0')}</b> · ` +
     `held ${heldLabel()}` +
     (messageOnScreen(messages) ? ` · msg "<b>${messageTable[messages.messageIndex]!.text}</b>"` : '') +
-    (schedule.heroInBed ? ' · <b>IN BED</b> (press an arrow)' : '') +
+    (schedule.heroInBed ? ' · <b>IN BED</b> (press a direction)' : '') +
     (schedule.heroInBreakfast ? ' · <b>AT BREAKFAST</b>' : '') +
     (paused ? ' · <b>PAUSED</b>' : '') +
     (lastEvent ? ` · <b>${lastEvent}</b>` : '');
@@ -1376,6 +1414,7 @@ function tick(): void {
 
   const random = () => prng.next();
 
+  trace('$9D7B', 'main_loop');
   // $9DB4..$9DB8: the searchlights only run at night. Once one has him it
   // stops sweeping and tracks him until he gets indoors, which is the only
   // thing that shakes it off.
@@ -1434,6 +1473,7 @@ function tick(): void {
   // then becomes input_KICK ($9E8D), which carries no direction, so the hero
   // does NOT also walk. Passing the raw value on would move him, because
   // lookupAnimation takes `input % 9` and fire+up would read as plain up.
+  if (working) trace('$9E0E', 'runWorkingTimers', heroSlot.flags & 1 ? 'lockpick' : 'wire');
   const command = processPlayerInputFire(itemState, input, {
     player,
     room: hero.room,
@@ -1570,6 +1610,7 @@ function tick(): void {
   // ($9D96). Purging before spawning matters -- the other way round would let
   // a character spawn and be purged in one frame.
   // $9D8D: one off-screen character walks its route.
+  trace('$9D8D', 'move_a_character');
   moveIndex = nextCharacterIndex(moveIndex);
   const mover = structs[moveIndex];
   if (mover) moveCharacter(mover, { random, pokes: roomPokes, onHeroRelease: releaseHero });
@@ -1593,6 +1634,7 @@ function tick(): void {
     });
   }
 
+  trace('$9D93', 'purge_invisible_characters');
   purgeInvisibleCharacters(vischars, structs, view.position, hero.room);
   spawnCharacters(vischars, structs, view.position, hero.room, { random });
 
@@ -1668,6 +1710,7 @@ function tick(): void {
   // The escape check reads vischar.iso_pos ($8018/$801A), which is
   // calc_vischar_iso_pos_from_state -- not the item projection.
   heroSlot.isoPos = calcIsoPos(hero.pos);
+  trace('$9F21', 'in_permitted_area', `room ${hero.room}`);
   inPermittedArea(permitted, {
     room: hero.room,
     clock: schedule.clock,
@@ -1723,6 +1766,7 @@ function tick(): void {
   // $9D90: follow_suspicious_character. Sets the pursuit flags that
   // character_behaviour then acts on, so it runs BEFORE the NPC behaviour
   // pass below.
+  trace('$9D90', 'follow_suspicious_character');
   const followed = followSuspiciousCharacter(
     vischars,
     {
@@ -1776,6 +1820,7 @@ function tick(): void {
   // between animate, move_map and plot_sprites; nothing in between reads the
   // bell, so they run together here and the only difference is where in the
   // frame the clatter falls.
+  trace('$9D9C', 'ring_bell', `bell ${bell.counter}`);
   ringBellThisFrame();
 
   // $9D7B's own order: wave_morale_flag first -- it is what advances the game
@@ -1785,6 +1830,7 @@ function tick(): void {
   // These write straight into the display file rather than into the window
   // buffer, and render() clears the screen before blitting, so they are
   // redrawn from render() as well. Only the STATE advances here.
+  trace('$9DC2', 'wave_morale_flag', `counter ${player.gameCounter}`);
   waveMoraleFlag(panelScreen, player);
   messageDisplay(messages, panelScreen);
   checkMorale(player, queueGameMessage, () => { automatic.counter = 0; }); // $9DE1
@@ -1814,6 +1860,7 @@ function tick(): void {
   }
 
   render();
+  traceFrame();
 
   // $B876..$B87B: plot_sprites tests the mask buffer for each vischar it draws
   // while a light has the hero, and searchlight_mask_test itself ignores every
@@ -2064,6 +2111,10 @@ if (mode === 'play') {
   // main ($F163) does not reach reset_game until the player has chosen from
   // the menu, so neither does this -- startGame() is where $F1C3 happens.
   drawMenuScreen();
+  // menu_screen plays its tune for as long as the menu is up ($F4BD onwards).
+  // Nothing is audible until the first gesture; startTune records the
+  // intention and Beeper.resume acts on it.
+  beeper.startTune();
 }
 
 /**
