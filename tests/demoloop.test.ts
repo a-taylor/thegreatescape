@@ -64,6 +64,28 @@ import { renderMaskBuffer, interiorMasksForRoom } from '../src/render/maskbuffer
 import { tinyposStash } from '../src/game/coords.js';
 import { MASK_BUFFER_SIZE } from '../src/render/sprites.js';
 import { advanceZoombox, createZoombox } from '../src/render/zoombox.js';
+import { createPermitted, inPermittedArea } from '../src/game/permitted.js';
+import { followSuspiciousCharacter } from '../src/game/pursuit.js';
+import {
+  BLOCKED_TUNNEL_BOUND,
+  INTERIOR_OBJECT_COLLAPSED_TUNNEL,
+  ROOM_SOLITARY,
+  acceptBribe,
+  collision,
+  resetMapAndCharacters,
+  solitary,
+  solitaryPos,
+} from '../src/game/jeopardy.js';
+import { isItemDiscoverable, itemDiscovered, ITEM_FOOD as ITEM_FOOD_INDEX } from '../src/game/discovery.js';
+import {
+  dropItemTail,
+  markNearbyItems,
+  processPlayerInputFire,
+} from '../src/game/inventory.js';
+import { type ActionContext, itemActions } from '../src/game/actions.js';
+import { interiorDoorsForRoom } from '../src/game/doors.js';
+import { calcIsoPos, heroMapPosition } from '../src/game/coords.js';
+import { resetVisibleCharacter } from '../src/game/spawn.js';
 import routesData from '../data/routes.json';
 import { INTERIOR_MAP_POSITION, halfDoors } from '../src/game/doors.js';
 import { getTarget } from '../src/game/routes.js';
@@ -84,6 +106,13 @@ import {
   INTERIOR_OBJECT_PRISONER_SAT,
   INTERIOR_OBJECT_PRISONER_SAT_END,
   heroBench,
+  blockedTunnelBoundary,
+  clearTunnelBlockage,
+  isTunnelBlockageCleared,
+  blockedTunnelObject,
+  clearAllBenches,
+  pokeBound,
+  pokeObject,
   type ParcelState,
   type RoomPokeState,
 } from '../src/game/parcels.js';
@@ -169,6 +198,19 @@ interface Sample {
   nightTicks: number;
   /** Frames spent frozen inside a zoombox reveal ($ABA0 blocks the main loop). */
   zoomboxTicks: number;
+  /** Fire commands process_player_input_fire ($7AC9) actually dispatched. */
+  itemCommands: number;
+  /** Frames with the red flag up -- the hero somewhere he should not be. */
+  redFlagTicks: number;
+  /** Slot-frames spent in one of the four pursuit modes ($C892 onwards). */
+  pursuitTicks: number;
+  /** Arrests ($B06E -> solitary) and bribes taken ($B063). */
+  arrests: number;
+  bribes: number;
+  /** action_papers walking him out of the main gate ($EFCB). */
+  gateTransitions: number;
+  /** in_permitted_area seeing him off the map edge ($A51C escaped). */
+  escapes: number;
   /** Frames searchlightMaskTest actually ran (state !== SEARCHING, hero plotted). */
   maskTestRuns: number;
   /** Times searchlightMaskTest returned true, i.e. the light gave up. */
@@ -251,6 +293,13 @@ function runIdle(ticks: number): Sample {
     heroSeated: false,
     nightTicks: 0,
     zoomboxTicks: 0,
+    itemCommands: 0,
+    redFlagTicks: 0,
+    pursuitTicks: 0,
+    arrests: 0,
+    bribes: 0,
+    gateTransitions: 0,
+    escapes: 0,
     maskTestRuns: 0,
     searchlightEscapes: 0,
     searchlightStateInvalid: false,
@@ -261,6 +310,88 @@ function runIdle(ticks: number): Sample {
     screen,
   };
   const queueMessage = (index: number, c = 0) => queueMessageState(messages, index, c);
+
+  // P6 state, one owner each, exactly as src/main.ts holds it.
+  const permitted = createPermitted();
+  const pursuitState = { foodDiscoveredCounter: 0, bellRingingPerpetually: false }; // $C891/$A130
+  const solitaryState = { inSolitary: false, currentDoor: -1 }; // $A13A
+  const savedPos = { x: 0, y: 0, height: 0 }; // $7B0A
+  // Boxed rather than a plain `let`: it is only ever written from inside a
+  // callback, and TypeScript narrows a local `let` to its initialiser across
+  // that, which would make the uniform test below look statically false.
+  const heroSprite: { current: 'prisoner' | 'guard' } = { current: 'prisoner' };
+  const heroMapPos = { x: 0, y: 0, height: 0 }; // $81B8, NOT map_position ($81BB)
+
+  /** The same context main.ts hands the action_* handlers. */
+  const actionContext = (): ActionContext => ({
+    items,
+    player,
+    room: hero.room,
+    hero: heroSlot,
+    mapPosition: heroMapPosition(hero.pos, hero.room === 0),
+    savedPos,
+    vischars,
+    interiorDoors: hero.room === 0 ? [] : interiorDoorsForRoom(hero.room),
+    lockedDoors,
+    redCrossParcelContents: parcels.contents,
+    jeopardy,
+    queueMessage,
+    dropItemTail: (item) => dropItemTail(items, item, hero.room, hero.pos),
+    setHeroSprite: (sprite) => { heroSprite.current = sprite; },
+    heroSpriteIsGuard: () => heroSprite.current === 'guard',
+    refreshRoom: () => {}, // no renderer in this loop
+    clearTunnelBlockage: () => clearTunnelBlockage(pokes),
+    isTunnelBlockageCleared: () => isTunnelBlockageCleared(pokes),
+    solitary: () => { arrest(); },
+    transitionOutsideMainGate: () => { out.gateTransitions++; },
+  });
+
+  /** $CB98 solitary, as main.ts's arrestHero drives it. */
+  function arrest(): void {
+    out.arrests++;
+    solitary(solitaryState, {
+      hero: heroSlot,
+      items,
+      player,
+      vischars,
+      structs,
+      queueMessage,
+      discoverItem: (item) => {
+        if (item !== 0xff) itemDiscovered(items, player, item, queueMessage);
+      },
+      silenceBell: () => { pursuitState.bellRingingPerpetually = false; },
+      resetCast: () => {
+        resetMapAndCharacters({
+          vischars,
+          structs,
+          hero: heroSlot,
+          schedule,
+          lockedDoors,
+          resetVisible: (v) => resetVisibleCharacter(v, structs),
+          // $B7B9/$B7D4/$B7DD, the part every reset_map_and_characters caller
+          // shares -- beds re-occupied, benches cleared, tunnel re-blocked.
+          restoreRoomObjects: () => {
+            for (const bed of bedObjects) {
+              pokeObject(pokes, bed, INTERIOR_OBJECT_OCCUPIED_BED);
+            }
+            pokeObject(pokes, heroBedObject, INTERIOR_OBJECT_OCCUPIED_BED);
+            clearAllBenches(pokes);
+            pokeObject(pokes, blockedTunnelObject, INTERIOR_OBJECT_COLLAPSED_TUNNEL);
+            pokeBound(pokes, blockedTunnelBoundary, BLOCKED_TUNNEL_BOUND);
+          },
+        });
+      },
+      forceAutomatic: () => { automatic.counter = 0; }, // $CC16
+      transitionToSolitary: () => {
+        hero.room = ROOM_SOLITARY;
+        hero.pos = { x: solitaryPos[0]!, y: solitaryPos[1]!, height: solitaryPos[2]! };
+        view.position.x = INTERIOR_MAP_POSITION.x;
+        view.position.y = INTERIOR_MAP_POSITION.y;
+        view.refresh();
+      },
+    });
+  }
+
   let moveIndex = 0;
   let frame = 0;
   let jamKey = '';
@@ -298,6 +429,24 @@ function runIdle(ticks: number): Sample {
       },
       () => {},
     );
+
+    // $9E86 process_player_input_fire ($7AC9), in main.ts's position. The
+    // autopilot's synthesised input never carries fire, so this returns null
+    // every tick here -- but it is wired to the REAL itemActions context
+    // rather than a stub, so the twelve action_* handlers are reachable from
+    // this loop the moment a scenario presses fire. A stub would make that
+    // look covered while covering nothing.
+    const command = processPlayerInputFire(items, input, {
+      player,
+      room: hero.room,
+      mapPosition: heroMapPosition(hero.pos, hero.room === 0),
+      heroPos: hero.pos,
+      savedPos,
+      actions: itemActions(actionContext()),
+      onUniformRemoved: () => { heroSprite.current = 'prisoner'; }, // $7B96
+    });
+    if (command) out.itemCommands++;
+
     // Mirrors src/main.ts's tick. It has to: the whole value of this file is
     // that it exercises the same order the demo does, and a hero who never
     // sits down or never takes the automatic door path walks a different
@@ -378,6 +527,109 @@ function runIdle(ticks: number): Sample {
       view.moveMap(animations[hero.animation]?.header[3] ?? 0xff, hero.reverse);
     }
 
+    // $9F21 in_permitted_area: maintains hero_map_position, colours the morale
+    // flag, and can put the hero back on his route -- so it runs before the
+    // panel that draws the flag it just recoloured.
+    heroSlot.pos = { ...hero.pos };
+    heroSlot.isoPos = calcIsoPos(hero.pos);
+    inPermittedArea(permitted, {
+      room: hero.room,
+      clock: schedule.clock,
+      inSolitary: solitaryState.inSolitary, // $A13A
+      hero: heroSlot,
+      mapPosition: heroMapPos,
+      setHeroRoute: (index, step2) => {
+        setHeroRoute(
+          {
+            structs,
+            vischars,
+            random,
+            room: hero.room,
+            hero: heroSlot,
+            heroPos: hero.pos,
+            inSolitary: solitaryState.inSolitary, // $A343
+          },
+          index,
+          step2,
+        );
+      },
+      onEscaped: () => { out.escapes++; },
+      silenceBell: () => { pursuitState.bellRingingPerpetually = false; }, // $9FF1
+    });
+    if (permitted.redFlag) out.redFlagTicks++;
+
+    // $A138 and $A13A are each ONE game byte with two readers. Copied both
+    // ways rather than left to drift, per CLAUDE.md.
+    automatic.redFlag = permitted.redFlag;
+    automatic.inSolitary = solitaryState.inSolitary;
+
+    // $9D90 follow_suspicious_character ($C892): sets the pursuit flags that
+    // character_behaviour acts on.
+    const followed = followSuspiciousCharacter(
+      vischars,
+      {
+        room: hero.room,
+        redFlag: permitted.redFlag,
+        automaticPlayerCounter: automatic.counter,
+        heroMapPosition: heroMapPos,
+        heroInUniform: heroSprite.current === 'guard',
+        items,
+      },
+      pursuitState,
+      {
+        checkItemDiscoverable: () => {
+          const found = isItemDiscoverable(items, hero.room);
+          if (found >= 0) itemDiscovered(items, player, found, queueMessage);
+        },
+        foodExpired: () => {
+          itemDiscovered(items, player, ITEM_FOOD_INDEX, queueMessage);
+        },
+      },
+    );
+    if (followed.ringBell) pursuitState.bellRingingPerpetually = true;
+    for (const v of npcSlots(vischars)) if (!isEmpty(v) && v.flags !== 0) out.pursuitTicks++;
+
+    // $AFC0 collision, per moving NPC against the hero.
+    if (!solitaryState.inSolitary) {
+      for (const v of npcSlots(vischars)) {
+        if (isEmpty(v)) continue;
+        const hit = collision(v, { ...v.pos }, vischars, jeopardy.bribedCharacter);
+        if (hit.kind === 'arrest') {
+          arrest();
+          break;
+        }
+        if (hit.kind === 'bribe') {
+          out.bribes++;
+          acceptBribe(v, vischars, items, player, queueMessage);
+          jeopardy.bribedCharacter = 0xff;
+          break;
+        }
+      }
+    }
+
+    // $DB9E mark_nearby_items, against map_position ($81BB) -- the view
+    // scroll, not the hero's own tinypos.
+    markNearbyItems(items, view.position, hero.room);
+
+    // $9DC2 wave_morale_flag, then message_display, then check_morale -- and
+    // only THEN $9DC5's timed event. The flag is what advances the game
+    // counter, so it must run every tick even when nothing else does.
+    const wasIndex = messages.displayIndex;
+    const playing = messages.messageIndex;
+    waveMoraleFlag(screen, player);
+    messageDisplay(messages, screen);
+    checkMorale(player, queueMessage, () => { automatic.counter = 0; }); // $9DE1
+    if (wasIndex === MESSAGE_NEXT && messages.displayIndex === 0) {
+      out.messagesShown.push(messages.messageIndex);
+    }
+    if (wasIndex < MESSAGE_NEXT && messages.displayIndex >= MESSAGE_NEXT) {
+      out.linesTyped.push(readMessageLine(screen));
+      void playing;
+    }
+
+    // $9DC5..$9DCA: once every 64 ticks of the game counter wave_morale_flag
+    // has just advanced. This used to sit BEFORE the flag, which is neither
+    // the loop's order nor main.ts's.
     frame = (frame + 1) & 0xff;
     if ((frame & (TICKS_PER_CLOCK - 1)) === 0) {
       dispatchTimedEvent(schedule, {
@@ -387,28 +639,13 @@ function runIdle(ticks: number): Sample {
         room: hero.room,
         hero: heroSlot,
         heroPos: hero.pos,
+        inSolitary: solitaryState.inSolitary, // $A343
         player,
         items,
         parcels,
         roomPokes: pokes,
         queueMessage,
       });
-    }
-
-    // P5: the panel, in the main loop's own order -- wave_morale_flag ($9D7B)
-    // then message_display. The flag is what advances the game counter, so it
-    // must run every tick even when nothing else does.
-    const wasIndex = messages.displayIndex;
-    const playing = messages.messageIndex;
-    waveMoraleFlag(screen, player);
-    messageDisplay(messages, screen);
-    checkMorale(player, queueMessage);
-    if (wasIndex === MESSAGE_NEXT && messages.displayIndex === 0) {
-      out.messagesShown.push(messages.messageIndex);
-    }
-    if (wasIndex < MESSAGE_NEXT && messages.displayIndex >= MESSAGE_NEXT) {
-      out.linesTyped.push(readMessageLine(screen));
-      void playing;
     }
 
     // Route overruns and pile-ups. Both are cheap and both are invisible to
@@ -894,6 +1131,41 @@ describe('P5 over a full day', () => {
     // A hundred more frames is fifty steps, more than the 25 it has to fall.
     const longer = runIdle(8960 + 100);
     expect(longer.player.displayedMorale).toBe(longer.player.morale);
+  });
+
+  it('actually reaches the pursuit chain', () => {
+    // Reachability first, per CLAUDE.md: follow_suspicious_character ($C892)
+    // and collision ($AFC0) were outside this loop entirely until now, and a
+    // system that is wired but never entered is the exact shape of P5's item
+    // bug. Measured, not assumed -- 941 slot-frames carry a pursuit mode over
+    // an ordinary day, so the guards really do notice each other's business
+    // while the hero is doing nothing at all.
+    expect(run.pursuitTicks).toBeGreaterThan(0);
+  });
+
+  it('never flags, arrests or loses an idle hero who follows the schedule', () => {
+    // The other half of the same wiring, and the more valuable half: a hero on
+    // autopilot walks the day's routes, so in_permitted_area should never once
+    // raise the red flag, collision should never reach an arrest, and he
+    // should never wander off the map edge into escaped ($A51C).
+    //
+    // Each of these is a real regression net. A route that sent him somewhere
+    // he is not permitted, or a collision test that fired on a guard merely
+    // passing him, would show up here and nowhere else in the suite.
+    expect(run.redFlagTicks).toBe(0);
+    expect(run.arrests).toBe(0);
+    expect(run.bribes).toBe(0);
+    expect(run.escapes).toBe(0);
+    expect(run.gateTransitions).toBe(0);
+  });
+
+  it('presses fire exactly never, which is the gap this loop still has', () => {
+    // process_player_input_fire ($7AC9) is wired to the real itemActions
+    // context above, but the autopilot never synthesises a fire bit, so no
+    // action_* handler runs in this scenario. Asserted rather than left
+    // unsaid: the number is what tells a reader the item path is present for
+    // ORDER, and that covering the handlers needs a scripted-input run.
+    expect(run.itemCommands).toBe(0);
   });
 
   it('zoomboxes every room change, eleven steps each', () => {

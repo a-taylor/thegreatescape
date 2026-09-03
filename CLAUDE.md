@@ -425,11 +425,37 @@ wiring the three calls into the real tick, against the real day schedule, doesn'
 put `searchlight_state` outside its documented 0..255 range, and doesn't disturb the existing
 route/room/message assertions across a full day-night cycle.
 
-Two systems from `src/main.ts`'s tick are still outside the mirror: `inPermittedArea` /
-`followSuspiciousCharacter` / `collision` (the pursuit and jeopardy chain) and
-`processPlayerInputFire` (item actions). Both need state this test does not yet construct
-(`pursuitState`, wired item actions) and neither was named in the note this replaces — worth
-scoping as its own session rather than folding in here.
+**The two systems that note used to list as missing are now in.** `inPermittedArea`,
+`followSuspiciousCharacter` and `collision` run in the mirror in `src/main.ts`'s positions,
+against real `permitted` / `pursuitState` / `solitaryState`, with the arrest wired to the same
+`solitary` chain `arrestHero` drives. `processPlayerInputFire` runs too, against the real
+`itemActions(actionContext())` rather than a stub — a stub would have made the twelve
+`action_*` handlers look covered while covering nothing.
+
+Three things that came out of doing it, each worth keeping:
+
+- **The pursuit chain is reachable and busy.** 941 slot-frames of an ordinary idle day carry a
+  pursuit mode, so the guards react to each other while the hero does nothing. Measured, not
+  assumed.
+- **The valuable assertions were the zeroes.** An idle hero walking the day's routes must never
+  raise the red flag, never be arrested, never take a bribe and never trip `escaped`. Each is a
+  net nothing else in the suite casts.
+- **Fire is never pressed, and the test says so out loud.** `expect(run.itemCommands).toBe(0)`
+  records that the item path is present for ORDER only. Covering the handlers needs a
+  scripted-input run — which is what the walkthrough harness is for.
+
+Also fixed while doing it: the mirror ran `dispatchTimedEvent` **before** `waveMoraleFlag`,
+which is neither `$9DC2`/`$9DC5`'s order nor `src/main.ts`'s, and its `checkMorale` was missing
+the `automatic.counter = 0` callback ($9DE1) that main.ts passes.
+
+**Still open, and bigger: `src/main.ts`'s own tick is not in `$9D7B`'s order.** The loop runs
+`check_morale` FIRST ($9D7B), `in_permitted_area` at $9D87 — before `move_a_character`,
+`follow_suspicious_character`, purge/spawn and `animate` — and `mark_nearby_items` at $9D99,
+between `spawn_characters` and `animate`. `src/main.ts` has all three near the END of its tick.
+`in_permitted_area` is the one that can actually differ: it can put the hero back on his route,
+and in the original every NPC behaviour that frame sees the result. The mirror deliberately
+matches `src/main.ts` rather than `$9D7B`, because the mirror's job is to mirror. Reordering the
+real tick is its own session, and needs measuring before and after — not a drive-by fix.
 
 ---
 
