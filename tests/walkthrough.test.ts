@@ -17,10 +17,18 @@
  *     red_cross_parcel_contents_list ($A25F) = purse, wiresnips, bribe, compass
  *
  * and `escaped` ($A51C) counts COMPASS + PURSE as the full win ($A538 CP $05).
- * So four parcels -- four in-game days -- is a complete, winning game, played
- * through the same tick and the same five keys a person uses. The tunnel and
- * wire-cutting legs of Vaxalon's route are a different way to the same ending
- * and are not driven here; `tests/actions.test.ts` covers those handlers.
+ * So four parcels -- four in-game days -- puts the winning pair in his hands,
+ * played through the same tick and the same five keys a person uses.
+ *
+ * **What is NOT driven here, and should be.** The run stops with the compass
+ * and the purse in hand; it does not then walk him out. It cannot yet, and the
+ * reason is a measured fact rather than an oversight: the camp is sealed (see
+ * the test below), so leaving it means the tunnel, or the main gate on forged
+ * papers in a stolen uniform. Both are multi-room routes through doors this
+ * file has not mapped. The pieces either side of that gap ARE driven --
+ * `cutting the wire` below proves he crosses a fence, and `produces the
+ * WINNING ending` proves what he is holding wins -- so what is missing is the
+ * navigation between them, not a rule.
  *
  * Nothing in this file knows a rule. It walks, it presses fire, and it asserts
  * what the game did. Everything it decides -- which way to walk round a hut,
@@ -266,8 +274,8 @@ describe('Completion:solutionOne, played through', () => {
     expect(reachableOutdoorSquares().escape).toBeNull();
   });
 
-  it('produces the WINNING ending', () => {
-    // The whole point of the phase. $A538: compass + purse is escapeitem $05,
+  it('produces the WINNING ending for what he is holding', () => {
+    // $A538: compass + purse is escapeitem $05,
     // the success case -- "AND WILL CROSS THE BORDER SUCCESSFULLY" rather than
     // "BUT WERE RECAPTURED".
     const outcome = computeEscapeOutcome(g.items.held);

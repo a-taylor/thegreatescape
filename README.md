@@ -162,10 +162,14 @@ than to the game.
 
   The acceptance run is `tests/walkthrough.test.ts`, which plays a real game through the
   same tick and the same five keys a person uses — out of bed, across the camp, four red
-  cross parcels over four in-game days, and the winning `escaped` ending. It found a bug
-  that made the game **uncompletable**: the wire cut writes the hero's height, direction
-  and walk-through inputs to vischar 0, which the demo overwrote from its own `HeroState`
-  every frame, so he snipped the fence and never crossed it. See `CLAUDE.md`.
+  cross parcels over four in-game days, ending with the compass and the purse in hand and
+  the winning `escaped` outcome computed from them. It found a bug that made the game
+  **uncompletable**: the wire cut writes the hero's height, direction and walk-through
+  inputs to vischar 0, which the demo overwrote from its own `HeroState` every frame, so
+  he snipped the fence and never crossed it. See `CLAUDE.md`.
+  **Still open:** the run does not yet walk him out of the camp. Cutting a fence and the
+  winning outcome are both driven; the multi-room route between them — the tunnel, or the
+  main gate on forged papers — is not.
 
   It also settled a question by measuring rather than assuming: **the camp is sealed.**
   34,532 walkable outdoor squares, none of them past `in_permitted_area`'s escape line, so
