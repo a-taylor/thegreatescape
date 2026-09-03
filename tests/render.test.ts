@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import { inflateSync } from 'node:zlib';
 
@@ -100,11 +100,31 @@ function readPng(path: string): { width: number; height: number; bits: Uint8Arra
   return { width, height, bits };
 }
 
-const refMap = readPng(
-  fileURLToPath(
-    new URL('../The-Great-Escape/build/TheGreatEscape/images/scr/map-0-0.png', import.meta.url),
-  ),
+/**
+ * map-0-0.png is the strongest oracle this project has -- the entire 54x34 grid
+ * expanded to a 216x136-tile plane at 1:1 -- and it lives in the DISASSEMBLY,
+ * not in this repository.
+ *
+ * `The-Great-Escape/` is gitignored because it also holds the pristine .z80,
+ * which BUILD_PROMPT.md §2 and §10 forbid shipping. So on a machine that has
+ * not cloned it -- a CI runner, most obviously -- the file is simply absent,
+ * and the tests that compare against it have nothing to compare against.
+ *
+ * They SKIP rather than fail, and say why. Loading it at module scope made the
+ * whole file throw on import, which took every other test in it down as well:
+ * the game window blit, the interior rooms and the poke overlay need no oracle
+ * at all and have no business depending on one.
+ */
+const REF_MAP_PATH = fileURLToPath(
+  new URL('../The-Great-Escape/build/TheGreatEscape/images/scr/map-0-0.png', import.meta.url),
 );
+const haveRefMap = existsSync(REF_MAP_PATH);
+const refMap = haveRefMap
+  ? readPng(REF_MAP_PATH)
+  : { width: 0, height: 0, bits: new Uint8Array(0) };
+
+/** Skips the oracle comparisons when the disassembly has not been cloned. */
+const itWithOracle = haveRefMap ? it : it.skip;
 
 /** Unpack the window's pixel buffer into 1-bit-per-pixel for comparison. */
 function windowBits(buffers: GameWindowBuffers, rows: number): Uint8Array {
@@ -122,7 +142,7 @@ function windowBits(buffers: GameWindowBuffers, rows: number): Uint8Array {
 }
 
 describe('reference map', () => {
-  it('is the whole map at 1:1', () => {
+  itWithOracle('is the whole map at 1:1', () => {
     expect(refMap.width).toBe(54 * 4 * 8);
     expect(refMap.height).toBe(34 * 4 * 8);
   });
@@ -145,7 +165,9 @@ describe('exterior rendering', () => {
     [186, 112], // bottom-right corner: 216-24 x 136-17 (+1 row of slack)
   ];
 
-  it.each(positions)('window at tile (%i, %i) matches map-0-0.png', (mx, my) => {
+  (haveRefMap ? it.each(positions) : it.skip.each(positions))(
+    'window at tile (%i, %i) matches map-0-0.png',
+    (mx, my) => {
     const buffers = new GameWindowBuffers();
     fillExterior(buffers, mx, my);
     buffers.expandTiles(tiles);
@@ -161,8 +183,9 @@ describe('exterior rendering', () => {
         if (mine[y * w + x] !== ref) diff++;
       }
     }
-    expect(diff, `${diff} of ${w * rows} pixels differ at (${mx},${my})`).toBe(0);
-  });
+      expect(diff, `${diff} of ${w * rows} pixels differ at (${mx},${my})`).toBe(0);
+    },
+  );
 
   it('adds the tile bank, not just the supertile entry', () => {
     // Comparing fillExterior against exteriorTileAt would be vacuous -- both

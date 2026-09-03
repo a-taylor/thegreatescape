@@ -1,15 +1,23 @@
 # Continuous integration: typecheck, tests, build.
 #
-# What is deliberately ABSENT is the extraction gate. `npm run extract:check`
-# and `npm run extract:goldens` both read The-Great-Escape/ -- the SkoolKit
-# disassembly and, next to it, build/TheGreatEscape.pristine.z80, which is the
-# original 48K game image. BUILD_PROMPT.md §2 and §10 are explicit that the
-# tape image must not be shipped, so that directory is gitignored and simply is
-# not here for a runner to read.
+# Anything that needs The-Great-Escape/ cannot run here. That directory holds
+# the SkoolKit disassembly and, next to it, build/TheGreatEscape.pristine.z80 --
+# the original 48K game image -- and BUILD_PROMPT.md §2 and §10 are explicit
+# that it must not be shipped, so it is gitignored and simply is not present
+# for a runner to read. Three things depend on it:
 #
-# They are not optional, they are LOCAL: run them before every commit, as
-# CLAUDE.md's verification section says. CI can only check the half of the
-# work that lives in this repository.
+#   npm run extract:check     local only
+#   npm run extract:goldens   local only
+#   tests/render.test.ts      the map-0-0.png comparisons SKIP without it
+#
+# The first two are not optional, they are LOCAL -- run them before every
+# commit, as CLAUDE.md's verification section says. The third skips rather than
+# fails, and says so in the run's output; the rest of that file needs no oracle
+# and still runs.
+#
+# The first push got this wrong: the comment claimed only the Python commands
+# needed the disassembly, and CI went red on a Vitest file that read map-0-0.png
+# at module scope.
 
 name: CI
 

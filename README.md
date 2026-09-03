@@ -91,8 +91,14 @@ fails immediately rather than producing plausible-looking wrong data.
 `The-Great-Escape/`, which holds the disassembly and, beside it,
 `build/TheGreatEscape.pristine.z80` — the original 48K game image. §2 and §10 of the brief are
 explicit that it must not be shipped, so the directory is gitignored and is simply not there for
-a runner to read. They are local pre-commit steps; CI checks the half of the work that lives in
-this repository.
+a runner to read. They are local pre-commit steps.
+
+The same applies to part of the Vitest suite: `tests/render.test.ts` compares the exterior
+renderer against `map-0-0.png`, which lives in the disassembly's build output. Those ten
+comparisons **skip** when the directory is absent — they do not fail, and the run says how many
+were skipped. Everything else in the file needs no oracle and runs anywhere. So a green CI run
+means "the engine builds, typechecks and passes every test that does not need the original
+game"; the pixel oracles are checked locally.
 
 ---
 
