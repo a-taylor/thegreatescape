@@ -132,7 +132,9 @@ than to the game.
   documented bug fixes are deliberate deviations rather than something inherited.
 - **`FIDELITY.md`** — what happens at each known bug site, and why
 - **`CLAUDE.md`** — how to work on this: coordinate scales, recurring hazards, verification
-- **`BUILD_PROMPT.md`** — the original brief
+- **`BUILD_PROMPT.md`** — the original brief. Not published; the `BUILD_PROMPT.md §N`
+  citations in the source point into it and are kept for their precision about which
+  requirement a given piece of code exists to satisfy
 
 ---
 
@@ -221,12 +223,10 @@ than to the game.
   the repository's own name as the base path. The production build is verified serving at
   `/thegreatescape/` and playing end to end.
 
-  **The deploy is manual, and stays that way until a question is answered.** `data/` holds
-  graphics extracted from the original game; this repository is private for exactly that
-  reason. A Pages site built from a private repository is still served publicly unless access
-  control is configured, so enabling Pages would put that data on a public URL — which is the
-  thing `CLAUDE.md`'s first rule guards against. The workflow is therefore
-  `workflow_dispatch` only: run it deliberately, once that is settled.
+  **The deploy is manual.** `data/` holds graphics extracted from the original game, so
+  publishing is a deliberate act rather than a side effect of a commit; the workflow is
+  `workflow_dispatch` only. What is *not* published, here or anywhere, is the tape image: no
+  `.z80`, `.tap` or `.sna` has ever been committed, and `The-Great-Escape/` is gitignored.
 
 Two known gaps, both stated where they live rather than smoothed over:
 

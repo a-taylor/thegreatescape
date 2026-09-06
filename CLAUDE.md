@@ -1,9 +1,13 @@
 # Working on this project
 
 A browser recreation of The Great Escape (1986, ZX Spectrum), derived **only** from David
-Thomas's SkoolKit disassembly in `./The-Great-Escape/`. Read `BUILD_PROMPT.md` for the brief,
-`PLAN.md` for the design, `OPEN_QUESTIONS.md` for resolved ambiguities and `FIDELITY.md` for
-what happens at each known bug site.
+Thomas's SkoolKit disassembly in `./The-Great-Escape/`. Read `PLAN.md` for the design,
+`OPEN_QUESTIONS.md` for resolved ambiguities and `FIDELITY.md` for what happens at each known
+bug site.
+
+`BUILD_PROMPT.md` is the original brief and is **not published** — it is gitignored. The
+`BUILD_PROMPT.md §N` citations throughout the source point into it, and are kept because they
+are precise about *which* requirement a piece of code exists to satisfy.
 
 This file is the part that is not in those: **how to work on it without repeating mistakes
 that have already cost a dozen rounds of bug reports.** Everything below was learned the
@@ -21,8 +25,8 @@ expensive way.
 - **Parse, never transcribe.** No byte of game data is typed by hand. `src/` contains zero
   literal game data and a test enforces it.
 - **Do not ship the tape image.** `The-Great-Escape/` is gitignored because it contains
-  `build/TheGreatEscape.pristine.z80`. The repo is private; making it public would publish
-  extracted copyrighted data.
+  `build/TheGreatEscape.pristine.z80`, the original 48K game image. Nothing that would let
+  someone reconstruct it belongs here.
 - **Commit and push only when asked.**
 
 ---
