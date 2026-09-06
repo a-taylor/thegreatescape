@@ -1,8 +1,9 @@
 /**
- * Trace mode, per `BUILD_PROMPT.md` §8.
+ * Trace mode, per the brief's §8.
  *
- * "Log routine entry by disassembly address so behaviour can be diffed against
- * a reading of the .skool when something is wrong."
+ * The requirement is to log routine entry by address, so that what the game
+ * did can be checked against a reading of the disassembly when something looks
+ * wrong.
  *
  * That last clause is the design brief. The point is not a profiler and not a
  * complete instruction trace -- it is to be able to sit with the disassembly

@@ -1,9 +1,9 @@
 /**
- * A state hash, for `BUILD_PROMPT.md` §8's determinism harness.
+ * A state hash, for the determinism harness the brief asks for in §8.
  *
- * "Fixed seed plus a scripted input sequence produces a state hash at frame N.
- * Use it to catch regressions when refactoring, and to replay the P6
- * walkthrough in CI."
+ * The requirement is that a fixed seed plus a scripted input sequence produce a
+ * state hash at frame N, so that a refactor can be checked for behavioural
+ * drift and the P6 walkthrough can be replayed in CI.
  *
  * The value of a hash is entirely in what it covers, so this walks every field
  * that a tick can write and nothing that it cannot. Two things are deliberately

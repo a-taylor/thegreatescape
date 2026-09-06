@@ -1,8 +1,8 @@
 """Run-length decoders for interior objects and masks.
 
 The game uses TWO different RLE schemes. Both are derived here from the Z80
-routines rather than from any existing decoder, per BUILD_PROMPT.md §0
-("Every behaviour you implement must be traceable to a specific address").
+routines rather than from any existing decoder: every behaviour here is
+traceable to a specific address, which is the project's first rule.
 """
 
 from __future__ import annotations

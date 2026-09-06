@@ -1,7 +1,7 @@
 # PLAN.md — The Great Escape, browser recreation
 
-Produced per `BUILD_PROMPT.md` §11 steps 1–3. Nothing has been built yet; this document plus
-`OPEN_QUESTIONS.md` are presented for review before P0 begins.
+Produced during the initial survey, before any code was written; this document plus
+`OPEN_QUESTIONS.md` were presented for review before P0 began.
 
 Every factual claim below cites a `$address`, `@label`, `file:line` or `.ref` entry, per §0.
 
@@ -37,7 +37,7 @@ forward pass reconstructs the entire 64K image, and the contiguity property is i
 parser self-check.
 
 **(4) The disassembly encodes the *original, unfixed* bytes.** See `OPEN_QUESTIONS.md` §1 —
-this contradicts `BUILD_PROMPT.md` §1 and is the most consequential finding of the survey.
+the opposite of what the plan had assumed, and the most consequential finding of the survey.
 
 ---
 
@@ -45,7 +45,6 @@ this contradicts `BUILD_PROMPT.md` §1 and is the most consequential finding of 
 
 ```
 .
-├── BUILD_PROMPT.md          # the brief (given)
 ├── PLAN.md                  # this file
 ├── OPEN_QUESTIONS.md        # ambiguities + assumptions, per §0
 ├── FIDELITY.md              # quirk-by-quirk reproduce/fix decisions, per §9
@@ -279,9 +278,9 @@ attributes.
 | visible window | — | 192×**128** px | `game_window_start_addresses` `w$EDD3` holds exactly **128** pointers |
 
 First window pointer is `$4047` → character column 7, pixel row 16. So the buffer is 17 rows
-but only 16 are ever blitted; the extra row is sub-tile scroll slack. `BUILD_PROMPT.md` §4's
-"24×17 characters (192×136 px)" describes the buffer, not the window — both figures are real
-and the brief conflates them (`OPEN_QUESTIONS.md` §2).
+but only 16 are ever blitted; the extra row is sub-tile scroll slack. The 24×17 figure quoted
+elsewhere describes the buffer, not the window — both are real, and conflating them is the
+subject of `OPEN_QUESTIONS.md` §2.
 
 **Pipeline**, following the original exactly, over real `Uint8Array`s:
 

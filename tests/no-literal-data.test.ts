@@ -1,7 +1,6 @@
 /**
- * Enforces BUILD_PROMPT.md §3: "Layer 2: src/ ... Contains zero literal game
- * data -- a lint rule or a test should enforce that no magic tables appear in
- * src/."
+ * Enforces the brief's §3: `src/` must contain no literal game data, and that
+ * must be enforced mechanically rather than by discipline.
  *
  * The rule this guards is the one the brief calls non-negotiable: every byte
  * must come out of the disassembly via the extractor. Hand-transcription is the

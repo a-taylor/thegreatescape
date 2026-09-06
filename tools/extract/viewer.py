@@ -2,9 +2,9 @@
 
 Run:  python -m tools.extract.viewer
 
-This is P0's human-facing acceptance deliverable (BUILD_PROMPT.md §7): "an
-asset-viewer HTML page showing every tile, supertile, sprite frame, mask and
-room object". Every item is labelled with its @label and $address so it can be
+This is P0's human-facing acceptance deliverable (the brief's §7): a page
+presenting every decoded asset -- tiles, supertiles, sprite frames, masks and
+room objects. Every item is labelled with its @label and $address so it can be
 traced straight back to a line of the disassembly.
 
 Individual tiles are shown by CSS background-position against the emitted

@@ -1,11 +1,11 @@
 /**
  * P6's acceptance bar, and §8's determinism harness, as one run.
  *
- * `BUILD_PROMPT.md` §7 P6: "the walkthrough in TheGreatEscapeGame.ref
- * (Completion:solutionOne) is completable end to end, and produces the winning
- * ending". §8 asks separately for "a fixed seed plus a scripted input sequence
- * produces a state hash at frame N ... replay the P6 walkthrough in CI". One
- * run satisfies both.
+ * P6's acceptance bar, in the brief's §7, is that `Completion:solutionOne` --
+ * the walkthrough in `TheGreatEscapeGame.ref` -- can be played through to the
+ * winning ending. §8 asks separately for a determinism
+ * harness: a fixed seed and a scripted input sequence producing a state hash at
+ * frame N, replayable in CI. One run satisfies both.
  *
  * **What this drives, and what it does not.** Vaxalon's 1994 solution is a
  * seven-day route written for a person, in a person's vocabulary -- "the room
@@ -399,10 +399,10 @@ describe('cutting the wire ($B417 / $9EB2)', () => {
   });
 });
 
-describe('determinism (BUILD_PROMPT.md §8)', () => {
+describe('determinism (the brief, §8)', () => {
   it('replays identically from the same seed', () => {
-    // "A fixed seed plus a scripted input sequence produces a state hash at
-    // frame N." The hash covers every field a tick writes; see harness/hash.ts
+    // A fixed seed plus a scripted input sequence must produce the same state
+    // hash at frame N. The hash covers every field a tick writes; see hash.ts
     // for what is deliberately outside it.
     const a = playThrough(0);
     const b = playThrough(0);

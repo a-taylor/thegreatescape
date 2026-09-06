@@ -1158,7 +1158,7 @@ def extract_timing(sk: Skool) -> dict[str, Any]:
             "heightPixels": 128,
             "note": (
                 "The visible window is 192x128 (24x16 chars). The 24x17 figure "
-                "in BUILD_PROMPT §4 is the BUFFER (tile_buf 408B at $F0F8, "
+                "quoted elsewhere is the BUFFER (tile_buf 408B at $F0F8, "
                 "window_buf 3264B at $F290); the extra row is scroll slack and "
                 "is never blitted."
             ),

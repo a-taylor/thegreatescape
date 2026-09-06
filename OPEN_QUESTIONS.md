@@ -1,22 +1,23 @@
 # OPEN_QUESTIONS.md
 
-Ambiguities and contradictions found while reading the source material, recorded per
-`BUILD_PROMPT.md` §0: *"If something cannot be determined from the disassembly, do not guess
-silently: record it in `OPEN_QUESTIONS.md` with the address you were reading, state the
-assumption you are proceeding with, and mark the code `// ASSUMPTION:`."*
+Ambiguities and contradictions found while reading the source material. The rule this project
+works to is that nothing may be guessed silently: where the disassembly does not settle a
+question, the question is recorded here with the address being read and the assumption taken,
+and the code is marked `// ASSUMPTION:`.
 
-Entries 1–7 are places where **`BUILD_PROMPT.md` itself misstates its own source material** —
-found during the §11 survey, before any code was written. Entries 8–10 are genuine ambiguities
-in the disassembly or its reference build.
+Entries 1–7 were found during the initial survey, before any code was written. Each is a place
+where the project's own planning documents described the source material inaccurately, and the
+disassembly settles it. Entries 8 onwards are genuine ambiguities in the disassembly or in its
+reference build.
 
-Status key: **Resolved** = the disassembly answers it definitively, the brief was simply wrong.
-**Assumed** = proceeding on a stated assumption that should be revisited if evidence appears.
+Status key: **Resolved** = the disassembly answers it definitively. **Assumed** = proceeding on
+a stated assumption that should be revisited if evidence appears.
 
 ---
 
-## 1. The disassembly does *not* contain the bfix/rfix corrections — `BUILD_PROMPT.md` §1 is wrong
+## 1. The disassembly does *not* contain the bfix/rfix corrections
 
-**Status:** Resolved (brief is incorrect). The consequence — that each fix is now a deliberate
+**Status:** Resolved. The consequence — that each fix is now a deliberate
 decision rather than something inherited — is discharged: all eight are enumerated with their
 disposition in `FIDELITY.md`. One is applied, one is pending a clear §9 rule, five are inert,
 and one (`$CCED`) is open for P5. **None block P4.**
@@ -24,12 +25,11 @@ and one (`$CCED`) is open for P5. **None block P4.**
 **What I was reading:** `TheGreatEscape.skool` lines 13–32 (the `@ofix`/`@bfix`/`@rfix` header
 blocks), then the three bfix sites at `$7CAF`, `$A2C6`, `$B935`.
 
-**The brief says** (§1):
-
-> the disassembly applies a small set of `@bfix`/`@rfix` corrections to the original code — a
-> ROM-write fix at `$A2C6`, a mask iteration count fix in `render_mask_buffer`, a missing
-> `RET`, an `is_item_discoverable` fix at `$CCED`, and some redundant-jump removals.
-> **Implement the disassembly as written** (i.e. the corrected version).
+**What the plan assumed:** that the disassembly ships a *corrected* version of the game — that
+it applies a set of `@bfix`/`@rfix` directives covering a ROM write at `$A2C6`, a mask
+iteration count in `render_mask_buffer`, a missing `RET`, `is_item_discoverable` at `$CCED` and
+some redundant-jump removals — and that implementing it as written would therefore mean
+implementing the corrected code.
 
 **What is actually there:** there is no corrected version to implement. The file contains
 **zero** `@bfix=`, `@rfix=`, `@ofix=`, `@ssub=` or `@rsub=` substitution directives. The
@@ -72,10 +72,10 @@ the code rather than the prose.
 
 ---
 
-## 2. Game window is 192×128, not 192×136 — `BUILD_PROMPT.md` §4
+## 2. The game window is 192×128, not 192×136
 
-**Status:** Resolved. The brief anticipated this: *"verify the exact bounds from the disassembly
-rather than trusting this sentence."*
+**Status:** Resolved, and it was flagged in advance as a figure to check against the
+disassembly rather than take on trust.
 
 **What I was reading:** `game_window_start_addresses` (`w$EDD3`), and the buffer note at
 `TheGreatEscape.skool` lines 20374–20375.
@@ -108,7 +108,7 @@ The §3 extraction list names `mask_data_source`. No such label exists. The two 
 - `interior_mask_data_source` — `b$EA7C` (referenced in code at `$6A7A`: `LD BC,$EA7C`)
 - `exterior_mask_data` — `b$EC01`
 
-**Assumption:** extract both under their real names; treat the brief's entry as a typo.
+**Assumption:** extract both under their real names; treat the planning document's entry as a typo.
 
 ---
 
